@@ -1,0 +1,187 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-display: 'Chakra Petch', system-ui, sans-serif;
+    --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --mc-panel: #c6c6c6;
+    --mc-slot: #8b8b8b;
+    --mc-obsidian: #121016;
+    --mc-basalt: #1d1a24;
+    --mc-crimson: #c83e4d;
+    --mc-warped: #2dd4bf;
+    --mc-gold: #eab308;
+  }
+
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    font-family: var(--font-body);
+    background-color: var(--mc-obsidian);
+    color: #ffffff;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+}
+
+.font-mc {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+.font-mono-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.mc-text-shadow {
+  text-shadow: 2px 2px 0px #222222;
+}
+
+.mc-text-shadow-sm {
+  text-shadow: 1px 1px 0px #1e1e1e;
+}
+
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Classic Minecraft 1.16 Stone Button Bevel */
+.mc-btn {
+  position: relative;
+  border: 2px solid #000000;
+  background-color: #727272;
+  background-size: 100% 100%;
+  box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.34), inset -2px -3px 0px rgba(0, 0, 0, 0.45);
+  color: #f4f4f4;
+  text-shadow: 2px 2px 0px #2a2a2a;
+  font-family: var(--font-display);
+  font-weight: 700;
+  transition: transform 90ms ease, filter 90ms ease;
+  cursor: pointer;
+}
+
+.mc-btn:hover:not(:disabled) {
+  background-color: #7b85a8;
+  box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.5), inset -2px -3px 0px rgba(25, 32, 65, 0.55);
+  color: #ffffa0;
+}
+
+.mc-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: inset 2px 2px 0px rgba(0, 0, 0, 0.4), inset -2px -2px 0px rgba(255, 255, 255, 0.2);
+}
+
+.mc-btn:disabled {
+  background-color: #3f3f3f;
+  color: #8f8f8f;
+  text-shadow: 1px 1px 0px #1b1b1b;
+  box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.08), inset -2px -2px 0px rgba(0, 0, 0, 0.4);
+  cursor: not-allowed;
+}
+
+.mc-btn-primary {
+  background-color: #4f7a38;
+  box-shadow: inset 2px 2px 0px rgba(176, 232, 136, 0.42), inset -2px -3px 0px rgba(24, 48, 16, 0.6);
+}
+
+.mc-btn-primary:hover:not(:disabled) {
+  background-color: #5f9143;
+  color: #ffffb5;
+}
+
+.mc-btn-crimson {
+  background-color: #8f2d3b;
+  box-shadow: inset 2px 2px 0px rgba(245, 130, 145, 0.35), inset -2px -3px 0px rgba(48, 12, 18, 0.65);
+}
+
+.mc-btn-crimson:hover:not(:disabled) {
+  background-color: #a93747;
+  color: #ffffb5;
+}
+
+/* Classic Minecraft 1.16 Inventory Window (#C6C6C6) */
+.mc-window {
+  background-color: #c6c6c6;
+  border: 3px solid #000000;
+  box-shadow:
+    inset 3px 3px 0px #ffffff,
+    inset -3px -3px 0px #555555,
+    0 16px 40px rgba(0, 0, 0, 0.65);
+  color: #373737;
+}
+
+/* Classic Minecraft 1.16 Recessed Item Slot (#8B8B8B) */
+.mc-slot {
+  background-color: #8b8b8b;
+  box-shadow: inset 2px 2px 0px #373737, inset -2px -2px 0px #ffffff;
+}
+
+.mc-slot:hover {
+  background-color: #a5a5a5;
+}
+
+.mc-slot-active {
+  background-color: #9e9e9e;
+  box-shadow: inset 2px 2px 0px #373737, inset -2px -2px 0px #ffffff, 0 0 0 2px #ffffa0;
+}
+
+/* Splash text pulse (authentic Minecraft title screen yellow splash) */
+@keyframes mcSplashBounce {
+  0%, 100% {
+    transform: rotate(-16deg) scale(1);
+  }
+  50% {
+    transform: rotate(-16deg) scale(1.07);
+  }
+}
+
+.mc-splash {
+  animation: mcSplashBounce 0.9s ease-in-out infinite;
+  text-shadow: 2px 2px 0px #3f3f00;
+}
+
+/* Portal warp animation */
+@keyframes mcPortalWarp {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.78;
+    transform: scale(1.04);
+  }
+}
+
+.mc-portal-overlay {
+  background: radial-gradient(circle at center, rgba(168, 85, 247, 0.35) 0%, rgba(107, 33, 168, 0.75) 65%, rgba(59, 7, 100, 0.92) 100%);
+  animation: mcPortalWarp 0.7s ease-in-out infinite;
+}
+
+/* Enchanted glint shimmer */
+.mc-enchant-glint {
+  box-shadow: inset 0 0 8px rgba(192, 132, 252, 0.75);
+}
+
+/* Custom thin dark scrollbar inside world lists / recipes */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.4);
+}
+::-webkit-scrollbar-thumb {
+  background: #6b6b6b;
+  border: 1px solid #1a1a1a;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #8b8b8b;
+}

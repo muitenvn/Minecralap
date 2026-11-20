@@ -1,0 +1,428 @@
+import React, { useMemo, useRef, useState } from 'react';
+import {
+  Download,
+  FolderOpen,
+  Github,
+  Package,
+  Play,
+  Plus,
+  Settings,
+  Trash2,
+  Upload,
+  ArrowLeft,
+} from 'lucide-react';
+import { CompiledResourcePack } from '../game/resourcePack';
+import { createNewWorldRecord, deleteWorld, exportWorldToFile, parseImportedWorldFile, saveWorld } from '../game/storage';
+import { GameMode, WorldSave } from '../game/types';
+import { McButton, McDirtBackdrop, McTitleLogo } from './McSprites';
+
+const SPLASHES = [
+  'Nether Update 1.16.5!',
+  'Chạy 100% trên GitHub Pages!',
+  'Biên giới ±29.999.984 khối!',
+  'Ancient Debris ở tầng Y=8–22!',
+  'Đổi Thỏi Vàng với Piglin!',
+  'Chơi mượt trên PC & Điện thoại!',
+  'Hỗ trợ 26 lệnh chạy thật!',
+];
+
+interface TitleAndWorldsProps {
+  pack: CompiledResourcePack;
+  worlds: WorldSave[];
+  screen: 'title' | 'worlds' | 'create_world' | 'github_guide';
+  onNavigate: (s: 'title' | 'worlds' | 'create_world' | 'github_guide' | 'resource_manager' | 'options') => void;
+  onLaunchWorld: (w: WorldSave) => void;
+  onRefreshWorlds: () => Promise<void>;
+}
+
+export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
+  pack,
+  worlds,
+  screen,
+  onNavigate,
+  onLaunchWorld,
+  onRefreshWorlds,
+}) => {
+  const splash = useMemo(() => SPLASHES[Math.floor(Math.random() * SPLASHES.length)], []);
+  const [selectedId, setSelectedId] = useState<string | null>(worlds[0]?.id ?? null);
+  const [newName, setNewName] = useState('Thế Giới Nether 1.16');
+  const [newSeed, setNewSeed] = useState('');
+  const [newMode, setNewMode] = useState<GameMode>('survival');
+  const [cheats, setCheats] = useState(true);
+  const [importError, setImportError] = useState<string | null>(null);
+  const importRef = useRef<HTMLInputElement>(null);
+
+  const selectedWorld = worlds.find((w) => w.id === selectedId) || worlds[0] || null;
+
+  const handleCreate = async () => {
+    let seedNum: number | undefined;
+    if (newSeed.trim()) {
+      const asNum = Number(newSeed.trim());
+      if (Number.isFinite(asNum)) {
+        seedNum = Math.floor(asNum);
+      } else {
+        // String hash like Java Minecraft
+        let h = 0;
+        for (let i = 0; i < newSeed.length; i++) h = (Math.imul(31, h) + newSeed.charCodeAt(i)) | 0;
+        seedNum = h;
+      }
+    }
+    const created = createNewWorldRecord({
+      name: newName,
+      seed: seedNum,
+      gameMode: newMode,
+      cheatsEnabled: cheats,
+    });
+    await saveWorld(created);
+    await onRefreshWorlds();
+    onLaunchWorld(created);
+  };
+
+  const handleDelete = async (id: string) => {
+    await deleteWorld(id);
+    await onRefreshWorlds();
+    setSelectedId(null);
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError(null);
+    try {
+      const parsed = await parseImportedWorldFile(file);
+      await saveWorld(parsed);
+      await onRefreshWorlds();
+      setSelectedId(parsed.id);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Không thể nhập tệp thế giới.');
+    } finally {
+      if (importRef.current) importRef.current.value = '';
+    }
+  };
+
+  // --- 1. MAIN TITLE SCREEN (Live 3D Panorama behind) ---
+  if (screen === 'title') {
+    return (
+      <div className="fixed inset-0 z-20 flex flex-col items-center justify-between px-4 py-7 sm:py-10 pointer-events-none">
+        <div className="mt-2 sm:mt-6">
+          <McTitleLogo splashText={splash} />
+        </div>
+
+        <div className="w-full max-w-[400px] flex flex-col gap-3 pointer-events-auto">
+          <McButton
+            variant="primary"
+            widgetsUrl={pack.guiUrls.widgets}
+            onClick={() => onNavigate('worlds')}
+            className="w-full h-12 text-base"
+          >
+            <Play className="w-4 h-4 fill-current" />
+            Chơi Đơn (Singleplayer)
+          </McButton>
+
+          <McButton
+            widgetsUrl={pack.guiUrls.widgets}
+            onClick={() => onNavigate('resource_manager')}
+            className="w-full h-11"
+          >
+            <Package className="w-4 h-4" />
+            Gói Tài Nguyên 1.16
+          </McButton>
+
+          <div className="grid grid-cols-2 gap-3">
+            <McButton
+              widgetsUrl={pack.guiUrls.widgets}
+              onClick={() => onNavigate('options')}
+              className="h-11"
+            >
+              <Settings className="w-4 h-4" />
+              Cài Đặt
+            </McButton>
+            <McButton
+              widgetsUrl={pack.guiUrls.widgets}
+              onClick={() => onNavigate('github_guide')}
+              className="h-11"
+            >
+              <Github className="w-4 h-4" />
+              GitHub Pages
+            </McButton>
+          </div>
+        </div>
+
+        <div className="w-full flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-200/90 mc-text-shadow-sm px-1">
+          <span className="font-mono-num">
+            NetherCraft 1.16.5 · {pack.meta.name}
+          </span>
+          <span className="hidden sm:inline">
+            WASD Di chuyển · Chuột Trái Đập · Chuột Phải Đặt · E Túi đồ · T Lệnh · F3 Gỡ lỗi
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // --- 2. SELECT WORLD SCREEN ---
+  if (screen === 'worlds') {
+    return (
+      <McDirtBackdrop bgUrl={pack.guiUrls.optionsBackground}>
+        <div className="px-4 py-4 border-b-2 border-black bg-black/50 flex items-center justify-between gap-3">
+          <h1 className="font-mc text-lg sm:text-xl font-bold text-white mc-text-shadow">
+            Chọn Thế Giới (1.16.5)
+          </h1>
+          <div className="text-xs font-mono-num text-zinc-300">
+            {worlds.length} thế giới · Lưu cục bộ IndexedDB
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-4">
+          <div className="max-w-[740px] mx-auto space-y-2.5">
+            {importError && (
+              <div className="bg-red-950/85 border border-red-500 px-3 py-2 text-xs text-red-200">
+                {importError}
+              </div>
+            )}
+
+            {worlds.length === 0 ? (
+              <div className="border-2 border-dashed border-zinc-600 bg-black/45 p-8 text-center">
+                <p className="font-mc text-base text-zinc-200 mb-2">Chưa có thế giới nào</p>
+                <p className="text-xs sm:text-sm text-zinc-400 mb-5">
+                  Tạo thế giới 1.16 mới với kích thước chuẩn ±29.999.984 khối hoặc nhập tệp .mc116.json từ GitHub.
+                </p>
+                <McButton variant="primary" onClick={() => onNavigate('create_world')} className="mx-auto">
+                  <Plus className="w-4 h-4" />
+                  Tạo Thế Giới Mới
+                </McButton>
+              </div>
+            ) : (
+              worlds.map((w) => {
+                const isSel = selectedWorld?.id === w.id;
+                const modCount =
+                  Object.keys(w.overworldMods || {}).length + Object.keys(w.netherMods || {}).length;
+                return (
+                  <div
+                    key={w.id}
+                    onClick={() => setSelectedId(w.id)}
+                    onDoubleClick={() => onLaunchWorld(w)}
+                    className={`p-3 border-2 transition-colors cursor-pointer flex items-center justify-between gap-3 ${
+                      isSel
+                        ? 'bg-black/75 border-white'
+                        : 'bg-black/45 border-zinc-700/80 hover:border-zinc-500'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <div className="font-mc font-bold text-base text-white truncate">
+                        {w.name}
+                      </div>
+                      <div className="text-xs text-zinc-300 font-mono-num mt-0.5 flex flex-wrap items-center gap-x-2">
+                        <span>{w.gameMode === 'creative' ? 'Sáng tạo' : w.gameMode === 'survival' ? 'Sinh tồn' : w.gameMode}</span>
+                        <span>·</span>
+                        <span>{w.dimension === 'nether' ? 'The Nether 1.16' : 'Overworld'}</span>
+                        <span>·</span>
+                        <span>Seed: {w.seed}</span>
+                        <span>·</span>
+                        <span>{modCount} khối đã sửa</span>
+                      </div>
+                    </div>
+                    <McButton
+                      variant="primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onLaunchWorld(w);
+                      }}
+                      className="shrink-0 px-3"
+                    >
+                      <Play className="w-4 h-4 fill-current" />
+                      Chơi
+                    </McButton>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Bottom Minecraft Action Bar */}
+        <div className="px-4 py-3.5 border-t-2 border-black bg-black/65">
+          <div className="max-w-[740px] mx-auto grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+            <McButton
+              variant="primary"
+              disabled={!selectedWorld}
+              onClick={() => selectedWorld && onLaunchWorld(selectedWorld)}
+              className="col-span-2 sm:col-span-2"
+            >
+              <Play className="w-4 h-4 fill-current" />
+              Vào Thế Giới Đã Chọn
+            </McButton>
+
+            <McButton onClick={() => onNavigate('create_world')} className="col-span-2 sm:col-span-1">
+              <Plus className="w-4 h-4" />
+              Tạo Mới
+            </McButton>
+
+            <McButton
+              disabled={!selectedWorld}
+              onClick={() => selectedWorld && exportWorldToFile(selectedWorld)}
+            >
+              <Download className="w-4 h-4" />
+              Xuất JSON
+            </McButton>
+
+            <McButton onClick={() => importRef.current?.click()}>
+              <Upload className="w-4 h-4" />
+              Nhập JSON
+            </McButton>
+
+            <input
+              ref={importRef}
+              type="file"
+              accept=".json,.mc116.json"
+              onChange={handleImportFile}
+              className="hidden"
+            />
+          </div>
+
+          <div className="max-w-[740px] mx-auto flex items-center justify-between gap-3 mt-2.5">
+            <McButton
+              variant="crimson"
+              disabled={!selectedWorld}
+              onClick={() => selectedWorld && handleDelete(selectedWorld.id)}
+              className="text-xs sm:text-sm"
+            >
+              <Trash2 className="w-4 h-4" />
+              Xóa Thế Giới
+            </McButton>
+
+            <McButton onClick={() => onNavigate('title')}>
+              <ArrowLeft className="w-4 h-4" />
+              Hủy / Về Menu
+            </McButton>
+          </div>
+        </div>
+      </McDirtBackdrop>
+    );
+  }
+
+  // --- 3. CREATE NEW WORLD SCREEN ---
+  if (screen === 'create_world') {
+    const cycleMode = () => {
+      const order: GameMode[] = ['survival', 'creative', 'adventure', 'spectator'];
+      setNewMode(order[(order.indexOf(newMode) + 1) % order.length]);
+    };
+    const modeLabel: Record<GameMode, string> = {
+      survival: 'Sinh tồn (Survival)',
+      creative: 'Sáng tạo (Creative)',
+      adventure: 'Phiêu lưu (Adventure)',
+      spectator: 'Khán giả (Spectator)',
+    };
+
+    return (
+      <McDirtBackdrop bgUrl={pack.guiUrls.optionsBackground}>
+        <div className="px-4 py-4 border-b-2 border-black bg-black/50 text-center">
+          <h1 className="font-mc text-xl font-bold text-white mc-text-shadow">
+            Tạo Thế Giới 1.16 Mới
+          </h1>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-6">
+          <div className="max-w-[540px] mx-auto space-y-5">
+            <div>
+              <label className="block text-sm text-zinc-300 mb-1.5 font-medium">Tên Thế Giới</label>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                maxLength={40}
+                className="w-full bg-black border-2 border-[#a0a0a0] focus:border-white outline-none px-3 py-2.5 text-base text-white font-mc"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-zinc-300 mb-1.5 font-medium">
+                Mã Hạt Giống (Seed — để trống để tạo ngẫu nhiên)
+              </label>
+              <input
+                type="text"
+                value={newSeed}
+                onChange={(e) => setNewSeed(e.target.value)}
+                placeholder="Ví dụ: 1162020 hoặc chữ bất kỳ"
+                className="w-full bg-black border-2 border-[#a0a0a0] focus:border-white outline-none px-3 py-2.5 text-sm font-mono-num text-white"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <McButton onClick={cycleMode}>
+                Chế độ: {modeLabel[newMode]}
+              </McButton>
+              <McButton onClick={() => setCheats((c) => !c)}>
+                Cho phép Lệnh (26 lệnh): {cheats ? 'BẬT' : 'TẮT'}
+              </McButton>
+            </div>
+
+            <div className="bg-black/55 border border-white/15 p-3.5 text-xs text-zinc-300 space-y-1">
+              <div>• Kích thước chuẩn 1.16: Biên giới ±29.999.984 khối · Chiều cao Y = 0..255 (Nether mái Bedrock Y = 127).</div>
+              <div>• Tàn tích Cổng Nether có sẵn gần điểm sinh (11, ~68, 10) — dùng Bật Lửa (ô số 7) để kích hoạt ngay!</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-4 py-4 border-t-2 border-black bg-black/65">
+          <div className="max-w-[540px] mx-auto grid grid-cols-2 gap-3">
+            <McButton variant="primary" onClick={handleCreate}>
+              <FolderOpen className="w-4 h-4" />
+              Tạo Thế Giới Mới
+            </McButton>
+            <McButton onClick={() => onNavigate('worlds')}>
+              Hủy
+            </McButton>
+          </div>
+        </div>
+      </McDirtBackdrop>
+    );
+  }
+
+  // --- 4. GITHUB PAGES DEPLOY GUIDE ---
+  return (
+    <McDirtBackdrop bgUrl={pack.guiUrls.optionsBackground}>
+      <div className="px-4 py-4 border-b-2 border-black bg-black/50 flex items-center justify-between">
+        <h1 className="font-mc text-lg sm:text-xl font-bold text-white mc-text-shadow flex items-center gap-2">
+          <Github className="w-5 h-5" />
+          Triển Khai 100% Tĩnh Trên GitHub Pages
+        </h1>
+        <McButton onClick={() => onNavigate('title')}>
+          <ArrowLeft className="w-4 h-4" />
+          Quay lại
+        </McButton>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-6">
+        <div className="max-w-[680px] mx-auto space-y-4 text-sm text-zinc-200">
+          <div className="bg-black/60 border border-white/15 p-4 space-y-2">
+            <h2 className="font-mc text-base text-[#fde68a] font-bold">
+              Bước 1 · Xuất bản build tĩnh (Zero Server)
+            </h2>
+            <p className="text-zinc-300">
+              Dự án đã cấu hình sẵn đường dẫn tương đối (<code className="text-[#5eead4]">base: './'</code>). Khi chạy lệnh <code className="text-[#5eead4]">npm run build</code>, toàn bộ ứng dụng và thư mục gói tài nguyên <code className="text-[#5eead4]">dist/packs/mc116-nether-pack/</code> (75 tệp ảnh .png Block + UI + manifest.json) được đóng gói hoàn chỉnh trong thư mục <code className="text-amber-300">dist/</code>.
+            </p>
+          </div>
+
+          <div className="bg-black/60 border border-white/15 p-4 space-y-2">
+            <h2 className="font-mc text-base text-[#fde68a] font-bold">
+              Bước 2 · Đưa lên GitHub Pages
+            </h2>
+            <p className="text-zinc-300">
+              Tạo kho GitHub mới, tải nội dung thư mục <code className="text-amber-300">dist/</code> lên nhánh <code className="text-[#5eead4]">gh-pages</code> (hoặc bật GitHub Actions Pages). Vào <strong>Settings → Pages</strong> và chọn nhánh xuất bản.
+            </p>
+          </div>
+
+          <div className="bg-black/60 border border-white/15 p-4 space-y-2">
+            <h2 className="font-mc text-base text-[#fde68a] font-bold">
+              Bước 3 · Chơi trên PC & Điện thoại + Chia sẻ Thế giới
+            </h2>
+            <p className="text-zinc-300">
+              Mở địa chỉ <code className="text-[#5eead4]">https://&lt;tên-github&gt;.github.io/&lt;tên-kho&gt;/</code> trên PC hoặc điện thoại. Lần đầu mở, người chơi bấm tải gói tài nguyên 1.16 về IndexedDB, hoặc dán thêm link GitHub Raw / tải lên file <code className="text-amber-300">.zip</code> Resource Pack 1.16. Bạn cũng có thể xuất tệp thế giới <code className="text-amber-300">.mc116.json</code> để lưu lên GitHub và nhập lại trên thiết bị khác.
+            </p>
+          </div>
+        </div>
+      </div>
+    </McDirtBackdrop>
+  );
+};

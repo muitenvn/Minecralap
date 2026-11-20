@@ -1,0 +1,536 @@
+{
+  "id": "mc116-nether-pack",
+  "name": "Nether Update 1.16 Resource Pack",
+  "version": "1.16.5",
+  "pack_format": 6,
+  "description": "Gói tài nguyên 16×16 Block + Giao diện UI chuẩn Minecraft 1.16 (Nether Update) tự lưu trữ cho GitHub Pages.",
+  "totalBytes": 39997,
+  "fileCount": 75,
+  "files": [
+    {
+      "key": "grass_block_top",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/grass_block_top.png",
+      "bytes": 527,
+      "sha256": "1503752ac58a40da"
+    },
+    {
+      "key": "dirt",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/dirt.png",
+      "bytes": 500,
+      "sha256": "479c929478d736cc"
+    },
+    {
+      "key": "grass_block_side",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/grass_block_side.png",
+      "bytes": 572,
+      "sha256": "aed6547623372018"
+    },
+    {
+      "key": "stone",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/stone.png",
+      "bytes": 489,
+      "sha256": "8dade67493c93d20"
+    },
+    {
+      "key": "cobblestone",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/cobblestone.png",
+      "bytes": 449,
+      "sha256": "5f91017f2104d607"
+    },
+    {
+      "key": "bedrock",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/bedrock.png",
+      "bytes": 555,
+      "sha256": "72e05a182f0fc8a3"
+    },
+    {
+      "key": "sand",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/sand.png",
+      "bytes": 438,
+      "sha256": "a0e5ea373059b215"
+    },
+    {
+      "key": "gravel",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/gravel.png",
+      "bytes": 532,
+      "sha256": "bf3effca6fa043a1"
+    },
+    {
+      "key": "oak_log",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/oak_log.png",
+      "bytes": 459,
+      "sha256": "5497f0f09401640d"
+    },
+    {
+      "key": "oak_log_top",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/oak_log_top.png",
+      "bytes": 271,
+      "sha256": "cfb6502e1ed6df51"
+    },
+    {
+      "key": "oak_planks",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/oak_planks.png",
+      "bytes": 420,
+      "sha256": "926abd38f95b8303"
+    },
+    {
+      "key": "oak_leaves",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/oak_leaves.png",
+      "bytes": 245,
+      "sha256": "fe7d81dfc67685dd"
+    },
+    {
+      "key": "water_still",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/water_still.png",
+      "bytes": 520,
+      "sha256": "fd72a3941b2bff92"
+    },
+    {
+      "key": "lava_still",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/lava_still.png",
+      "bytes": 529,
+      "sha256": "9b6051782fd5ef7d"
+    },
+    {
+      "key": "coal_ore",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/coal_ore.png",
+      "bytes": 497,
+      "sha256": "0263d035412909b6"
+    },
+    {
+      "key": "iron_ore",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/iron_ore.png",
+      "bytes": 488,
+      "sha256": "b61e363839df86a3"
+    },
+    {
+      "key": "gold_ore",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/gold_ore.png",
+      "bytes": 494,
+      "sha256": "204a89e31b8e94f4"
+    },
+    {
+      "key": "diamond_ore",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/diamond_ore.png",
+      "bytes": 487,
+      "sha256": "fa8ac26e43166ad6"
+    },
+    {
+      "key": "glass",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/glass.png",
+      "bytes": 118,
+      "sha256": "93912a854bb59fac"
+    },
+    {
+      "key": "snow",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/snow.png",
+      "bytes": 365,
+      "sha256": "e13d0cef3813c475"
+    },
+    {
+      "key": "ice",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/ice.png",
+      "bytes": 509,
+      "sha256": "580c8792a640373f"
+    },
+    {
+      "key": "bricks",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/bricks.png",
+      "bytes": 405,
+      "sha256": "da6a6afc7b2f869c"
+    },
+    {
+      "key": "iron_block",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/iron_block.png",
+      "bytes": 359,
+      "sha256": "c2bb86415964dbd2"
+    },
+    {
+      "key": "gold_block",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/gold_block.png",
+      "bytes": 420,
+      "sha256": "63d4f9eda15e81f4"
+    },
+    {
+      "key": "diamond_block",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/diamond_block.png",
+      "bytes": 418,
+      "sha256": "98d16a659e8e1324"
+    },
+    {
+      "key": "tnt_side",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/tnt_side.png",
+      "bytes": 396,
+      "sha256": "b179d015b30c6062"
+    },
+    {
+      "key": "tnt_top",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/tnt_top.png",
+      "bytes": 429,
+      "sha256": "0f43f2dd283b0dde"
+    },
+    {
+      "key": "crafting_table_top",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/crafting_table_top.png",
+      "bytes": 378,
+      "sha256": "92e9d936c8c814b6"
+    },
+    {
+      "key": "crafting_table_side",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/crafting_table_side.png",
+      "bytes": 367,
+      "sha256": "d4900fd87eec39a1"
+    },
+    {
+      "key": "furnace_side",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/furnace_side.png",
+      "bytes": 386,
+      "sha256": "e971ed37573efb8c"
+    },
+    {
+      "key": "furnace_top",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/furnace_top.png",
+      "bytes": 412,
+      "sha256": "5c182299498d4f56"
+    },
+    {
+      "key": "furnace_front",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/furnace_front.png",
+      "bytes": 359,
+      "sha256": "4be4f63379808107"
+    },
+    {
+      "key": "smithing_table_top",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/smithing_table_top.png",
+      "bytes": 278,
+      "sha256": "8659b91ddedd8191"
+    },
+    {
+      "key": "smithing_table_side",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/smithing_table_side.png",
+      "bytes": 361,
+      "sha256": "791ee183000f5c2a"
+    },
+    {
+      "key": "obsidian",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/obsidian.png",
+      "bytes": 452,
+      "sha256": "7d32691c2c86802a"
+    },
+    {
+      "key": "crying_obsidian",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/crying_obsidian.png",
+      "bytes": 479,
+      "sha256": "fca5c183335a9870"
+    },
+    {
+      "key": "nether_portal",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/nether_portal.png",
+      "bytes": 239,
+      "sha256": "372c5dfb998d17d8"
+    },
+    {
+      "key": "netherrack",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/netherrack.png",
+      "bytes": 503,
+      "sha256": "ddb7276aecc60a9d"
+    },
+    {
+      "key": "nether_quartz_ore",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/nether_quartz_ore.png",
+      "bytes": 531,
+      "sha256": "c9540bafac7e5ed0"
+    },
+    {
+      "key": "nether_gold_ore",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/nether_gold_ore.png",
+      "bytes": 517,
+      "sha256": "0594ac2748690c3f"
+    },
+    {
+      "key": "glowstone",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/glowstone.png",
+      "bytes": 573,
+      "sha256": "af50218619fff3f0"
+    },
+    {
+      "key": "crimson_nylium",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/crimson_nylium.png",
+      "bytes": 515,
+      "sha256": "698270ebae38fbf4"
+    },
+    {
+      "key": "crimson_nylium_side",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/crimson_nylium_side.png",
+      "bytes": 544,
+      "sha256": "58c1521274c4bd01"
+    },
+    {
+      "key": "crimson_stem",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/crimson_stem.png",
+      "bytes": 497,
+      "sha256": "fe29db586a052161"
+    },
+    {
+      "key": "crimson_stem_top",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/crimson_stem_top.png",
+      "bytes": 330,
+      "sha256": "6196dfa66f9d88b1"
+    },
+    {
+      "key": "crimson_planks",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/crimson_planks.png",
+      "bytes": 421,
+      "sha256": "dc2a87857d55d257"
+    },
+    {
+      "key": "nether_wart_block",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/nether_wart_block.png",
+      "bytes": 516,
+      "sha256": "f5ea89e5e3478244"
+    },
+    {
+      "key": "warped_nylium",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/warped_nylium.png",
+      "bytes": 531,
+      "sha256": "c68163e228bda505"
+    },
+    {
+      "key": "warped_nylium_side",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/warped_nylium_side.png",
+      "bytes": 542,
+      "sha256": "4c3fd1b39014d70a"
+    },
+    {
+      "key": "warped_stem",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/warped_stem.png",
+      "bytes": 484,
+      "sha256": "b6072760d64c4df0"
+    },
+    {
+      "key": "warped_stem_top",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/warped_stem_top.png",
+      "bytes": 332,
+      "sha256": "1a1f8a9661962e7d"
+    },
+    {
+      "key": "warped_planks",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/warped_planks.png",
+      "bytes": 405,
+      "sha256": "d130489c3d598587"
+    },
+    {
+      "key": "warped_wart_block",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/warped_wart_block.png",
+      "bytes": 529,
+      "sha256": "826a8a63218b1e25"
+    },
+    {
+      "key": "shroomlight",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/shroomlight.png",
+      "bytes": 567,
+      "sha256": "9758cdb0203487a4"
+    },
+    {
+      "key": "soul_sand",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/soul_sand.png",
+      "bytes": 472,
+      "sha256": "f2c77a6e11ba2138"
+    },
+    {
+      "key": "soul_soil",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/soul_soil.png",
+      "bytes": 498,
+      "sha256": "4d86530db1557037"
+    },
+    {
+      "key": "soul_fire",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/soul_fire.png",
+      "bytes": 213,
+      "sha256": "a843c085e6fb4c6f"
+    },
+    {
+      "key": "basalt_side",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/basalt_side.png",
+      "bytes": 501,
+      "sha256": "a8b4d1e85a946ba1"
+    },
+    {
+      "key": "basalt_top",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/basalt_top.png",
+      "bytes": 351,
+      "sha256": "f47da6db99c241fb"
+    },
+    {
+      "key": "blackstone",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/blackstone.png",
+      "bytes": 456,
+      "sha256": "bd2d4d65305af624"
+    },
+    {
+      "key": "polished_blackstone",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/polished_blackstone.png",
+      "bytes": 385,
+      "sha256": "4fbf52166700eb1f"
+    },
+    {
+      "key": "gilded_blackstone",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/gilded_blackstone.png",
+      "bytes": 504,
+      "sha256": "30ea30b93b97da6f"
+    },
+    {
+      "key": "magma",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/magma.png",
+      "bytes": 464,
+      "sha256": "af573c9de4a2ffc4"
+    },
+    {
+      "key": "bone_block_side",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/bone_block_side.png",
+      "bytes": 462,
+      "sha256": "072ebf6b539f5363"
+    },
+    {
+      "key": "bone_block_top",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/bone_block_top.png",
+      "bytes": 389,
+      "sha256": "6d8ba48fafa1498e"
+    },
+    {
+      "key": "ancient_debris_side",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/ancient_debris_side.png",
+      "bytes": 443,
+      "sha256": "d6823bd2fdf31963"
+    },
+    {
+      "key": "ancient_debris_top",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/ancient_debris_top.png",
+      "bytes": 367,
+      "sha256": "5fa63bfe41a1258d"
+    },
+    {
+      "key": "netherite_block",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/netherite_block.png",
+      "bytes": 400,
+      "sha256": "9fc17b0c9ebd3517"
+    },
+    {
+      "key": "respawn_anchor_side",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/respawn_anchor_side.png",
+      "bytes": 380,
+      "sha256": "f05eb7c285ed267e"
+    },
+    {
+      "key": "respawn_anchor_top",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/respawn_anchor_top.png",
+      "bytes": 270,
+      "sha256": "f1b49e1be3e79797"
+    },
+    {
+      "key": "soul_lantern",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/soul_lantern.png",
+      "bytes": 112,
+      "sha256": "f25636a7efb243fd"
+    },
+    {
+      "key": "torch",
+      "category": "block",
+      "path": "assets/minecraft/textures/block/torch.png",
+      "bytes": 103,
+      "sha256": "cb799978a2c5614c"
+    },
+    {
+      "key": "options_background",
+      "category": "gui",
+      "path": "assets/minecraft/textures/gui/options_background.png",
+      "bytes": 423,
+      "sha256": "59b95c8591463e34"
+    },
+    {
+      "key": "widgets",
+      "category": "gui",
+      "path": "assets/minecraft/textures/gui/widgets.png",
+      "bytes": 8002,
+      "sha256": "607fa7676f6663e5"
+    },
+    {
+      "key": "icons",
+      "category": "gui",
+      "path": "assets/minecraft/textures/gui/icons.png",
+      "bytes": 863,
+      "sha256": "431b672ebfba635f"
+    }
+  ]
+}
