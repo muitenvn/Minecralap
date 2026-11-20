@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, Layers, Maximize2, Minimize2, Pause, User } from 'lucide-react';
+import { Camera, Maximize2, Minimize2, Pause } from 'lucide-react';
 import { autocompleteCommand } from '../game/commands';
 import { CompiledResourcePack } from '../game/resourcePack';
-import { ChatMessage, HudSnapshot, TexturePreset, TitleBanner } from '../game/types';
+import { ChatMessage, HudSnapshot, TitleBanner } from '../game/types';
 import { McHudIcon, McItemSlot } from './McSprites';
 
 interface HudOverlayProps {
@@ -15,7 +15,6 @@ interface HudOverlayProps {
   titleBanner: TitleBanner | null;
   guiScale: 'auto' | 'small' | 'medium' | 'large';
   touchVisible: boolean;
-  texturePreset: TexturePreset;
   isFullscreen: boolean;
   onSelectSlot: (idx: number) => void;
   onSubmitChat: (text: string) => void;
@@ -23,8 +22,6 @@ interface HudOverlayProps {
   onRequestLock: () => void;
   onOpenInventory: () => void;
   onCycleCamera: () => void;
-  onOpenSkin: () => void;
-  onToggleTexturePreset: () => void;
   onToggleFullscreen: () => void;
   onOpenPause: () => void;
 }
@@ -39,7 +36,6 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   titleBanner,
   guiScale,
   touchVisible,
-  texturePreset,
   isFullscreen,
   onSelectSlot,
   onSubmitChat,
@@ -47,8 +43,6 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   onRequestLock,
   onOpenInventory,
   onCycleCamera,
-  onOpenSkin,
-  onToggleTexturePreset,
   onToggleFullscreen,
   onOpenPause,
 }) => {
@@ -139,7 +133,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
           style={{ opacity: Math.min(0.9, hud.portalProgress) }}
         >
           <div className="font-mc text-xl sm:text-2xl text-purple-100 mc-text-shadow">
-            {hud.dimension === 'overworld' ? 'Đang bước vào The Nether 1.16...' : 'Đang trở về Overworld...'}
+            {hud.dimension === 'overworld' ? 'Đang vào The Nether...' : 'Đang về Overworld...'}
           </div>
         </div>
       )}
@@ -154,16 +148,16 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
         </div>
       )}
 
-      {/* Clean Top Bar on PC when mouse unlocked (Click to play + Skin / F5 Camera / Texture / Menu) */}
+      {/* Minimal Top Bar on PC when mouse unlocked */}
       {!touchVisible && !hud.pointerLocked && !hud.dead && !chatOpen && (
-        <div className="absolute top-3 inset-x-3 flex items-center justify-between gap-2 pointer-events-none">
+        <div className="absolute top-2.5 inset-x-3 flex items-center justify-between gap-2 pointer-events-none">
           <div className="pointer-events-auto">
             <button
               type="button"
               onClick={onRequestLock}
-              className="mc-btn mc-btn-primary min-h-[38px] px-4 py-1.5 text-xs sm:text-sm"
+              className="mc-btn mc-btn-primary min-h-[36px] px-4 py-1 text-xs sm:text-sm"
             >
-              Vào Chơi (Khóa Chuột)
+              Chơi
             </button>
           </div>
 
@@ -171,57 +165,29 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
             <button
               type="button"
               onClick={onCycleCamera}
-              title="Đổi góc nhìn thứ 1 / thứ 3 (F5)"
-              className="mc-btn min-h-[38px] px-2.5 py-1 text-xs flex items-center gap-1.5"
+              title="Đổi góc nhìn (F5)"
+              aria-label="F5"
+              className="mc-btn w-[36px] h-[36px] flex items-center justify-center"
             >
-              <Camera className="w-3.5 h-3.5 text-[#5eead4]" />
-              <span>
-                {hud.cameraMode === 'first'
-                  ? 'Góc 1 (F5)'
-                  : hud.cameraMode === 'third_back'
-                    ? 'Góc 3 Sau'
-                    : 'Góc 3 Trước'}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={onOpenSkin}
-              title="Đổi Skin Steve / Alex / Skin của bạn & Model 3D"
-              className="mc-btn min-h-[38px] px-2.5 py-1 text-xs flex items-center gap-1.5"
-            >
-              <User className="w-3.5 h-3.5 text-[#fde68a]" />
-              <span>Skin &amp; Model</span>
-            </button>
-            <button
-              type="button"
-              onClick={onToggleTexturePreset}
-              title="Chuyển giữa Texture Hiện Tại và Texture Chính Gốc 1.16"
-              className="mc-btn min-h-[38px] px-2.5 py-1 text-xs hidden md:flex items-center gap-1.5"
-            >
-              <Layers className="w-3.5 h-3.5 text-amber-300" />
-              <span>{texturePreset === 'original' ? 'Texture: Chính Gốc' : 'Texture: Hiện Tại'}</span>
+              <Camera className="w-4 h-4" />
             </button>
             <button
               type="button"
               onClick={onToggleFullscreen}
-              title={isFullscreen ? 'Thoát toàn màn hình (F11)' : 'Toàn màn hình (F11)'}
-              className="mc-btn min-h-[38px] px-2.5 py-1 text-xs flex items-center gap-1.5"
+              title={isFullscreen ? 'Thu nhỏ (F11)' : 'Toàn màn hình (F11)'}
+              aria-label="Toàn màn hình"
+              className="mc-btn w-[36px] h-[36px] flex items-center justify-center"
             >
-              {isFullscreen ? (
-                <Minimize2 className="w-3.5 h-3.5 text-[#5eead4]" />
-              ) : (
-                <Maximize2 className="w-3.5 h-3.5 text-[#5eead4]" />
-              )}
-              <span className="hidden sm:inline">{isFullscreen ? 'Thu nhỏ' : 'Full màn hình'}</span>
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
             <button
               type="button"
               onClick={onOpenPause}
-              title="Mở Menu Tạm Dừng (Esc)"
-              className="mc-btn min-h-[38px] px-2.5 py-1 text-xs flex items-center gap-1"
+              title="Menu (Esc)"
+              aria-label="Menu"
+              className="mc-btn w-[36px] h-[36px] flex items-center justify-center"
             >
-              <Pause className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Menu</span>
+              <Pause className="w-4 h-4" />
             </button>
           </div>
         </div>

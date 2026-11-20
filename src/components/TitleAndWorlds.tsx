@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import {
+  ArrowLeft,
   Download,
   FolderOpen,
   Maximize2,
@@ -10,22 +11,24 @@ import {
   Settings,
   Trash2,
   Upload,
-  User,
-  ArrowLeft,
 } from 'lucide-react';
 import { CompiledResourcePack } from '../game/resourcePack';
-import { createNewWorldRecord, deleteWorld, exportWorldToFile, parseImportedWorldFile, saveWorld } from '../game/storage';
+import {
+  createNewWorldRecord,
+  deleteWorld,
+  exportWorldToFile,
+  parseImportedWorldFile,
+  saveWorld,
+} from '../game/storage';
 import { GameMode, WorldSave } from '../game/types';
 import { McButton, McDirtBackdrop, McTitleLogo } from './McSprites';
 
 const SPLASHES = [
   'Nether Update 1.16.5!',
-  'Chạy 100% trên GitHub Pages!',
-  'Biên giới ±29.999.984 khối!',
-  'Đổi Skin Steve / Alex & F5 3D!',
-  '2 Dạng Texture Hiện Tại & Chính Gốc!',
-  'Chơi mượt trên PC & Điện thoại!',
-  'Hỗ trợ 26 lệnh chạy thật!',
+  'Chơi mượt trên PC & Mobile!',
+  'Đầy đủ giáp & công cụ!',
+  'Thế giới vô hạn!',
+  'Hỗ trợ lệnh Minecraft!',
 ];
 
 interface TitleAndWorldsProps {
@@ -35,7 +38,6 @@ interface TitleAndWorldsProps {
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
   onNavigate: (s: 'title' | 'worlds' | 'create_world' | 'resource_manager' | 'options') => void;
-  onOpenSkin: () => void;
   onLaunchWorld: (w: WorldSave) => void;
   onRefreshWorlds: () => Promise<void>;
 }
@@ -47,13 +49,12 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
   isFullscreen,
   onToggleFullscreen,
   onNavigate,
-  onOpenSkin,
   onLaunchWorld,
   onRefreshWorlds,
 }) => {
   const splash = useMemo(() => SPLASHES[Math.floor(Math.random() * SPLASHES.length)], []);
   const [selectedId, setSelectedId] = useState<string | null>(worlds[0]?.id ?? null);
-  const [newName, setNewName] = useState('Thế Giới Nether 1.16');
+  const [newName, setNewName] = useState('Thế Giới Mới');
   const [newSeed, setNewSeed] = useState('');
   const [newMode, setNewMode] = useState<GameMode>('survival');
   const [cheats, setCheats] = useState(true);
@@ -69,7 +70,6 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
       if (Number.isFinite(asNum)) {
         seedNum = Math.floor(asNum);
       } else {
-        // String hash like Java Minecraft
         let h = 0;
         for (let i = 0; i < newSeed.length; i++) h = (Math.imul(31, h) + newSeed.charCodeAt(i)) | 0;
         seedNum = h;
@@ -108,23 +108,19 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
     }
   };
 
-  // --- 1. MAIN TITLE SCREEN (Live 3D Panorama behind) ---
+  // --- 1. AUTHENTIC CLASSIC MINECRAFT TITLE SCREEN ---
   if (screen === 'title') {
     return (
-      <div className="fixed inset-0 z-20 flex flex-col items-center justify-between px-4 py-7 sm:py-10 pointer-events-none">
+      <div className="fixed inset-0 z-20 flex flex-col items-center justify-between px-4 py-8 sm:py-12 pointer-events-none">
         <div className="fixed top-3 right-3 pointer-events-auto">
           <button
             type="button"
             onClick={onToggleFullscreen}
-            title={isFullscreen ? 'Thoát toàn màn hình (F11)' : 'Toàn màn hình (F11)'}
-            className="mc-btn min-h-[38px] px-3 py-1.5 text-xs flex items-center gap-1.5"
+            title={isFullscreen ? 'Thu nhỏ (F11)' : 'Toàn màn hình (F11)'}
+            aria-label="Toàn màn hình"
+            className="mc-btn w-[38px] h-[38px] flex items-center justify-center"
           >
-            {isFullscreen ? (
-              <Minimize2 className="w-4 h-4 text-[#5eead4]" />
-            ) : (
-              <Maximize2 className="w-4 h-4 text-[#5eead4]" />
-            )}
-            <span>{isFullscreen ? 'Thu nhỏ' : 'Full màn hình'}</span>
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
         </div>
 
@@ -132,46 +128,40 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
           <McTitleLogo splashText={splash} />
         </div>
 
-        <div className="mc-dark-panel w-full max-w-[420px] p-4 flex flex-col gap-2.5 pointer-events-auto">
+        {/* Classic centered stone buttons — no heavy dark container, no Skin button on root */}
+        <div className="w-full max-w-[360px] flex flex-col gap-2.5 pointer-events-auto">
           <McButton
             variant="primary"
             widgetsUrl={pack.guiUrls.widgets}
             onClick={() => onNavigate('worlds')}
-            className="w-full h-12 text-base"
+            className="w-full h-11 text-base"
           >
             <Play className="w-4 h-4 fill-current" />
-            Chơi Đơn (Singleplayer)
+            Chơi Đơn
           </McButton>
 
-          <McButton
-            widgetsUrl={pack.guiUrls.widgets}
-            onClick={onOpenSkin}
-            className="w-full h-11"
-          >
-            <User className="w-4 h-4 text-[#fde68a]" />
-            Skin &amp; Model 3D (Steve / Alex / Tùy chỉnh)
-          </McButton>
+          <div className="grid grid-cols-2 gap-2.5">
+            <McButton
+              widgetsUrl={pack.guiUrls.widgets}
+              onClick={() => onNavigate('options')}
+              className="h-11"
+            >
+              <Settings className="w-4 h-4" />
+              Cài Đặt
+            </McButton>
 
-          <McButton
-            widgetsUrl={pack.guiUrls.widgets}
-            onClick={() => onNavigate('resource_manager')}
-            className="w-full h-11"
-          >
-            <Package className="w-4 h-4 text-[#5eead4]" />
-            2 Dạng Texture &amp; Resource Pack 1.16
-          </McButton>
-
-          <McButton
-            widgetsUrl={pack.guiUrls.widgets}
-            onClick={() => onNavigate('options')}
-            className="w-full h-11"
-          >
-            <Settings className="w-4 h-4" />
-            Cài Đặt
-          </McButton>
+            <McButton
+              widgetsUrl={pack.guiUrls.widgets}
+              onClick={() => onNavigate('resource_manager')}
+              className="h-11"
+            >
+              <Package className="w-4 h-4" />
+              Texture
+            </McButton>
+          </div>
         </div>
 
-        <div className="w-full flex items-center justify-between gap-2 text-xs text-zinc-200/90 mc-text-shadow-sm px-1">
+        <div className="w-full flex items-center justify-between gap-2 text-xs text-white/90 mc-text-shadow-sm px-1">
           <span className="font-mono-num">NetherCraft 1.16.5</span>
           <span className="font-mono-num">{pack.meta.name}</span>
         </div>
@@ -183,17 +173,13 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
   if (screen === 'worlds') {
     return (
       <McDirtBackdrop bgUrl={pack.guiUrls.optionsBackground}>
-        <div className="px-4 py-4 border-b-2 border-black bg-black/50 flex items-center justify-between gap-3">
-          <h1 className="font-mc text-lg sm:text-xl font-bold text-white mc-text-shadow">
-            Chọn Thế Giới (1.16.5)
-          </h1>
-          <div className="text-xs font-mono-num text-zinc-300">
-            {worlds.length} thế giới · Lưu cục bộ IndexedDB
-          </div>
+        <div className="px-4 py-3.5 border-b-2 border-black bg-black/50 flex items-center justify-between gap-3">
+          <h1 className="font-mc text-lg font-bold text-white mc-text-shadow">Chọn Thế Giới</h1>
+          <div className="text-xs font-mono-num text-zinc-300">{worlds.length} thế giới</div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-4">
-          <div className="max-w-[740px] mx-auto space-y-2.5">
+          <div className="max-w-[700px] mx-auto space-y-2">
             {importError && (
               <div className="bg-red-950/85 border border-red-500 px-3 py-2 text-xs text-red-200">
                 {importError}
@@ -202,13 +188,10 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
 
             {worlds.length === 0 ? (
               <div className="border-2 border-dashed border-zinc-600 bg-black/45 p-8 text-center">
-                <p className="font-mc text-base text-zinc-200 mb-2">Chưa có thế giới nào</p>
-                <p className="text-xs sm:text-sm text-zinc-400 mb-5">
-                  Tạo thế giới 1.16 mới với kích thước chuẩn ±29.999.984 khối hoặc nhập tệp .mc116.json từ GitHub.
-                </p>
+                <p className="font-mc text-base text-zinc-200 mb-4">Chưa có thế giới nào</p>
                 <McButton variant="primary" onClick={() => onNavigate('create_world')} className="mx-auto">
                   <Plus className="w-4 h-4" />
-                  Tạo Thế Giới Mới
+                  Tạo Mới
                 </McButton>
               </div>
             ) : (
@@ -228,17 +211,21 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
                     }`}
                   >
                     <div className="min-w-0">
-                      <div className="font-mc font-bold text-base text-white truncate">
-                        {w.name}
-                      </div>
+                      <div className="font-mc font-bold text-base text-white truncate">{w.name}</div>
                       <div className="text-xs text-zinc-300 font-mono-num mt-0.5 flex flex-wrap items-center gap-x-2">
-                        <span>{w.gameMode === 'creative' ? 'Sáng tạo' : w.gameMode === 'survival' ? 'Sinh tồn' : w.gameMode}</span>
+                        <span>
+                          {w.gameMode === 'creative'
+                            ? 'Sáng tạo'
+                            : w.gameMode === 'survival'
+                              ? 'Sinh tồn'
+                              : w.gameMode}
+                        </span>
                         <span>·</span>
-                        <span>{w.dimension === 'nether' ? 'The Nether 1.16' : 'Overworld'}</span>
+                        <span>{w.dimension === 'nether' ? 'Nether' : 'Overworld'}</span>
                         <span>·</span>
                         <span>Seed: {w.seed}</span>
                         <span>·</span>
-                        <span>{modCount} khối đã sửa</span>
+                        <span>{modCount} khối</span>
                       </div>
                     </div>
                     <McButton
@@ -259,17 +246,17 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
           </div>
         </div>
 
-        {/* Bottom Minecraft Action Bar */}
-        <div className="px-4 py-3.5 border-t-2 border-black bg-black/65">
-          <div className="max-w-[740px] mx-auto grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+        {/* Bottom Classic Action Bar */}
+        <div className="px-4 py-3 border-t-2 border-black bg-black/65">
+          <div className="max-w-[700px] mx-auto grid grid-cols-2 sm:grid-cols-5 gap-2">
             <McButton
               variant="primary"
               disabled={!selectedWorld}
               onClick={() => selectedWorld && onLaunchWorld(selectedWorld)}
-              className="col-span-2 sm:col-span-2"
+              className="col-span-2"
             >
               <Play className="w-4 h-4 fill-current" />
-              Vào Thế Giới Đã Chọn
+              Chơi
             </McButton>
 
             <McButton onClick={() => onNavigate('create_world')} className="col-span-2 sm:col-span-1">
@@ -282,12 +269,12 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
               onClick={() => selectedWorld && exportWorldToFile(selectedWorld)}
             >
               <Download className="w-4 h-4" />
-              Xuất JSON
+              Xuất
             </McButton>
 
             <McButton onClick={() => importRef.current?.click()}>
               <Upload className="w-4 h-4" />
-              Nhập JSON
+              Nhập
             </McButton>
 
             <input
@@ -299,7 +286,7 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
             />
           </div>
 
-          <div className="max-w-[740px] mx-auto flex items-center justify-between gap-3 mt-2.5">
+          <div className="max-w-[700px] mx-auto flex items-center justify-between gap-2 mt-2">
             <McButton
               variant="crimson"
               disabled={!selectedWorld}
@@ -307,12 +294,12 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
               className="text-xs sm:text-sm"
             >
               <Trash2 className="w-4 h-4" />
-              Xóa Thế Giới
+              Xóa
             </McButton>
 
             <McButton onClick={() => onNavigate('title')}>
               <ArrowLeft className="w-4 h-4" />
-              Hủy / Về Menu
+              Quay Lại
             </McButton>
           </div>
         </div>
@@ -326,68 +313,62 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
     setNewMode(order[(order.indexOf(newMode) + 1) % order.length]);
   };
   const modeLabel: Record<GameMode, string> = {
-    survival: 'Sinh tồn (Survival)',
-    creative: 'Sáng tạo (Creative)',
-    adventure: 'Phiêu lưu (Adventure)',
-    spectator: 'Khán giả (Spectator)',
+    survival: 'Sinh tồn',
+    creative: 'Sáng tạo',
+    adventure: 'Phiêu lưu',
+    spectator: 'Khán giả',
   };
 
   return (
-      <McDirtBackdrop bgUrl={pack.guiUrls.optionsBackground}>
-        <div className="px-4 py-4 border-b-2 border-black bg-black/50 text-center">
-          <h1 className="font-mc text-xl font-bold text-white mc-text-shadow">
-            Tạo Thế Giới 1.16 Mới
-          </h1>
-        </div>
+    <McDirtBackdrop bgUrl={pack.guiUrls.optionsBackground}>
+      <div className="px-4 py-3.5 border-b-2 border-black bg-black/50 text-center">
+        <h1 className="font-mc text-lg font-bold text-white mc-text-shadow">Tạo Thế Giới Mới</h1>
+      </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-6">
-          <div className="max-w-[540px] mx-auto space-y-5">
-            <div>
-              <label className="block text-sm text-zinc-300 mb-1.5 font-medium">Tên Thế Giới</label>
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                maxLength={40}
-                className="w-full bg-black border-2 border-[#a0a0a0] focus:border-white outline-none px-3 py-2.5 text-base text-white font-mc"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-zinc-300 mb-1.5 font-medium">
-                Mã Hạt Giống (Seed — để trống để tạo ngẫu nhiên)
-              </label>
-              <input
-                type="text"
-                value={newSeed}
-                onChange={(e) => setNewSeed(e.target.value)}
-                placeholder="Ví dụ: 1162020 hoặc chữ bất kỳ"
-                className="w-full bg-black border-2 border-[#a0a0a0] focus:border-white outline-none px-3 py-2.5 text-sm font-mono-num text-white"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <McButton onClick={cycleMode}>
-                Chế độ: {modeLabel[newMode]}
-              </McButton>
-              <McButton onClick={() => setCheats((c) => !c)}>
-                Cho phép Lệnh: {cheats ? 'BẬT' : 'TẮT'}
-              </McButton>
-            </div>
+      <div className="flex-1 overflow-y-auto px-4 py-6">
+        <div className="max-w-[500px] mx-auto space-y-4">
+          <div>
+            <label className="block text-xs text-zinc-300 mb-1 font-medium">Tên Thế Giới</label>
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              maxLength={40}
+              className="w-full bg-black border-2 border-[#a0a0a0] focus:border-white outline-none px-3 py-2 text-sm text-white font-mc"
+            />
           </div>
-        </div>
 
-        <div className="px-4 py-4 border-t-2 border-black bg-black/65">
-          <div className="max-w-[540px] mx-auto grid grid-cols-2 gap-3">
-            <McButton variant="primary" onClick={handleCreate}>
-              <FolderOpen className="w-4 h-4" />
-              Tạo Thế Giới Mới
-            </McButton>
-            <McButton onClick={() => onNavigate('worlds')}>
-              Hủy
+          <div>
+            <label className="block text-xs text-zinc-300 mb-1 font-medium">
+              Seed (trống = ngẫu nhiên)
+            </label>
+            <input
+              type="text"
+              value={newSeed}
+              onChange={(e) => setNewSeed(e.target.value)}
+              placeholder="Ví dụ: 1162020"
+              className="w-full bg-black border-2 border-[#a0a0a0] focus:border-white outline-none px-3 py-2 text-sm font-mono-num text-white"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5 pt-1">
+            <McButton onClick={cycleMode}>Chế độ: {modeLabel[newMode]}</McButton>
+            <McButton onClick={() => setCheats((c) => !c)}>
+              Lệnh: {cheats ? 'BẬT' : 'TẮT'}
             </McButton>
           </div>
         </div>
-      </McDirtBackdrop>
-    );
+      </div>
+
+      <div className="px-4 py-3.5 border-t-2 border-black bg-black/65">
+        <div className="max-w-[500px] mx-auto grid grid-cols-2 gap-2.5">
+          <McButton variant="primary" onClick={handleCreate}>
+            <FolderOpen className="w-4 h-4" />
+            Tạo Thế Giới
+          </McButton>
+          <McButton onClick={() => onNavigate('worlds')}>Hủy</McButton>
+        </div>
+      </div>
+    </McDirtBackdrop>
+  );
 };

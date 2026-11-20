@@ -123,16 +123,18 @@ export const DEFAULT_GAMERULES: GameRules = {
   naturalRegeneration: true,
 };
 
+const IS_COMPACT_VIEW = typeof window !== 'undefined' && window.innerWidth < 820;
+
 export const DEFAULT_VIDEO_SETTINGS: VideoSettings = {
-  renderDistance: typeof window !== 'undefined' && window.innerWidth < 820 ? 3 : 4,
+  renderDistance: IS_COMPACT_VIEW ? 3 : 4,
   fov: 75,
-  graphics: 'fancy',
+  graphics: IS_COMPACT_VIEW ? 'fast' : 'fancy',
   smoothLighting: true,
-  brightness: 0.9,
-  clouds: 'fancy',
-  particles: 'all',
+  brightness: 0.95,
+  clouds: 'fast',
+  particles: 'decreased',
   viewBobbing: true,
-  shadows: true,
+  shadows: false,
   guiScale: 'auto',
   sensitivity: 1.0,
   volume: 0.75,

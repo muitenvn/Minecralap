@@ -7,11 +7,8 @@
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
     --mc-panel: #c6c6c6;
     --mc-slot: #8b8b8b;
-    --mc-obsidian: #100d15;
-    --mc-basalt: #1b1724;
-    --mc-crimson: #c83e4d;
-    --mc-warped: #2dd4bf;
-    --mc-gold: #f5c542;
+    --mc-stone: #737373;
+    --mc-dark: #141414;
   }
 
   html,
@@ -23,7 +20,7 @@
     padding: 0;
     overflow: hidden;
     font-family: var(--font-body);
-    background-color: var(--mc-obsidian);
+    background-color: var(--mc-dark);
     color: #ffffff;
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior: none;
@@ -32,7 +29,7 @@
 
 .font-mc {
   font-family: var(--font-display);
-  letter-spacing: 0.025em;
+  letter-spacing: 0.02em;
 }
 
 .font-mono-num {
@@ -41,11 +38,11 @@
 }
 
 .mc-text-shadow {
-  text-shadow: 2px 2px 0px #1b1921, 0 2px 8px rgba(0, 0, 0, 0.45);
+  text-shadow: 2px 2px 0px #202020;
 }
 
 .mc-text-shadow-sm {
-  text-shadow: 1px 1px 0px #18161d;
+  text-shadow: 1px 1px 0px #1e1e1e;
 }
 
 .pixelated {
@@ -53,125 +50,159 @@
   image-rendering: crisp-edges;
 }
 
-/* Polished Nether 1.16 Obsidian/Basalt Dark Panel */
+/* Classic Minecraft Dark Stone Panel (used only for modals like Skin Studio) */
 .mc-dark-panel {
-  background: linear-gradient(180deg, #1f1a2a 0%, #15111e 100%);
-  border: 2px solid #09070d;
+  background-color: #212121;
+  border: 2px solid #000000;
   box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.14),
-    inset 0 -3px 0 rgba(0, 0, 0, 0.55),
-    0 20px 55px rgba(0, 0, 0, 0.78);
+    inset 2px 2px 0px #424242,
+    inset -2px -2px 0px #121212,
+    0 16px 40px rgba(0, 0, 0, 0.72);
 }
 
-/* Refined Minecraft 1.16 Stone Button Bevel */
+/* Authentic Classic Minecraft Stone Button (#737373 beveled, hover blue-stone + #ffffa0 text) */
 .mc-btn {
   position: relative;
-  border: 2px solid #0b0a0f;
-  background: linear-gradient(180deg, #86868e 0%, #6d6d75 55%, #5c5c64 100%);
-  background-size: 100% 100%;
+  border: 2px solid #000000;
+  background-color: #747474;
+  background-image: linear-gradient(180deg, #838383 0%, #6f6f6f 50%, #636363 100%);
   box-shadow:
     inset 2px 2px 0px rgba(255, 255, 255, 0.36),
-    inset -2px -3px 0px rgba(0, 0, 0, 0.5),
-    0 3px 0 rgba(0, 0, 0, 0.45);
-  color: #f8fafc;
-  text-shadow: 2px 2px 0px #222228;
+    inset -2px -3px 0px rgba(0, 0, 0, 0.42);
+  color: #e8e8e8;
+  text-shadow: 2px 2px 0px #383838;
   font-family: var(--font-display);
   font-weight: 700;
-  transition: transform 80ms ease, filter 110ms ease, border-color 110ms ease;
+  transition: background-color 60ms ease, color 60ms ease;
   cursor: pointer;
 }
 
 .mc-btn:hover:not(:disabled) {
-  background: linear-gradient(180deg, #687bb5 0%, #526296 55%, #445280 100%);
-  border-color: #cbd5e1;
+  background-color: #7b86bc;
+  background-image: linear-gradient(180deg, #8c98d4 0%, #7582ba 55%, #6672a8 100%);
+  border-color: #ffffff;
   box-shadow:
-    inset 2px 2px 0px rgba(255, 255, 255, 0.5),
-    inset -2px -3px 0px rgba(17, 24, 54, 0.6),
-    0 3px 0 rgba(0, 0, 0, 0.5);
-  color: #fef08a;
+    inset 2px 2px 0px rgba(255, 255, 255, 0.48),
+    inset -2px -3px 0px rgba(32, 38, 72, 0.55);
+  color: #ffffa0;
+  text-shadow: 2px 2px 0px #3f3f28;
 }
 
 .mc-btn:active:not(:disabled) {
-  transform: translateY(2px);
   box-shadow:
     inset 2px 2px 0px rgba(0, 0, 0, 0.45),
-    inset -2px -2px 0px rgba(255, 255, 255, 0.18);
+    inset -2px -2px 0px rgba(255, 255, 255, 0.2);
 }
 
 .mc-btn:disabled {
-  background: linear-gradient(180deg, #3e3e44 0%, #323238 100%);
-  color: #8b8b94;
-  text-shadow: 1px 1px 0px #18181b;
-  box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.08), inset -2px -2px 0px rgba(0, 0, 0, 0.45);
+  background-color: #464646;
+  background-image: none;
+  color: #9e9e9e;
+  text-shadow: 1px 1px 0px #222222;
+  box-shadow:
+    inset 2px 2px 0px rgba(255, 255, 255, 0.1),
+    inset -2px -2px 0px rgba(0, 0, 0, 0.45);
   cursor: not-allowed;
 }
 
+/* Classic Minecraft Green Play Button */
 .mc-btn-primary {
-  background: linear-gradient(180deg, #5da041 0%, #488031 55%, #3a6926 100%);
+  background-color: #3c8527;
+  background-image: linear-gradient(180deg, #4f9e34 0%, #3c8527 55%, #2f6c1e 100%);
   box-shadow:
-    inset 2px 2px 0px rgba(190, 242, 152, 0.48),
-    inset -2px -3px 0px rgba(19, 44, 12, 0.65),
-    0 3px 0 rgba(0, 0, 0, 0.5);
+    inset 2px 2px 0px rgba(176, 240, 146, 0.42),
+    inset -2px -3px 0px rgba(18, 48, 12, 0.62);
+  color: #ffffff;
+  text-shadow: 2px 2px 0px #1e4214;
 }
 
 .mc-btn-primary:hover:not(:disabled) {
-  background: linear-gradient(180deg, #6bb54c 0%, #529139 55%, #43782d 100%);
-  border-color: #d9f99d;
-  color: #fef9c3;
+  background-color: #4a9d32;
+  background-image: linear-gradient(180deg, #5db63f 0%, #489930 55%, #397c24 100%);
+  border-color: #ffffff;
+  color: #ffffa0;
 }
 
+/* Classic Red Danger Button */
 .mc-btn-crimson {
-  background: linear-gradient(180deg, #b33849 0%, #8f2938 55%, #731f2b 100%);
+  background-color: #9b2c2c;
+  background-image: linear-gradient(180deg, #b53a3a 0%, #942a2a 55%, #781f1f 100%);
   box-shadow:
-    inset 2px 2px 0px rgba(254, 165, 178, 0.36),
-    inset -2px -3px 0px rgba(48, 10, 16, 0.7),
-    0 3px 0 rgba(0, 0, 0, 0.5);
+    inset 2px 2px 0px rgba(255, 175, 175, 0.32),
+    inset -2px -3px 0px rgba(52, 10, 10, 0.65);
+  color: #ffffff;
+  text-shadow: 2px 2px 0px #3b0f0f;
 }
 
 .mc-btn-crimson:hover:not(:disabled) {
-  background: linear-gradient(180deg, #c94154 0%, #a33041 55%, #852533 100%);
-  border-color: #fecdd3;
-  color: #fef08a;
+  background-color: #b53535;
+  background-image: linear-gradient(180deg, #cb4747 0%, #a83232 55%, #8a2424 100%);
+  border-color: #ffffff;
+  color: #ffffa0;
 }
 
-/* Authentic Minecraft 1.16 Hotbar Bezel */
+/* Authentic Classic Minecraft Hotbar Frame */
 .mc-hotbar-shell {
-  background: linear-gradient(180deg, rgba(24, 22, 30, 0.92) 0%, rgba(15, 13, 20, 0.96) 100%);
-  border: 2px solid #09080c;
+  background-color: rgba(20, 20, 20, 0.72);
+  border: 2px solid #000000;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    0 8px 22px rgba(0, 0, 0, 0.65);
+    inset 1px 1px 0px rgba(255, 255, 255, 0.2),
+    inset -1px -1px 0px rgba(0, 0, 0, 0.6);
 }
 
-/* Classic Minecraft 1.16 Inventory Window (#C6C6C6) with crisp beveled rim */
+/* Authentic Classic Minecraft Inventory Window (#C6C6C6) */
 .mc-window {
-  background: linear-gradient(180deg, #cfcfcf 0%, #c2c2c2 100%);
-  border: 3px solid #121216;
+  background-color: #c6c6c6;
+  border: 3px solid #000000;
   box-shadow:
-    inset 3px 3px 0px #f5f5f5,
-    inset -3px -3px 0px #5e5e66,
-    0 22px 55px rgba(0, 0, 0, 0.78);
-  color: #2c2c32;
+    inset 3px 3px 0px #ffffff,
+    inset -3px -3px 0px #555555,
+    0 16px 40px rgba(0, 0, 0, 0.7);
+  color: #3f3f3f;
 }
 
-/* Classic Minecraft 1.16 Recessed Item Slot (#8B8B8B) */
+/* Classic Recessed Item Slot (#8B8B8B) */
 .mc-slot {
-  background-color: #8b8b8e;
-  box-shadow: inset 2px 2px 0px #37373c, inset -2px -2px 0px #e8e8ec;
-  transition: background-color 70ms ease;
+  background-color: #8b8b8b;
+  box-shadow:
+    inset 2px 2px 0px #373737,
+    inset -2px -2px 0px #ffffff;
 }
 
 .mc-slot:hover {
-  background-color: #a4a4a8;
+  background-color: #a6a6a6;
 }
 
+/* Authentic White Double-Bevel Active Hotbar Slot */
 .mc-slot-active {
-  background-color: #9e9ea6;
+  background-color: #9e9e9e;
+  z-index: 2;
   box-shadow:
-    inset 2px 2px 0px #2b2b30,
+    inset 2px 2px 0px #373737,
     inset -2px -2px 0px #ffffff,
-    0 0 0 2px #fde047,
-    0 0 10px rgba(253, 224, 71, 0.35);
+    0 0 0 2px #ffffff,
+    0 0 0 3px #1e1e1e;
+}
+
+/* Classic Minecraft PE Translucent Grey Touch Button */
+.mc-touch-pad {
+  background-color: rgba(190, 190, 190, 0.34);
+  border: 2px solid rgba(0, 0, 0, 0.52);
+  box-shadow:
+    inset 2px 2px 0px rgba(255, 255, 255, 0.34),
+    inset -2px -2px 0px rgba(0, 0, 0, 0.28);
+  color: #ffffff;
+  text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.75);
+}
+
+.mc-touch-pad-active {
+  background-color: rgba(235, 235, 235, 0.62);
+  border: 2px solid rgba(0, 0, 0, 0.75);
+  box-shadow:
+    inset 2px 2px 0px rgba(0, 0, 0, 0.3),
+    inset -1px -1px 0px rgba(255, 255, 255, 0.35);
+  color: #111111;
+  text-shadow: none;
 }
 
 /* Splash text pulse */
@@ -211,7 +242,7 @@
   box-shadow: inset 0 0 8px rgba(192, 132, 252, 0.78);
 }
 
-/* Custom thin dark scrollbar */
+/* Classic thin grey scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -220,9 +251,9 @@
   background: rgba(0, 0, 0, 0.35);
 }
 ::-webkit-scrollbar-thumb {
-  background: #676472;
-  border: 1px solid #16141c;
+  background: #808080;
+  border: 1px solid #1e1e1e;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #878396;
+  background: #a0a0a0;
 }

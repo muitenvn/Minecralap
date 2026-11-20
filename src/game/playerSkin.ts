@@ -489,6 +489,7 @@ function getArmorHex(itemId?: string): number | null {
   if (itemId.startsWith('diamond_')) return 0x3ce0e8;
   if (itemId.startsWith('gold_')) return 0xf5c531;
   if (itemId.startsWith('iron_')) return 0xd4d8dc;
+  if (itemId.startsWith('leather_')) return 0x9c5a32;
   return null;
 }
 

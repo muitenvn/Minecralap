@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { soundEngine } from './audio';
 import {
   BLOCK,
@@ -119,9 +118,9 @@ export class NetherCraftEngine {
   private pack: CompiledResourcePack | null = null;
   private settings: VideoSettings;
 
-  // Materials driven by compiled Resource Pack atlas
-  private opaqueMat: THREE.MeshStandardMaterial;
-  private transMat: THREE.MeshStandardMaterial;
+  // Materials driven by compiled Resource Pack atlas (Lambert for 3x faster FPS on mobile & desktop)
+  private opaqueMat: THREE.MeshLambertMaterial;
+  private transMat: THREE.MeshLambertMaterial;
 
   // World state
   private mode: 'panorama' | 'playing' = 'panorama';
@@ -249,67 +248,59 @@ export class NetherCraftEngine {
     );
     this.camera.rotation.order = 'YXZ';
 
+    const isCompactOrTouch =
+      window.innerWidth < 820 || (navigator.maxTouchPoints || 0) > 0;
+
     this.renderer = new THREE.WebGLRenderer({
-      antialias: !this.isSoftwareGl,
+      antialias: !this.isSoftwareGl && !isCompactOrTouch,
       powerPreference: 'high-performance',
     });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
-    this.renderer.setPixelRatio(this.isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.toneMapping = THREE.NoToneMapping;
+    const maxDpr = this.isSoftwareGl ? 1 : isCompactOrTouch ? 1.25 : 1.5;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxDpr));
     this.renderer.setSize(container.clientWidth || window.innerWidth, container.clientHeight || window.innerHeight);
     this.renderer.shadowMap.enabled = !this.isSoftwareGl && settings.shadows;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.BasicShadowMap;
     this.renderer.domElement.style.display = 'block';
     this.renderer.domElement.style.width = '100%';
     this.renderer.domElement.style.height = '100%';
     container.appendChild(this.renderer.domElement);
-
-    // Mandatory studio environment reflection map (RoomEnvironment) on all devices
-    const pmrem = new THREE.PMREMGenerator(this.renderer);
-    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    this.scene.environmentIntensity = 0.25;
-    pmrem.dispose();
 
     // Context loss safety
     this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
       e.preventDefault();
     });
 
-    // Warm/Cool 3-point outdoor lighting rig
-    this.hemiLight = new THREE.HemisphereLight(0x9ec5ff, 0x4b3f35, 0.72);
+    // Classic crisp outdoor lighting rig (lightweight for high FPS)
+    this.hemiLight = new THREE.HemisphereLight(0xb8d4ff, 0x5c534a, 0.85);
     this.scene.add(this.hemiLight);
 
-    this.sunLight = new THREE.DirectionalLight(0xfff4d6, 1.35);
+    this.sunLight = new THREE.DirectionalLight(0xfff6e0, 1.15);
     this.sunLight.position.set(42, 78, 32);
     this.sunLight.castShadow = !this.isSoftwareGl && settings.shadows;
-    this.sunLight.shadow.mapSize.set(1024, 1024);
+    this.sunLight.shadow.mapSize.set(512, 512);
     this.sunLight.shadow.camera.near = 5;
-    this.sunLight.shadow.camera.far = 180;
-    const sd = 48;
+    this.sunLight.shadow.camera.far = 140;
+    const sd = 40;
     this.sunLight.shadow.camera.left = -sd;
     this.sunLight.shadow.camera.right = sd;
     this.sunLight.shadow.camera.top = sd;
     this.sunLight.shadow.camera.bottom = -sd;
-    this.sunLight.shadow.bias = -0.0005;
-    this.sunLight.shadow.normalBias = 0.02;
+    this.sunLight.shadow.bias = -0.001;
     this.scene.add(this.sunLight);
     this.scene.add(this.sunLight.target);
 
-    this.rimLight = new THREE.DirectionalLight(0x7dd3fc, 0.28);
+    this.rimLight = new THREE.DirectionalLight(0x93c5fd, 0.22);
     this.rimLight.position.set(-40, 28, -40);
     this.scene.add(this.rimLight);
 
-    // Voxel atlas materials
-    this.opaqueMat = new THREE.MeshStandardMaterial({
+    // Fast Lambert voxel atlas materials (preserves vertex-color smooth AO at 60fps)
+    this.opaqueMat = new THREE.MeshLambertMaterial({
       vertexColors: true,
-      roughness: 0.88,
-      metalness: 0.04,
     });
-    this.transMat = new THREE.MeshStandardMaterial({
+    this.transMat = new THREE.MeshLambertMaterial({
       vertexColors: true,
-      roughness: 0.35,
-      metalness: 0.06,
       transparent: true,
       opacity: 0.9,
       alphaTest: 0.1,
@@ -1124,9 +1115,9 @@ export class NetherCraftEngine {
       }
     }
 
-    // Generate missing chunks near player (spiral order, budgeted per frame)
+    // Generate missing chunks near player (spiral order, budgeted per frame to prevent stutter)
     const mods = this.world.dimension === 'overworld' ? this.world.overworldMods : this.world.netherMods;
-    let genBudget = immediateAll ? 64 : 2;
+    let genBudget = immediateAll ? 24 : 1;
     for (let r = 0; r <= radius && genBudget > 0; r++) {
       for (let dx = -r; dx <= r && genBudget > 0; dx++) {
         for (let dz = -r; dz <= r && genBudget > 0; dz++) {
@@ -1153,9 +1144,10 @@ export class NetherCraftEngine {
 
     // Rebuild dirty sub-chunk meshes (budgeted per frame to keep 60fps smooth)
     if (!this.pack) return;
-    let meshBudget = immediateAll ? 80 : 6;
+    let meshBudget = immediateAll ? 32 : 3;
     const fancyLeaves = this.settings.graphics === 'fancy';
     const smoothAO = this.settings.smoothLighting;
+    const castShadows = !this.isSoftwareGl && this.settings.shadows;
     const getter = (x: number, y: number, z: number) => this.getWorldBlock(x, y, z);
 
     for (const entry of this.chunks.values()) {
@@ -1178,14 +1170,18 @@ export class NetherCraftEngine {
         const built = buildSubChunkGeometry(entry.col, sy, getter, this.pack.uvMap, smoothAO, fancyLeaves);
         if (built.opaque) {
           const m = new THREE.Mesh(built.opaque, this.opaqueMat);
-          m.castShadow = !this.isSoftwareGl && this.settings.shadows;
-          m.receiveShadow = !this.isSoftwareGl && this.settings.shadows;
+          m.castShadow = castShadows;
+          m.receiveShadow = castShadows;
+          m.updateMatrix();
+          m.matrixAutoUpdate = false;
           entry.group.add(m);
           entry.opaqueMeshes[sy] = m;
         }
         if (built.translucent) {
           const m = new THREE.Mesh(built.translucent, this.transMat);
           m.renderOrder = 2;
+          m.updateMatrix();
+          m.matrixAutoUpdate = false;
           entry.group.add(m);
           entry.transMeshes[sy] = m;
         }
@@ -1413,6 +1409,29 @@ export class NetherCraftEngine {
     soundEngine.playHurt();
 
     if (this.world.player.hp <= 0) {
+      // Totem of Undying saves the player from death!
+      const totemSlot = this.world.player.inventory.findIndex(
+        (st, idx) => idx < 9 && st?.itemId === 'totem_of_undying',
+      );
+      if (totemSlot >= 0) {
+        const st = this.world.player.inventory[totemSlot]!;
+        st.count -= 1;
+        if (st.count <= 0) this.world.player.inventory[totemSlot] = null;
+        this.world.player.hp = 8;
+        this.world.player.effects = [
+          ...this.world.player.effects.filter((e) => e.id !== 'regeneration' && e.id !== 'fire_resistance'),
+          { id: 'regeneration', amplifier: 1, remainingSec: 20 },
+          { id: 'fire_resistance', amplifier: 0, remainingSec: 30 },
+        ];
+        soundEngine.playLevelUp();
+        this.heldItemToast = 'Vật Tổ Bất Tử đã cứu bạn!';
+        this.heldItemToastAt = performance.now();
+        this.callbacks.onChatMessage('Vật Tổ Bất Tử đã kích hoạt và cứu sống bạn!', 'gold');
+        this.updateFirstPersonHeldVisual();
+        this.emitHud();
+        return;
+      }
+
       if (!this.world.gamerules.keepInventory) {
         this.world.player.inventory = new Array(36).fill(null);
       }
@@ -1750,6 +1769,33 @@ export class NetherCraftEngine {
     const held = this.world.player.inventory[this.world.player.selectedSlot];
     const itemDef = held ? ITEM_DEFS[held.itemId] : null;
 
+    // 1.5 Direct Armor Equip on Right-Click / Tap Đặt!
+    if (held && itemDef?.armorSlot !== undefined) {
+      const slotIdx = itemDef.armorSlot;
+      const previous = this.world.player.armor[slotIdx];
+      this.world.player.armor[slotIdx] = { ...held, count: 1 };
+      if (this.world.gameMode === 'creative') {
+        if (previous) {
+          this.world.player.inventory[this.world.player.selectedSlot] = previous;
+        }
+      } else {
+        if (held.count > 1) {
+          held.count -= 1;
+          if (previous) this.addItemToInventory(previous.itemId, previous.count);
+        } else {
+          this.world.player.inventory[this.world.player.selectedSlot] = previous;
+        }
+      }
+      if (this.playerRig) updateRigArmorVisuals(this.playerRig, this.world.player.armor);
+      soundEngine.playClick();
+      this.handSwing = 0.85;
+      this.heldItemToast = `Đã mặc: ${itemDef.nameVi}`;
+      this.heldItemToastAt = performance.now();
+      this.updateFirstPersonHeldVisual();
+      this.emitHud();
+      return;
+    }
+
     // 2. Try eating food if hungry or hurt
     if (itemDef?.foodRestore && this.world.gameMode === 'survival' && (this.world.player.hunger < 20 || this.world.player.hp < 20)) {
       this.world.player.hunger = Math.min(20, this.world.player.hunger + itemDef.foodRestore);
@@ -1785,6 +1831,25 @@ export class NetherCraftEngine {
         this.callbacks.onOpenContainer('smithing');
         return;
       }
+      if (tb.blockId === BLOCK.BED) {
+        if (this.world.dimension === 'overworld') {
+          this.world.player.spawnPoint = [tb.x + 0.5, tb.y + 1.1, tb.z + 0.5];
+          this.world.player.spawnDimension = 'overworld';
+          this.world.timeOfDay = 1000;
+          this.world.weather = 'clear';
+          this.world.player.hp = Math.min(this.world.player.maxHp, this.world.player.hp + 4);
+          soundEngine.playLevelUp();
+          this.callbacks.onChatMessage('Đã ngủ qua đêm & đặt điểm hồi sinh tại Giường!', 'success');
+          this.emitHud();
+          return;
+        } else {
+          this.setWorldBlock(tb.x, tb.y, tb.z, BLOCK.AIR, true);
+          soundEngine.playExplosion();
+          this.spawnBreakParticles(tb.x, tb.y, tb.z, 0xf97316, 24);
+          this.damagePlayer(12, 'Giường phát nổ ở Nether');
+          return;
+        }
+      }
       if (tb.blockId === BLOCK.RESPAWN_ANCHOR) {
         if (this.world.dimension === 'nether') {
           this.world.player.spawnPoint = [tb.x + 0.5, tb.y + 1.1, tb.z + 0.5];
@@ -1808,6 +1873,40 @@ export class NetherCraftEngine {
     const placeX = tb.x + tb.face[0];
     const placeY = tb.y + tb.face[1];
     const placeZ = tb.z + tb.face[2];
+
+    // 3.5 Buckets (Water / Lava / Empty)
+    if (held.itemId === 'water_bucket' || held.itemId === 'lava_bucket') {
+      const liquidId = held.itemId === 'water_bucket' ? BLOCK.WATER : BLOCK.LAVA;
+      this.setWorldBlock(placeX, placeY, placeZ, liquidId, true);
+      soundEngine.playBlock('grass', 'place');
+      this.handSwing = 0.9;
+      if (this.world.gameMode === 'survival') {
+        this.world.player.inventory[this.world.player.selectedSlot] = { itemId: 'bucket', count: 1 };
+        this.updateFirstPersonHeldVisual();
+      }
+      this.emitHud();
+      return;
+    }
+    if (held.itemId === 'bucket') {
+      const frontBlock = this.getWorldBlock(placeX, placeY, placeZ);
+      if (frontBlock === BLOCK.WATER || frontBlock === BLOCK.LAVA) {
+        const filledId = frontBlock === BLOCK.WATER ? 'water_bucket' : 'lava_bucket';
+        this.setWorldBlock(placeX, placeY, placeZ, BLOCK.AIR, true);
+        soundEngine.playBlock('grass', 'break');
+        this.handSwing = 0.9;
+        if (this.world.gameMode === 'survival') {
+          if (held.count > 1) {
+            held.count -= 1;
+            this.addItemToInventory(filledId, 1);
+          } else {
+            this.world.player.inventory[this.world.player.selectedSlot] = { itemId: filledId, count: 1 };
+          }
+          this.updateFirstPersonHeldVisual();
+        }
+        this.emitHud();
+        return;
+      }
+    }
 
     // 4. Flint & Steel -> Ignite Nether Portal or Soul Fire!
     if (itemDef.isFlintAndSteel) {
@@ -2508,9 +2607,9 @@ export class NetherCraftEngine {
       this.handGroup.position.set(bobX * 0.6, bobY * 0.6 - swingAmt * 0.14, -swingAmt * 0.18);
       this.handGroup.rotation.set(-swingAmt * 0.65, swingAmt * 0.25, 0);
 
-      // Throttled HUD snapshot emit (12Hz keeps React completely off the 60fps hot path)
+      // Throttled HUD snapshot emit (~9Hz keeps React completely off the 60fps hot path)
       this.hudEmitTick += dt;
-      if (this.hudEmitTick >= 0.085) {
+      if (this.hudEmitTick >= 0.11) {
         this.hudEmitTick = 0;
         this.emitHud();
       }

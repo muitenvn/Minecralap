@@ -30,8 +30,8 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
-// Complete, faithful 16x16 Minecraft 1.16 Classic Vanilla painter for all 72 block texture keys
-function paintOriginalBlockCanvas(key: string): HTMLCanvasElement {
+// Complete, faithful 16x16 Minecraft 1.16 Classic Vanilla painter for all block texture keys
+export function paintOriginalBlockCanvas(key: string): HTMLCanvasElement {
   const c = document.createElement('canvas');
   c.width = 16;
   c.height = 16;
@@ -684,6 +684,297 @@ function paintOriginalBlockCanvas(key: string): HTMLCanvasElement {
           }
         }
       }
+      break;
+    }
+    // --- EXPANDED 1.16 BLOCK TEXTURES ---
+    case 'spruce_log': {
+      for (let x = 0; x < 16; x++) {
+        const ridge = x % 4 === 0 ? '#2b1b0e' : x % 4 === 2 ? '#4a311c' : '#3b2514';
+        const [r, g, b] = hexToRgb(ridge);
+        for (let y = 0; y < 16; y++) {
+          const v = (hash2d(x, y, 131) - 0.5) * 14;
+          setPx(x, y, r + v, g + v, b + v);
+        }
+      }
+      break;
+    }
+    case 'spruce_log_top': {
+      paintRings('#332011', '#7d5b37', '#66492a', 132);
+      break;
+    }
+    case 'spruce_planks': {
+      const [c1, c2, c3, seam] = ['#785634', '#6b4c2d', '#87623c', '#4a331d'].map(hexToRgb);
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+          const isSeam =
+            y % 4 === 0 || (Math.floor(y / 4) % 2 === 0 ? x === 0 || x === 8 : x === 4 || x === 12);
+          const col = isSeam ? seam : y % 4 === 1 ? c3 : hash2d(x, y, 133) > 0.5 ? c1 : c2;
+          setPx(x, y, col[0], col[1], col[2]);
+        }
+      }
+      break;
+    }
+    case 'birch_log': {
+      paintNoise(['#e6e4de', '#dbd8d0', '#f0eee9'], 134);
+      for (const [bx, by, bw] of [[2, 3, 4], [10, 6, 3], [4, 11, 5], [11, 13, 3], [1, 8, 2]]) {
+        fillRect(bx, by, bw, 1, '#343336');
+      }
+      break;
+    }
+    case 'birch_log_top': {
+      paintRings('#dedbd2', '#d6c69c', '#bfa878', 135);
+      break;
+    }
+    case 'birch_planks': {
+      const [c1, c2, c3, seam] = ['#d9cc9e', '#ccbe8f', '#e6dab0', '#a39368'].map(hexToRgb);
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+          const isSeam =
+            y % 4 === 0 || (Math.floor(y / 4) % 2 === 0 ? x === 0 || x === 8 : x === 4 || x === 12);
+          const col = isSeam ? seam : y % 4 === 1 ? c3 : hash2d(x, y, 136) > 0.5 ? c1 : c2;
+          setPx(x, y, col[0], col[1], col[2]);
+        }
+      }
+      break;
+    }
+    case 'stone_bricks': {
+      paintStoneBase(137);
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+          const mortar = y === 7 || y === 15 || (y < 8 ? x === 7 : x === 0 || x === 15);
+          if (mortar) setPx(x, y, 74, 74, 78);
+          else if (y === 0 || y === 8) setPx(x, y, 158, 158, 162);
+        }
+      }
+      break;
+    }
+    case 'mossy_cobblestone': {
+      paintNoise(['#7a7a7a', '#666666', '#8f8f8f', '#527834', '#3f6326'], 138);
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+          const mortar = y === 0 || y === 5 || y === 10 || y === 15;
+          if (mortar) setPx(x, y, 58, 72, 48);
+        }
+      }
+      break;
+    }
+    case 'quartz_block': {
+      paintMetalBlock(['#ede9e1', '#e6e1d8', '#f2efe8', '#dcd6ca'], '#ffffff', '#c7bfb2', 139);
+      break;
+    }
+    case 'nether_bricks':
+    case 'red_nether_bricks': {
+      const pal =
+        key === 'red_nether_bricks'
+          ? ['#5c1218', '#4f0d13', '#6e1820']
+          : ['#361b20', '#2b1418', '#422228'];
+      paintNoise(pal, 140);
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+          const mortar =
+            y === 3 || y === 7 || y === 11 || y === 15 ||
+            (Math.floor(y / 4) % 2 === 0 ? x === 7 || x === 15 : x === 3 || x === 11);
+          if (mortar) setPx(x, y, 24, 12, 14);
+        }
+      }
+      break;
+    }
+    case 'redstone_ore': {
+      paintStoneBase(141);
+      paintOreClusters('#cc1818', '#ff4d4d', 141);
+      break;
+    }
+    case 'redstone_block': {
+      paintMetalBlock(['#b81818', '#a31212', '#d42222', '#8f0e0e'], '#ff6666', '#630909', 142);
+      break;
+    }
+    case 'emerald_ore': {
+      paintStoneBase(143);
+      paintOreClusters('#10b954', '#86efac', 143);
+      break;
+    }
+    case 'emerald_block': {
+      paintMetalBlock(['#18cc5a', '#12b84e', '#2ee070', '#0ea142'], '#a7f3d0', '#0a6e2d', 144);
+      break;
+    }
+    case 'lapis_ore': {
+      paintStoneBase(145);
+      paintOreClusters('#1d44a8', '#60a5fa', 145);
+      break;
+    }
+    case 'lapis_block': {
+      paintMetalBlock(['#1e459e', '#173a8a', '#2b57ba', '#132e70'], '#60a5fa', '#0e2254', 146);
+      break;
+    }
+    case 'coal_block': {
+      paintNoise(['#1c1c20', '#141418', '#26262b', '#0f0f12'], 147);
+      break;
+    }
+    case 'chest_top':
+    case 'chest_side':
+    case 'chest_front': {
+      paintNoise(['#a87431', '#99682a', '#b57e38'], 148);
+      for (let i = 0; i < 16; i++) {
+        setHex(i, 0, '#472c10');
+        setHex(i, 15, '#472c10');
+        setHex(0, i, '#472c10');
+        setHex(15, i, '#472c10');
+      }
+      if (key !== 'chest_top') {
+        fillRect(1, 5, 14, 1, '#3b240c');
+      }
+      if (key === 'chest_front') {
+        fillRect(7, 4, 2, 4, '#d4d4d8');
+        fillRect(7, 6, 2, 1, '#52525b');
+      }
+      break;
+    }
+    case 'bookshelf': {
+      fillRect(0, 0, 16, 16, '#9c7847');
+      fillRect(0, 2, 16, 5, '#3b2a19');
+      fillRect(0, 9, 16, 5, '#3b2a19');
+      const bookCols = ['#b91c1c', '#1d4ed8', '#15803d', '#b45309', '#7e22ce', '#0f766e'];
+      for (let x = 1; x < 15; x += 2) {
+        fillRect(x, 2, 2, 5, bookCols[x % bookCols.length]);
+        fillRect(x, 9, 2, 5, bookCols[(x + 3) % bookCols.length]);
+        setHex(x, 3, '#fde68a');
+        setHex(x, 10, '#f4f4f5');
+      }
+      break;
+    }
+    case 'bed_top': {
+      fillRect(0, 0, 16, 16, '#b82525');
+      fillRect(1, 1, 14, 5, '#f4f4f5');
+      fillRect(1, 5, 14, 1, '#d4d4d8');
+      break;
+    }
+    case 'bed_side': {
+      fillRect(0, 0, 16, 9, '#b82525');
+      fillRect(0, 9, 16, 4, '#9c7847');
+      fillRect(0, 13, 3, 3, '#6b4d28');
+      fillRect(13, 13, 3, 3, '#6b4d28');
+      break;
+    }
+    case 'lantern': {
+      for (let y = 5; y < 15; y++) for (let x = 5; x < 11; x++) setPx(x, y, 42, 46, 56);
+      for (let y = 7; y < 13; y++) for (let x = 6; x < 10; x++) setPx(x, y, 255, 196, 64);
+      fillRect(7, 3, 2, 2, '#484e5c');
+      break;
+    }
+    case 'soul_torch': {
+      for (let y = 6; y < 16; y++) {
+        setPx(7, y, 134, 94, 48);
+        setPx(8, y, 108, 72, 34);
+      }
+      setPx(7, 4, 125, 249, 255);
+      setPx(8, 4, 45, 212, 191);
+      setPx(7, 5, 20, 184, 166);
+      setPx(8, 5, 165, 243, 252);
+      break;
+    }
+    case 'campfire_top':
+    case 'campfire_side': {
+      paintNoise(['#4f341b', '#3d2714', '#634124'], 149);
+      fillRect(4, 3, 8, 7, '#f97316');
+      fillRect(6, 2, 4, 5, '#fde047');
+      break;
+    }
+    case 'enchanting_table_top': {
+      paintNoise(['#161024', '#1f1633', '#0d0917'], 150);
+      fillRect(2, 2, 12, 12, '#991b1b');
+      fillRect(4, 4, 8, 8, '#b91c1c');
+      fillRect(6, 5, 4, 6, '#e5e7eb');
+      break;
+    }
+    case 'enchanting_table_side': {
+      paintNoise(['#161024', '#1f1633', '#0d0917'], 151);
+      fillRect(0, 0, 16, 4, '#991b1b');
+      fillRect(2, 2, 2, 2, '#38bdf8');
+      fillRect(12, 2, 2, 2, '#38bdf8');
+      break;
+    }
+    case 'anvil_top':
+    case 'anvil_side': {
+      paintMetalBlock(['#43434a', '#393940', '#505059'], '#6b6b75', '#222228', 152);
+      break;
+    }
+    case 'hay_block_side': {
+      paintNoise(['#cfa227', '#bd901e', '#deb335'], 153);
+      fillRect(0, 4, 16, 2, '#a3261d');
+      fillRect(0, 11, 16, 2, '#a3261d');
+      break;
+    }
+    case 'hay_block_top': {
+      paintNoise(['#cfa227', '#bd901e', '#deb335', '#a67b14'], 154);
+      break;
+    }
+    case 'pumpkin_top': {
+      paintNoise(['#d97718', '#c46812', '#e68622'], 155);
+      fillRect(7, 7, 2, 2, '#5c4d26');
+      break;
+    }
+    case 'pumpkin_side':
+    case 'pumpkin_front':
+    case 'jack_o_lantern_front': {
+      for (let x = 0; x < 16; x++) {
+        const hex = x % 4 === 0 ? '#a8530c' : x % 4 === 2 ? '#eb8b23' : '#d67415';
+        for (let y = 0; y < 16; y++) setHex(x, y, hex);
+      }
+      if (key === 'pumpkin_front' || key === 'jack_o_lantern_front') {
+        const faceCol = key === 'jack_o_lantern_front' ? '#fff08a' : '#261408';
+        fillRect(3, 4, 3, 3, faceCol);
+        fillRect(10, 4, 3, 3, faceCol);
+        fillRect(7, 7, 2, 2, faceCol);
+        fillRect(3, 11, 10, 2, faceCol);
+      }
+      break;
+    }
+    case 'melon_top': {
+      paintNoise(['#7ba62b', '#628a20', '#92bd3c'], 156);
+      fillRect(7, 7, 2, 2, '#4a6b18');
+      break;
+    }
+    case 'melon_side': {
+      for (let x = 0; x < 16; x++) {
+        const hex = x % 4 === 0 ? '#4d7319' : '#85b332';
+        for (let y = 0; y < 16; y++) setHex(x, y, hex);
+      }
+      break;
+    }
+    case 'wool_white': {
+      paintNoise(['#ededed', '#e2e2e2', '#f5f5f5', '#d9d9d9'], 160);
+      break;
+    }
+    case 'wool_red': {
+      paintNoise(['#b52a24', '#a1221d', '#c7342e', '#941e19'], 161);
+      break;
+    }
+    case 'wool_blue': {
+      paintNoise(['#2e419e', '#26368a', '#384eb3', '#1f2d75'], 162);
+      break;
+    }
+    case 'wool_yellow': {
+      paintNoise(['#f2c929', '#e3ba1e', '#fad440', '#d1a817'], 163);
+      break;
+    }
+    case 'wool_green': {
+      paintNoise(['#50781f', '#446619', '#5e8a26', '#3a5915'], 164);
+      break;
+    }
+    case 'wool_black': {
+      paintNoise(['#1c1c21', '#141418', '#25252b', '#0e0e12'], 165);
+      break;
+    }
+    case 'oak_fence': {
+      fillRect(6, 0, 4, 16, '#a6824d');
+      fillRect(0, 4, 16, 3, '#b49059');
+      fillRect(0, 10, 16, 3, '#b49059');
+      break;
+    }
+    case 'ladder': {
+      fillRect(2, 0, 2, 16, '#8f6a3b');
+      fillRect(12, 0, 2, 16, '#8f6a3b');
+      for (const ry of [2, 6, 10, 14]) fillRect(2, ry, 12, 2, '#b58d55');
       break;
     }
     default: {

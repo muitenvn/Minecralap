@@ -503,7 +503,6 @@ export default function App() {
               }
               setScreen(next);
             }}
-            onOpenSkin={handleOpenSkinModal}
             isFullscreen={isFullscreen}
             onToggleFullscreen={handleToggleFullscreen}
             onLaunchWorld={handleLaunchWorld}
@@ -511,13 +510,16 @@ export default function App() {
           />
         )}
 
-      {/* Video Options (from Title Screen) */}
+      {/* Video Options (from Title Screen — Skin & F3 inside Settings) */}
       {screen === 'options' && (
         <VideoOptionsModal
           settings={settings}
           pack={compiledPack}
           inGame={false}
           isFullscreen={isFullscreen}
+          showF3={showF3}
+          onToggleF3={() => setShowF3((prev) => !prev)}
+          onOpenSkin={handleOpenSkinModal}
           onToggleFullscreen={handleToggleFullscreen}
           onChange={handleSettingsChange}
           onSwitchTexturePreset={handleSwitchTexturePreset}
@@ -538,7 +540,6 @@ export default function App() {
             titleBanner={titleBanner}
             guiScale={settings.guiScale}
             touchVisible={touchVisible}
-            texturePreset={settings.texturePreset}
             isFullscreen={isFullscreen}
             onSelectSlot={(idx) => engineRef.current?.selectHotbarSlot(idx)}
             onSubmitChat={(text) => engineRef.current?.runCommand(text)}
@@ -552,12 +553,6 @@ export default function App() {
               engineRef.current?.setPaused(true);
             }}
             onCycleCamera={() => engineRef.current?.cycleCameraMode()}
-            onOpenSkin={handleOpenSkinModal}
-            onToggleTexturePreset={() =>
-              void handleSwitchTexturePreset(
-                settings.texturePreset === 'current' ? 'original' : 'current',
-              )
-            }
             onToggleFullscreen={handleToggleFullscreen}
             onOpenPause={() => {
               setPaused(true);
@@ -587,13 +582,7 @@ export default function App() {
                   setChatOpen(true);
                   engineRef.current?.setPaused(true);
                 }}
-                onToggleF3={() => setShowF3((prev) => !prev)}
                 onCycleCamera={() => engineRef.current?.cycleCameraMode()}
-                onOpenInventory={() => {
-                  setContainerType('inventory');
-                  engineRef.current?.setPaused(true);
-                }}
-                onOpenSkin={handleOpenSkinModal}
                 onToggleFullscreen={handleToggleFullscreen}
                 onPause={() => {
                   setPaused(true);
@@ -612,7 +601,6 @@ export default function App() {
               furnace={hud.furnace}
               pack={compiledPack}
               playerSkin={playerSkin}
-              onOpenSkin={handleOpenSkinModal}
               onUpdateInventory={(inv, arm, furn) =>
                 engineRef.current?.applyInventoryUpdate(inv, arm, furn)
               }
@@ -633,7 +621,6 @@ export default function App() {
                 isFullscreen={isFullscreen}
                 onToggleFullscreen={handleToggleFullscreen}
                 onResume={handleResumeGame}
-                onOpenSkin={handleOpenSkinModal}
                 onOpenOptions={() => setInGameModal('options')}
                 onOpenResourcePack={() => setInGameModal('resources')}
                 onExportWorld={handleExportCurrentWorld}
@@ -641,13 +628,16 @@ export default function App() {
               />
             )}
 
-          {/* In-Game Video Settings */}
+          {/* In-Game Video Settings (Skin & F3 inside Settings) */}
           {paused && inGameModal === 'options' && (
             <VideoOptionsModal
               settings={settings}
               pack={compiledPack}
               inGame
               isFullscreen={isFullscreen}
+              showF3={showF3}
+              onToggleF3={() => setShowF3((prev) => !prev)}
+              onOpenSkin={handleOpenSkinModal}
               onToggleFullscreen={handleToggleFullscreen}
               onChange={handleSettingsChange}
               onSwitchTexturePreset={handleSwitchTexturePreset}

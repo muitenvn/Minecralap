@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Flame, Hammer, Search, Trash2, User, X } from 'lucide-react';
+import { Flame, Hammer, Search, Shield, Trash2, X } from 'lucide-react';
 import { soundEngine } from '../game/audio';
 import { CreativeCategory, ITEM_DEFS } from '../game/blocks';
 import {
@@ -21,7 +21,6 @@ interface ContainerModalProps {
   furnace: FurnaceState;
   pack: CompiledResourcePack;
   playerSkin: PlayerSkinConfig;
-  onOpenSkin: () => void;
   onUpdateInventory: (
     inventory: (ItemStack | null)[],
     armor?: (ItemStack | null)[],
@@ -34,11 +33,11 @@ const ARMOR_LABELS = ['Mũ', 'Áo', 'Quần', 'Giày'];
 
 const CREATIVE_TABS: { id: 'all' | CreativeCategory; label: string }[] = [
   { id: 'all', label: 'Tất cả' },
-  { id: 'nether116', label: 'Nether 1.16' },
   { id: 'building', label: 'Xây dựng' },
-  { id: 'ores', label: 'Quặng & Đá' },
+  { id: 'nether116', label: 'Nether' },
+  { id: 'ores', label: 'Quặng' },
   { id: 'tools', label: 'Công cụ' },
-  { id: 'armor_food', label: 'Giáp & Đồ ăn' },
+  { id: 'armor_food', label: 'Giáp & Ăn' },
 ];
 
 function cloneStack(s: ItemStack | null): ItemStack | null {
@@ -93,7 +92,6 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
   furnace,
   pack,
   playerSkin,
-  onOpenSkin,
   onUpdateInventory,
   onClose,
 }) => {
@@ -111,8 +109,8 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
   const [smithBase, setSmithBase] = useState<ItemStack | null>(null);
   const [smithAdd, setSmithAdd] = useState<ItemStack | null>(null);
 
-  // Creative filters
-  const [creativeTab, setCreativeTab] = useState<'all' | CreativeCategory>('nether116');
+  // Creative filters — default to 'all' so player immediately sees full catalog
+  const [creativeTab, setCreativeTab] = useState<'all' | CreativeCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -121,17 +119,14 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  // Responsive slot size so 9 columns never overflow narrow phones (320px–390px)
   const invSlotSize = Math.max(30, Math.min(44, Math.floor((viewportWidth - 52 - 32) / 9)));
 
-  // Reset local grids if container type changes
   useEffect(() => {
     setCraftGrid(Array.from({ length: gridSize * gridSize }, () => null));
     setSmithBase(null);
     setSmithAdd(null);
   }, [type, gridSize]);
 
-  // Escape or E closes modal and returns temp items to inventory
   const handleSafeClose = () => {
     const nextInv = inventory.map(cloneStack);
     if (cursor) addStackToArray(nextInv, cursor);
@@ -156,7 +151,73 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Generic slot interaction (left click swap/merge, right click or mobile splitMode = split/place 1)
+  const setInvSlot = (idx: number, next: ItemStack | null) => {
+    const copy = inventory.map(cloneStack);
+    copy[idx] = next;
+    onUpdateInventory(copy);
+  };
+
+  const setArmorSlot = (idx: number, next: ItemStack | null) => {
+    const copy = armor.map(cloneStack);
+    copy[idx] = next;
+    onUpdateInventory(inventory, copy);
+  };
+
+  const setFurnaceSlot = (key: 'input' | 'fuel' | 'output', next: ItemStack | null) => {
+    const nextF: FurnaceState = { ...furnace, [key]: next };
+    onUpdateInventory(inventory, undefined, nextF);
+  };
+
+  // Quick-equip held cursor armor piece in 1 click/tap
+  const cursorArmorSlot = cursor ? ITEM_DEFS[cursor.itemId]?.armorSlot : undefined;
+  const handleQuickEquipCursorArmor = () => {
+    if (!cursor || cursorArmorSlot === undefined) return;
+    const nextArmor = armor.map(cloneStack);
+    const prev = nextArmor[cursorArmorSlot];
+    nextArmor[cursorArmorSlot] = { ...cursor, count: 1 };
+    setCursor(prev);
+    onUpdateInventory(inventory, nextArmor);
+    soundEngine.playClick();
+  };
+
+  // Shift+Click inventory slot to instantly equip armor
+  const handleInvSlotClick = (slotIdx: number, e?: React.MouseEvent) => {
+    const cur = inventory[slotIdx];
+    if (e?.shiftKey && cur && !cursor) {
+      const aSlot = ITEM_DEFS[cur.itemId]?.armorSlot;
+      if (aSlot !== undefined) {
+        const nextInv = inventory.map(cloneStack);
+        const nextArmor = armor.map(cloneStack);
+        const prevArmor = nextArmor[aSlot];
+        nextArmor[aSlot] = { ...cur, count: 1 };
+        nextInv[slotIdx] = prevArmor;
+        onUpdateInventory(nextInv, nextArmor);
+        soundEngine.playClick();
+        return;
+      }
+    }
+    interactSlot(cur, (n) => setInvSlot(slotIdx, n));
+  };
+
+  // Shift+Click armor slot to quickly unequip back to inventory
+  const handleArmorSlotClick = (idx: number, e?: React.MouseEvent) => {
+    const cur = armor[idx];
+    if (e?.shiftKey && cur && !cursor) {
+      const nextInv = inventory.map(cloneStack);
+      if (addStackToArray(nextInv, cur)) {
+        const nextArmor = armor.map(cloneStack);
+        nextArmor[idx] = null;
+        onUpdateInventory(nextInv, nextArmor);
+        soundEngine.playClick();
+        return;
+      }
+    }
+    interactSlot(cur, (n) => setArmorSlot(idx, n), false, (st) => {
+      return ITEM_DEFS[st.itemId]?.armorSlot === idx;
+    });
+  };
+
+  // Generic slot interaction
   const interactSlot = (
     current: ItemStack | null,
     setter: (next: ItemStack | null) => void,
@@ -169,7 +230,6 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
 
     if (useSplit) {
       if (!hand && cur) {
-        // Pick up half
         const take = Math.ceil(cur.count / 2);
         const left = cur.count - take;
         setCursor({ ...cur, count: take });
@@ -190,7 +250,6 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
       return;
     }
 
-    // Left click
     if (!hand) {
       if (cur) {
         setCursor(cur);
@@ -215,29 +274,8 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
         return;
       }
     }
-    // Swap
     setter(hand);
     setCursor(cur);
-  };
-
-  const setInvSlot = (idx: number, next: ItemStack | null) => {
-    const copy = inventory.map(cloneStack);
-    copy[idx] = next;
-    onUpdateInventory(copy);
-  };
-
-  const setArmorSlot = (idx: number, next: ItemStack | null) => {
-    const copy = armor.map(cloneStack);
-    copy[idx] = next;
-    onUpdateInventory(inventory, copy);
-  };
-
-  const setFurnaceSlot = (key: 'input' | 'fuel' | 'output', next: ItemStack | null) => {
-    const nextF: FurnaceState = {
-      ...furnace,
-      [key]: next,
-    };
-    onUpdateInventory(inventory, undefined, nextF);
   };
 
   // --- Crafting match & craft execution ---
@@ -262,7 +300,6 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
       setCursor(outStack);
     }
 
-    // Consume 1 from each occupied slot in craftGrid
     setCraftGrid((prev) =>
       prev.map((st) => {
         if (!st) return null;
@@ -272,7 +309,6 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
     soundEngine.playClick();
   };
 
-  // Recipe book helper: counts total available items in inventory + craftGrid
   const itemCounts = useMemo(() => {
     const map: Record<string, number> = {};
     for (const st of [...inventory, ...craftGrid]) {
@@ -298,10 +334,8 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
     return Object.entries(needed).every(([id, count]) => (itemCounts[id] || 0) >= count);
   };
 
-  // Auto-fill crafting grid from player inventory for a chosen recipe (PC & Mobile convenience)
   const handleQuickFillRecipe = (recipe: CraftingRecipe) => {
     const nextInv = inventory.map(cloneStack);
-    // Return current craftGrid items back to inventory first
     for (const s of craftGrid) {
       if (s) addStackToArray(nextInv, s);
     }
@@ -345,7 +379,7 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
     soundEngine.playClick();
   };
 
-  // --- Smithing Table 1.16 ---
+  // --- Smithing Table ---
   const smithOutput = useMemo(
     () => (type === 'smithing' ? matchSmithing(smithBase, smithAdd) : null),
     [type, smithBase, smithAdd],
@@ -372,11 +406,18 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
     });
   }, [creativeTab, searchQuery]);
 
-  const handlePickCreativeItem = (itemId: string) => {
+  const handlePickCreativeItem = (itemId: string, e?: React.MouseEvent) => {
     const def = ITEM_DEFS[itemId];
     if (!def) return;
+    // Shift-click armor in Creative to equip immediately!
+    if (e?.shiftKey && def.armorSlot !== undefined) {
+      const nextArmor = armor.map(cloneStack);
+      nextArmor[def.armorSlot] = { itemId, count: 1 };
+      onUpdateInventory(inventory, nextArmor);
+      soundEngine.playClick();
+      return;
+    }
     const stack: ItemStack = { itemId, count: def.maxStack };
-    // If cursor empty, put in cursor; otherwise quick-add to hotbar/inventory
     if (!cursor) {
       setCursor(stack);
     } else {
@@ -393,10 +434,10 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
   );
 
   const titleMap: Record<Exclude<ContainerType, 'none'>, string> = {
-    inventory: isCreativeCatalog ? 'Kho Sáng Tạo 1.16 (Creative)' : 'Túi Đồ & Chế Tạo 2×2',
-    crafting: 'Bàn Chế Tạo 3×3 (Crafting Table)',
-    furnace: 'Lò Nung (Furnace)',
-    smithing: 'Bàn Rèn Netherite 1.16 (Smithing Table)',
+    inventory: isCreativeCatalog ? 'Kho Sáng Tạo' : 'Túi Đồ',
+    crafting: 'Bàn Chế Tạo',
+    furnace: 'Lò Nung',
+    smithing: 'Bàn Rèn',
   };
 
   const relevantRecipes = useMemo(
@@ -420,68 +461,99 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-2 pb-2 mb-3 border-b-2 border-[#8b8b8b]">
           <div className="flex items-center gap-2 min-w-0">
-            <h2 className="font-mc font-bold text-sm sm:text-lg text-[#262626] truncate">
+            <h2 className="font-mc font-bold text-sm sm:text-base text-[#262626] truncate">
               {titleMap[type]}
             </h2>
             {cursor && (
-              <span className="text-[11px] sm:text-xs font-mono-num bg-[#52525b] text-white px-2 py-0.5 truncate max-w-[180px] sm:max-w-none">
-                Đang cầm: {ITEM_DEFS[cursor.itemId]?.nameVi || cursor.itemId} ×{cursor.count}
+              <span className="text-[11px] font-mono-num bg-[#525252] text-white px-2 py-0.5 truncate max-w-[160px] sm:max-w-none">
+                {ITEM_DEFS[cursor.itemId]?.nameVi || cursor.itemId} ×{cursor.count}
               </span>
             )}
           </div>
           <div className="flex items-center gap-1.5">
+            {cursorArmorSlot !== undefined && (
+              <button
+                type="button"
+                onClick={handleQuickEquipCursorArmor}
+                className="mc-btn mc-btn-primary min-h-[34px] px-2.5 py-1 text-xs flex items-center gap-1"
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span>Mặc giáp</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setSplitMode((v) => !v)}
-              className={`min-h-[36px] px-2.5 py-1 text-xs font-mc font-bold border-2 border-black cursor-pointer touch-manipulation ${
-                splitMode ? 'bg-[#0f766e] text-white' : 'bg-[#a8a8a8] text-[#222]'
+              className={`min-h-[34px] px-2.5 py-1 text-xs font-mc font-bold border-2 border-black cursor-pointer touch-manipulation ${
+                splitMode ? 'bg-[#3c8527] text-white' : 'bg-[#a8a8a8] text-[#222]'
               }`}
             >
-              {splitMode ? 'Chạm: Đặt 1 / Chia đôi' : 'Chạm: Cầm hết'}
+              {splitMode ? 'Tách 1' : 'Cầm hết'}
             </button>
             <button
               type="button"
               onClick={handleSafeClose}
               aria-label="Đóng"
-              className="mc-btn min-h-[36px] min-w-[36px] px-2.5 py-1 text-xs"
+              className="mc-btn min-h-[34px] min-w-[34px] px-2 py-1 text-xs flex items-center justify-center"
             >
               <X className="w-4 h-4" />
-              <span className="hidden sm:inline">Đóng</span>
             </button>
           </div>
         </div>
 
-        {/* --- CREATIVE CATALOG --- */}
+        {/* --- CREATIVE CATALOG + ARMOR BAR --- */}
         {isCreativeCatalog && (
-          <div className="space-y-3 mb-4">
-            <div className="flex flex-wrap items-center gap-1.5">
+          <div className="space-y-2.5 mb-3">
+            {/* Compact Armor Equip Strip in Creative */}
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-[#b8b8b8] border-2 border-[#8b8b8b] px-2.5 py-1.5">
+              <div className="flex items-center gap-1.5">
+                <Shield className="w-4 h-4 text-[#3f3f3f]" />
+                <span className="text-xs font-mc font-bold text-[#222]">
+                  Giáp ({totalDefense}/20)
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {ARMOR_LABELS.map((label, idx) => (
+                  <McItemSlot
+                    key={label}
+                    stack={armor[idx]}
+                    pack={pack}
+                    size={38}
+                    placeholder={label}
+                    onClick={(e) => handleArmorSlotClick(idx, e)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1">
               {CREATIVE_TABS.map((t) => (
                 <button
                   key={t.id}
                   type="button"
                   onClick={() => setCreativeTab(t.id)}
-                  className={`px-2.5 py-1.5 text-xs font-mc font-bold border-2 border-black cursor-pointer ${
+                  className={`px-2 py-1 text-xs font-mc font-bold border-2 border-black cursor-pointer ${
                     creativeTab === t.id
-                      ? 'bg-[#3f3f46] text-[#fde68a]'
-                      : 'bg-[#a8a8a8] text-[#222] hover:bg-[#b8b8b8]'
+                      ? 'bg-[#c6c6c6] text-[#111] shadow-[inset_2px_2px_0_#fff]'
+                      : 'bg-[#8b8b8b] text-[#e8e8e8] hover:bg-[#9e9e9e]'
                   }`}
                 >
                   {t.label}
                 </button>
               ))}
-              <div className="relative flex-1 min-w-[160px] ml-auto">
-                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <div className="relative flex-1 min-w-[140px] ml-auto">
+                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Tìm khối / vật phẩm 1.16..."
-                  className="w-full bg-[#222] text-white border-2 border-black pl-8 pr-2 py-1 text-xs outline-none"
+                  placeholder="Tìm kiếm..."
+                  className="w-full bg-[#222] text-white border-2 border-black pl-7 pr-2 py-1 text-xs outline-none"
                 />
               </div>
             </div>
 
-            <div className="bg-[#8b8b8b] border-2 border-[#373737] p-2 max-h-[210px] overflow-y-auto">
+            <div className="bg-[#8b8b8b] border-2 border-[#373737] p-2 max-h-[205px] overflow-y-auto">
               <div className="grid grid-cols-7 sm:grid-cols-9 md:grid-cols-11 gap-1">
                 {catalogItems.map((item) => (
                   <McItemSlot
@@ -489,8 +561,8 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                     stack={{ itemId: item.id, count: 1 }}
                     pack={pack}
                     size={42}
-                    title={`${item.nameVi} (${item.id}) — Nhấn để lấy`}
-                    onClick={() => handlePickCreativeItem(item.id)}
+                    title={item.nameVi}
+                    onClick={(e) => handlePickCreativeItem(item.id, e)}
                   />
                 ))}
               </div>
@@ -500,53 +572,41 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
 
         {/* --- SURVIVAL INVENTORY (ARMOR + 2x2 CRAFTING) --- */}
         {type === 'inventory' && !isCreativeCatalog && (
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_240px] gap-4 mb-4">
-            <div className="flex flex-wrap items-center justify-between gap-4 bg-[#b8b8b8] border-2 border-[#8b8b8b] p-3">
-              {/* Armor column */}
-              <div className="flex items-center gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_240px] gap-3 mb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-[#b8b8b8] border-2 border-[#8b8b8b] p-2.5">
+              {/* Armor column + classic black 3D character box (NO Skin button here!) */}
+              <div className="flex items-center gap-2.5">
                 <div className="flex flex-col gap-1">
                   {ARMOR_LABELS.map((label, idx) => (
                     <McItemSlot
                       key={label}
                       stack={armor[idx]}
                       pack={pack}
-                      size={42}
+                      size={40}
                       placeholder={label}
-                      onClick={() =>
-                        interactSlot(armor[idx], (n) => setArmorSlot(idx, n), false, (st) => {
-                          return ITEM_DEFS[st.itemId]?.armorSlot === idx;
-                        })
-                      }
+                      onClick={(e) => handleArmorSlotClick(idx, e)}
                     />
                   ))}
                 </div>
-                <div className="bg-[#120f1a] border-2 border-black w-[114px] flex flex-col items-center justify-between p-1.5">
-                  <SkinPreview3D skin={playerSkin} armor={armor} walking={false} height={138} interactive />
+                <div className="bg-black border-2 border-[#373737] w-[108px] flex flex-col items-center justify-between p-1">
+                  <SkinPreview3D skin={playerSkin} armor={armor} walking={false} height={144} interactive />
                   <div className="text-[10px] font-mono-num text-zinc-300">
                     Giáp: {totalDefense}/20
                   </div>
-                  <button
-                    type="button"
-                    onClick={onOpenSkin}
-                    className="mt-1 w-full py-1 bg-[#252035] hover:bg-[#322b47] border border-white/20 text-[10px] font-mc text-[#fde68a] flex items-center justify-center gap-1 cursor-pointer"
-                  >
-                    <User className="w-3 h-3" />
-                    Đổi Skin
-                  </button>
                 </div>
               </div>
 
               {/* 2x2 Crafting */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5">
                 <div>
-                  <div className="text-xs font-mc font-bold mb-1">Chế tạo 2×2</div>
+                  <div className="text-xs font-mc font-bold mb-1">Chế tạo</div>
                   <div className="grid grid-cols-2 gap-1">
                     {craftGrid.map((st, idx) => (
                       <McItemSlot
                         key={idx}
                         stack={st}
                         pack={pack}
-                        size={42}
+                        size={40}
                         onClick={() =>
                           interactSlot(st, (n) =>
                             setCraftGrid((prev) => prev.map((v, i) => (i === idx ? n : v))),
@@ -563,29 +623,24 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                     ))}
                   </div>
                 </div>
-                <div className="text-xl font-bold text-[#444]">→</div>
-                <div>
-                  <div className="text-xs font-mc font-bold mb-1">Kết quả</div>
-                  <McItemSlot
-                    stack={
-                      matchedRecipe
-                        ? { itemId: matchedRecipe.output.itemId, count: matchedRecipe.output.count }
-                        : null
-                    }
-                    pack={pack}
-                    size={46}
-                    active={Boolean(matchedRecipe)}
-                    onClick={handleTakeCraftOutput}
-                  />
-                </div>
+                <div className="text-lg font-bold text-[#444]">→</div>
+                <McItemSlot
+                  stack={
+                    matchedRecipe
+                      ? { itemId: matchedRecipe.output.itemId, count: matchedRecipe.output.count }
+                      : null
+                  }
+                  pack={pack}
+                  size={44}
+                  active={Boolean(matchedRecipe)}
+                  onClick={handleTakeCraftOutput}
+                />
               </div>
             </div>
 
             {/* Quick 2x2 Recipe Book */}
-            <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-2 max-h-[206px] overflow-y-auto">
-              <div className="text-xs font-mc font-bold mb-1.5 text-[#222]">
-                Sổ công thức 2×2 (Nhấn để điền)
-              </div>
+            <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-2 max-h-[192px] overflow-y-auto">
+              <div className="text-xs font-mc font-bold mb-1.5 text-[#222]">Công thức</div>
               <div className="space-y-1">
                 {relevantRecipes.map((r) => {
                   const ok = canAffordRecipe(r);
@@ -615,15 +670,15 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
 
         {/* --- CRAFTING TABLE 3x3 --- */}
         {type === 'crafting' && (
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_270px] gap-4 mb-4">
-            <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-4 flex items-center justify-center gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_270px] gap-3 mb-3">
+            <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-3 flex items-center justify-center gap-4">
               <div className="grid grid-cols-3 gap-1">
                 {craftGrid.map((st, idx) => (
                   <McItemSlot
                     key={idx}
                     stack={st}
                     pack={pack}
-                    size={46}
+                    size={44}
                     onClick={() =>
                       interactSlot(st, (n) =>
                         setCraftGrid((prev) => prev.map((v, i) => (i === idx ? n : v))),
@@ -647,16 +702,14 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                     : null
                 }
                 pack={pack}
-                size={52}
+                size={50}
                 active={Boolean(matchedRecipe)}
                 onClick={handleTakeCraftOutput}
               />
             </div>
 
             <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-2 max-h-[210px] overflow-y-auto">
-              <div className="text-xs font-mc font-bold mb-1.5 text-[#222]">
-                Sổ Công Thức 1.16 (Nhấn để điền nhanh)
-              </div>
+              <div className="text-xs font-mc font-bold mb-1.5 text-[#222]">Công thức</div>
               <div className="space-y-1">
                 {CRAFTING_RECIPES.map((r) => {
                   const ok = canAffordRecipe(r);
@@ -686,18 +739,15 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
 
         {/* --- FURNACE --- */}
         {type === 'furnace' && (
-          <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-4 mb-4">
+          <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-4 mb-3">
             <div className="flex flex-wrap items-center justify-center gap-6">
               <div className="flex flex-col items-center gap-2">
-                <div className="text-xs font-mc font-bold">Nguyên liệu</div>
                 <McItemSlot
                   stack={furnace.input}
                   pack={pack}
                   size={48}
                   placeholder="Quặng"
-                  onClick={() =>
-                    interactSlot(furnace.input, (n) => setFurnaceSlot('input', n))
-                  }
+                  onClick={() => interactSlot(furnace.input, (n) => setFurnaceSlot('input', n))}
                   onContextMenu={() =>
                     interactSlot(furnace.input, (n) => setFurnaceSlot('input', n), true)
                   }
@@ -718,10 +768,9 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                     interactSlot(furnace.fuel, (n) => setFurnaceSlot('fuel', n), true)
                   }
                 />
-                <div className="text-[11px] text-[#444]">Nhiên liệu (Than / Gỗ)</div>
               </div>
 
-              <div className="flex flex-col items-center gap-1.5 min-w-[110px]">
+              <div className="flex flex-col items-center gap-1.5 min-w-[100px]">
                 <div className="w-24 h-3.5 bg-[#555] border border-black overflow-hidden">
                   <div
                     className="h-full bg-[#f59e0b]"
@@ -733,79 +782,67 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                 </span>
               </div>
 
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="text-xs font-mc font-bold">Thành phẩm</div>
-                <McItemSlot
-                  stack={furnace.output}
-                  pack={pack}
-                  size={54}
-                  active={Boolean(furnace.output)}
-                  onClick={() => {
-                    if (!furnace.output) return;
-                    interactSlot(furnace.output, (n) => setFurnaceSlot('output', n));
-                  }}
-                />
-              </div>
+              <McItemSlot
+                stack={furnace.output}
+                pack={pack}
+                size={52}
+                active={Boolean(furnace.output)}
+                onClick={() => {
+                  if (!furnace.output) return;
+                  interactSlot(furnace.output, (n) => setFurnaceSlot('output', n));
+                }}
+              />
             </div>
           </div>
         )}
 
-        {/* --- 1.16 SMITHING TABLE --- */}
+        {/* --- SMITHING TABLE --- */}
         {type === 'smithing' && (
-          <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-4 mb-4">
-            <div className="flex items-center gap-2 justify-center mb-3 text-xs sm:text-sm font-mc font-bold text-[#222]">
+          <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-4 mb-3">
+            <div className="flex items-center gap-2 justify-center mb-3 text-xs font-mc font-bold text-[#222]">
               <Hammer className="w-4 h-4" />
-              Nâng cấp Trang Bị Kim Cương + Thỏi Netherite → Trang Bị Netherite 1.16 (Giữ nguyên Phù Phép)
+              Nâng cấp Netherite
             </div>
             <div className="flex flex-wrap items-center justify-center gap-4">
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-[11px] font-bold">Đồ Kim Cương</span>
-                <McItemSlot
-                  stack={smithBase}
-                  pack={pack}
-                  size={50}
-                  placeholder="KC"
-                  onClick={() => interactSlot(smithBase, setSmithBase)}
-                />
-              </div>
+              <McItemSlot
+                stack={smithBase}
+                pack={pack}
+                size={48}
+                placeholder="KC"
+                onClick={() => interactSlot(smithBase, setSmithBase)}
+              />
               <span className="text-xl font-bold">+</span>
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-[11px] font-bold">Thỏi Netherite</span>
-                <McItemSlot
-                  stack={smithAdd}
-                  pack={pack}
-                  size={50}
-                  placeholder="Neth."
-                  onClick={() => interactSlot(smithAdd, setSmithAdd)}
-                />
-              </div>
+              <McItemSlot
+                stack={smithAdd}
+                pack={pack}
+                size={48}
+                placeholder="Neth"
+                onClick={() => interactSlot(smithAdd, setSmithAdd)}
+              />
               <span className="text-xl font-bold">→</span>
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-[11px] font-bold">Netherite 1.16</span>
-                <McItemSlot
-                  stack={smithOutput}
-                  pack={pack}
-                  size={54}
-                  active={Boolean(smithOutput)}
-                  onClick={handleForgeSmithing}
-                />
-              </div>
+              <McItemSlot
+                stack={smithOutput}
+                pack={pack}
+                size={52}
+                active={Boolean(smithOutput)}
+                onClick={handleForgeSmithing}
+              />
             </div>
           </div>
         )}
 
         {/* --- PLAYER MAIN INVENTORY (27 SLOTS) --- */}
-        <div className="mb-3">
+        <div className="mb-2.5">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-mc font-bold text-[#333]">Túi đồ chính</span>
+            <span className="text-xs font-mc font-bold text-[#3f3f3f]">Túi đồ</span>
             {cursor && (
               <McButton
                 variant="crimson"
                 onClick={() => setCursor(null)}
-                className="min-h-[30px] px-2 py-0.5 text-xs"
+                className="min-h-[28px] px-2 py-0.5 text-xs"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                Xóa vật phẩm đang cầm
+                Xóa
               </McButton>
             )}
           </div>
@@ -818,9 +855,7 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                   stack={inventory[slotIdx]}
                   pack={pack}
                   size={invSlotSize}
-                  onClick={() =>
-                    interactSlot(inventory[slotIdx], (n) => setInvSlot(slotIdx, n))
-                  }
+                  onClick={(e) => handleInvSlotClick(slotIdx, e)}
                   onContextMenu={() =>
                     interactSlot(inventory[slotIdx], (n) => setInvSlot(slotIdx, n), true)
                   }
@@ -832,7 +867,6 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
 
         {/* --- HOTBAR (9 SLOTS) --- */}
         <div className="pt-2 border-t-2 border-[#8b8b8b]">
-          <div className="text-xs font-mc font-bold text-[#333] mb-1">Thanh công cụ nhanh (1–9)</div>
           <div className="grid grid-cols-9 gap-1 justify-items-center">
             {Array.from({ length: 9 }).map((_, idx) => (
               <McItemSlot
@@ -840,7 +874,7 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                 stack={inventory[idx]}
                 pack={pack}
                 size={invSlotSize}
-                onClick={() => interactSlot(inventory[idx], (n) => setInvSlot(idx, n))}
+                onClick={(e) => handleInvSlotClick(idx, e)}
                 onContextMenu={() =>
                   interactSlot(inventory[idx], (n) => setInvSlot(idx, n), true)
                 }

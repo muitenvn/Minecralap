@@ -3,6 +3,7 @@ import { unzipSync } from 'fflate';
 import { ALL_TEXTURE_KEYS, BLOCK_DEFS, ITEM_DEFS } from './blocks';
 import { CachedResourcePack, PackManifest } from './types';
 import { saveResourcePack } from './storage';
+import { paintOriginalBlockCanvas } from './vanillaTextures';
 
 export interface AtlasUV {
   u0: number;
@@ -392,6 +393,79 @@ function drawToolIconDataUrl(shape: string, color: string, accent: string): stri
     p(9, 6, 5, 7, color);
     p(2, 11, 5, 2, accent);
     p(9, 11, 5, 2, accent);
+  } else if (shape === 'hoe') {
+    for (let i = 0; i < 9; i++) p(3 + i, 12 - i, 2, 2, stick);
+    p(6, 2, 7, 2, color);
+    p(11, 4, 2, 2, color);
+    p(7, 2, 5, 1, accent);
+  } else if (shape === 'bucket' || shape === 'bucket_water' || shape === 'bucket_lava') {
+    p(3, 4, 10, 2, '#71717a');
+    p(3, 6, 10, 7, color);
+    p(5, 12, 6, 2, color);
+    p(4, 6, 2, 6, accent);
+    if (shape === 'bucket_water') p(4, 4, 8, 3, '#3b82f6');
+    if (shape === 'bucket_lava') p(4, 4, 8, 3, '#f97316');
+  } else if (shape === 'bow') {
+    p(4, 2, 3, 2, color);
+    p(2, 4, 2, 8, color);
+    p(4, 12, 3, 2, color);
+    p(7, 3, 1, 10, accent);
+  } else if (shape === 'arrow') {
+    for (let i = 0; i < 8; i++) p(4 + i, 11 - i, 2, 2, stick);
+    p(10, 2, 4, 4, color);
+    p(2, 11, 3, 3, accent);
+  } else if (shape === 'shield') {
+    p(3, 2, 10, 12, accent);
+    p(4, 3, 8, 10, color);
+    p(7, 4, 2, 8, '#6b4d28');
+  } else if (shape === 'shears') {
+    p(2, 9, 4, 4, accent);
+    p(9, 9, 4, 4, accent);
+    p(4, 4, 3, 6, color);
+    p(8, 4, 3, 6, color);
+  } else if (shape === 'book') {
+    p(3, 2, 10, 12, color);
+    p(5, 3, 7, 10, accent);
+    p(3, 2, 2, 12, '#4a2b14');
+  } else if (shape === 'paper') {
+    p(3, 2, 10, 12, color);
+    p(5, 5, 6, 1, '#a1a1aa');
+    p(5, 8, 6, 1, '#a1a1aa');
+    p(5, 11, 4, 1, '#a1a1aa');
+  } else if (shape === 'bone') {
+    p(3, 3, 3, 3, color);
+    p(10, 10, 3, 3, color);
+    for (let i = 0; i < 7; i++) p(5 + i, 5 + i, 2, 2, accent);
+  } else if (shape === 'string') {
+    p(4, 3, 8, 2, color);
+    p(3, 5, 2, 6, accent);
+    p(5, 11, 7, 2, color);
+    p(10, 5, 2, 5, accent);
+  } else if (shape === 'totem') {
+    p(5, 2, 6, 5, color);
+    p(2, 6, 12, 3, color);
+    p(5, 7, 6, 7, color);
+    p(6, 4, 1, 1, accent);
+    p(9, 4, 1, 1, accent);
+  } else if (shape === 'rod') {
+    for (let i = 0; i < 10; i++) p(3 + i, 12 - i, 2, 2, i % 2 === 0 ? color : accent);
+  } else if (shape === 'apple') {
+    p(7, 2, 2, 3, '#6b4226');
+    p(4, 5, 8, 8, color);
+    p(5, 4, 6, 10, color);
+    p(5, 6, 2, 2, accent);
+  } else if (shape === 'bread') {
+    p(2, 6, 12, 6, color);
+    p(4, 5, 8, 7, color);
+    p(4, 6, 3, 2, accent);
+    p(9, 6, 3, 2, accent);
+  } else if (shape === 'pearl') {
+    p(5, 3, 6, 10, color);
+    p(3, 5, 10, 6, color);
+    p(5, 5, 3, 3, accent);
+  } else if (shape === 'feather') {
+    for (let i = 0; i < 9; i++) p(3 + i, 12 - i, 3, 2, i < 3 ? '#a1a1aa' : color);
+    p(8, 3, 4, 4, accent);
   } else {
     p(4, 4, 8, 8, color);
     p(5, 5, 4, 4, accent);
@@ -417,7 +491,7 @@ export async function compileResourcePack(
   ctx.clearRect(0, 0, atlasDim, atlasDim);
 
   const uvMap: Record<string, AtlasUV> = {};
-  const tileImages: Record<string, HTMLImageElement> = {};
+  const tileImages: Record<string, HTMLImageElement | HTMLCanvasElement> = {};
   const previewTiles: { key: string; url: string }[] = [];
 
   await Promise.all(
@@ -427,22 +501,24 @@ export async function compileResourcePack(
       const px = col * TILE;
       const py = row * TILE;
       const blob = cached.blockBlobs[key];
+      let drawn = false;
       if (blob) {
         try {
           const img = await blobToImage(blob);
           tileImages[key] = img;
-          // Draw scaled to 16x16 (works with 16x16, 32x32, 64x64 resource packs cleanly; crops animated strips to frame 0)
           const srcSize = Math.min(img.width, img.height);
           ctx.drawImage(img, 0, 0, srcSize, srcSize, px, py, TILE, TILE);
+          drawn = true;
         } catch {
-          ctx.fillStyle = '#8b5cf6';
-          ctx.fillRect(px, py, TILE, TILE);
+          drawn = false;
         }
-      } else {
-        ctx.fillStyle = '#52525b';
-        ctx.fillRect(px, py, TILE, TILE);
       }
-      // Small inset to prevent UV bleeding across neighbor tiles
+      if (!drawn) {
+        // Crisp 16x16 classic Minecraft texture fallback for expanded blocks
+        const fallbackCanvas = paintOriginalBlockCanvas(key);
+        tileImages[key] = fallbackCanvas;
+        ctx.drawImage(fallbackCanvas, 0, 0, 16, 16, px, py, TILE, TILE);
+      }
       const eps = 0.0008;
       uvMap[key] = {
         u0: px / atlasDim + eps,
@@ -467,7 +543,13 @@ export async function compileResourcePack(
       const topImg = tileImages[bdef.textures.top];
       const sideImg = tileImages[bdef.textures.front || bdef.textures.side];
       iconCtx.clearRect(0, 0, 32, 32);
-      if (bdef.key === 'torch' || bdef.key === 'soul_lantern') {
+      if (
+        bdef.key === 'torch' ||
+        bdef.key === 'soul_torch' ||
+        bdef.key === 'soul_lantern' ||
+        bdef.key === 'lantern' ||
+        bdef.key === 'ladder'
+      ) {
         if (sideImg) {
           const s = Math.min(sideImg.width, sideImg.height);
           iconCtx.drawImage(sideImg, 0, 0, s, s, 4, 4, 24, 24);
