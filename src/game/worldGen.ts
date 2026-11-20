@@ -33,7 +33,7 @@ export interface ChunkColumn {
   cz: number;
   dimension: DimensionId;
   // 16 subchunks of 16x16x16 (Y = 0..255). Empty subchunks stay null (0 RAM!)
-  sections: (Uint8Array | null)[];
+  sections: (Uint16Array | null)[];
   dirtySections: boolean[];
 }
 
@@ -54,7 +54,7 @@ export function setChunkBlock(col: ChunkColumn, lx: number, y: number, lz: numbe
   let sec = col.sections[sy];
   if (!sec) {
     if (id === BLOCK.AIR) return;
-    sec = new Uint8Array(4096);
+    sec = new Uint16Array(4096);
     col.sections[sy] = sec;
   }
   const idx = sectionIndex(lx, y & 15, lz);

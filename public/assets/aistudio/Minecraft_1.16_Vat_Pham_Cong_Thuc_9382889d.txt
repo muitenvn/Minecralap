@@ -1,0 +1,515 @@
+MINECRAFT 1.16 — DANH SÁCH VẬT PHẨM VÀ CÔNG THỨC
+Phiên bản mục tiêu: Java Edition 1.16.x và Bedrock Edition 1.16.x
+Ngôn ngữ: Tiếng Việt (giữ tên tiếng Anh để tra cứu ID/wiki)
+Quy ước:
+- "xN" là số lượng đầu ra.
+- Công thức không có vị trí cố định là shapeless (không cần xếp đúng hình).
+- Công thức có mô tả hàng/cột là shaped (phải xếp đúng hình; có thể đặt lệch trong bàn 3x3).
+- Các công thức nung ghi rõ lò nung/lò cao/lò hun khói/lửa trại khi có khác biệt.
+- Một số cơ chế (đổi màu giáp, sửa đồ, bản đồ, chế tạo pháo hoa tùy dữ liệu, giao dịch dân làng...) không phải recipe cố định hoặc phụ thuộc trạng thái/NBT.
+- Java và Bedrock 1.16 không có bộ recipe hoàn toàn giống nhau. Danh sách chung dùng cho cả hai; khác biệt được ghi chú.
+- Đây là danh sách công thức chế tạo và xử lý thông dụng/cố định của 1.16, không phải danh mục mọi block/item không chế tạo được.
+
+============================================================
+A. NGUYÊN LIỆU CƠ BẢN / BASIC MATERIALS
+============================================================
+Ván gỗ (Planks): 1 khúc gỗ/thân gỗ đã bóc vỏ/wood → 4 ván cùng loại.
+Gậy (Stick): 2 ván gỗ xếp dọc → 4.
+Bàn chế tạo (Crafting Table): 4 ván gỗ (2x2).
+Rương (Chest): 8 ván gỗ, chừa ô giữa trống.
+Bát (Bowl): 3 ván gỗ hình chữ V → 4.
+Đuốc (Torch): 1 than hoặc than củi + 1 gậy → 4.
+Đuốc linh hồn (Soul Torch): 1 than/than củi + 1 gậy + 1 Soul Soil/Soul Sand → 4.
+Lò nung (Furnace): 8 Cobblestone hoặc Blackstone, chừa ô giữa.
+Lò cao (Blast Furnace): 5 Iron Ingot + 1 Furnace + 3 Smooth Stone.
+Lò hun khói (Smoker): 4 Log/Wood/Stripped Log/Stripped Wood + 1 Furnace.
+Bàn rèn (Smithing Table): 4 ván gỗ + 2 Iron Ingot.
+Bàn mài (Grindstone): 2 Stick + 1 Stone Slab + 2 ván gỗ.
+Bàn cung tên (Fletching Table): 2 Flint + 4 ván gỗ.
+Bàn bản đồ (Cartography Table): 2 Paper + 4 ván gỗ.
+Bàn dệt (Loom): 2 String + 2 ván gỗ.
+Bàn nghề đá (Stonecutter): 1 Iron Ingot + 3 Stone.
+Thùng (Barrel): 6 ván gỗ + 2 Wooden Slab.
+Giá ủ thuốc (Brewing Stand): 1 Blaze Rod + 3 Cobblestone/Blackstone.
+Vạc (Cauldron): 7 Iron Ingot hình chữ U.
+Đe (Anvil): 3 Block of Iron + 4 Iron Ingot.
+Khối sắt/vàng/kim cương/emerald/lapis/quartz: 9 thỏi/nguyên liệu tương ứng.
+Khối than (Block of Coal): 9 Coal.
+Khối đồng? KHÔNG CÓ trong 1.16.
+Khối xương (Bone Block): 9 Bone Meal.
+Khối slime (Slime Block): 9 Slimeball.
+Khối mật ong (Honey Block): 4 Honey Bottle.
+Khối tổ ong (Honeycomb Block): 4 Honeycomb.
+Khối Netherite (Block of Netherite): 9 Netherite Ingot.
+Khối đá phát sáng (Glowstone): 4 Glowstone Dust.
+Khối đá đỏ (Block of Redstone): 9 Redstone Dust.
+Khối magma (Magma Block): 4 Magma Cream.
+Khối thạch anh (Block of Quartz): 4 Nether Quartz.
+Gạch Nether (Nether Bricks): 4 Nether Brick item.
+Gạch đỏ (Bricks block): 4 Brick item.
+Đất sét nung (Terracotta): nung Clay Block.
+Bê tông (Concrete): Concrete Powder + nước (không phải bàn chế tạo).
+Bê tông bột (Concrete Powder): 4 Sand + 4 Gravel + 1 dye → 8.
+Đá mịn (Smooth Stone): nung Stone.
+Đá (Stone): nung Cobblestone.
+Đá cuội rêu (Mossy Cobblestone): 1 Cobblestone + 1 Vine (shapeless).
+Đá gạch rêu (Mossy Stone Bricks): 1 Stone Bricks + 1 Vine (shapeless).
+Đá andesite: 1 Diorite + 1 Cobblestone → 2.
+Đá granite: 1 Diorite + 1 Nether Quartz (shapeless).
+Đá diorite: 2 Cobblestone + 2 Nether Quartz (shapeless).
+Đá đen đánh bóng (Polished Blackstone): 4 Blackstone.
+Gạch Blackstone đánh bóng: 4 Polished Blackstone.
+Đá đen đánh bóng đục (Chiseled Polished Blackstone): 2 Polished Blackstone Slab.
+Đá đen đánh bóng nứt: nung Polished Blackstone Bricks.
+Đá cuội Nether (Netherrack): không chế tạo.
+Đá cổ đại (Ancient Debris): không chế tạo; nung → Netherite Scrap.
+
+============================================================
+B. CÔNG CỤ, VŨ KHÍ, GIÁP
+============================================================
+Quy ước công cụ: cùng một khuôn công thức, thay vật liệu bằng Planks / Cobblestone hoặc Blackstone / Iron Ingot / Gold Ingot / Diamond.
+Cuốc chim (Pickaxe): hàng trên 3 vật liệu; giữa ô giữa 1 Stick; dưới ô giữa 1 Stick.
+Rìu (Axe): 3 vật liệu tạo hình chữ L quanh góc trên; 2 Stick ở giữa và dưới giữa.
+Xẻng (Shovel): 1 vật liệu ở trên giữa; 2 Stick ở giữa và dưới giữa.
+Kiếm (Sword): 2 vật liệu xếp dọc ở trên; 1 Stick dưới cùng.
+Cuốc (Hoe): 2 vật liệu ở trên trái + trên giữa; 2 Stick ở giữa + dưới giữa.
+Kéo (Shears): 2 Iron Ingot đặt chéo → 1.
+Bật lửa (Flint and Steel): 1 Iron Ingot + 1 Flint (chéo) → 1.
+La bàn (Compass): 4 Iron Ingot quanh 1 Redstone.
+Đồng hồ (Clock): 4 Gold Ingot quanh 1 Redstone.
+Cần câu (Fishing Rod): 3 Stick theo đường chéo + 2 String ở cạnh phải.
+Cung (Bow): 3 Stick + 3 String; gậy tạo khung cung, dây ở cột phải.
+Nỏ (Crossbow): 3 Stick + 2 String + 1 Iron Ingot + 1 Tripwire Hook.
+Móc dây (Tripwire Hook): 1 Iron Ingot + 1 Stick + 1 ván gỗ xếp dọc.
+Khiên (Shield): 6 Planks + 1 Iron Ingot; sắt ở ô trên giữa, ván tạo hình khiên.
+Tên (Arrow): 1 Flint + 1 Stick + 1 Feather xếp dọc → 4.
+Giá treo giáp (Armor Stand): 6 Stick + 1 Smooth Stone Slab.
+Mũ da/sắt/vàng/kim cương: 5 vật liệu hình chữ U.
+Áo giáp: 8 vật liệu, chừa ô trên giữa.
+Quần giáp: 7 vật liệu hình chữ U, chừa giữa trên và giữa.
+Ủng: 4 vật liệu ở hai góc trái/phải của hai hàng dưới.
+Mũ rùa (Turtle Shell): 5 Scute hình chữ U.
+Mũ Netherite, áo Netherite, quần Netherite, ủng Netherite, công cụ Netherite: KHÔNG chế tạo trực tiếp; dùng Smithing Table: món Diamond tương ứng + 1 Netherite Ingot → món Netherite tương ứng.
+Mảnh Netherite (Netherite Scrap): nung Ancient Debris.
+Thỏi Netherite (Netherite Ingot): 4 Netherite Scrap + 4 Gold Ingot (shapeless).
+Kiếm/giáp/công cụ sửa: dùng Anvil hoặc Grindstone theo cơ chế; không phải recipe bàn chế tạo cố định.
+
+============================================================
+C. ĐỒ ĂN, NÔNG NGHIỆP
+============================================================
+Bánh mì (Bread): 3 Wheat xếp ngang.
+Bánh quy (Cookie): 2 Wheat + 1 Cocoa Beans → 8.
+Bánh ngọt (Cake): 3 Milk Bucket hàng trên; Sugar + Egg + Sugar hàng giữa; 3 Wheat hàng dưới → 1 (xô rỗng được trả lại).
+Bánh bí ngô (Pumpkin Pie): Pumpkin + Sugar + Egg → 1.
+Táo vàng (Golden Apple): 8 Gold Ingot quanh 1 Apple.
+Cà rốt vàng (Golden Carrot): 8 Gold Nugget quanh 1 Carrot.
+Táo vàng phù phép (Enchanted Golden Apple): KHÔNG chế tạo trong 1.16; tìm trong rương chiến lợi phẩm.
+Súp nấm (Mushroom Stew): Red Mushroom + Brown Mushroom + Bowl → 1.
+Súp củ dền (Beetroot Soup): 6 Beetroot + Bowl → 1.
+Thỏ hầm (Rabbit Stew): Cooked Rabbit + Carrot + Baked Potato + Brown/Red Mushroom + Bowl → 1.
+Đường (Sugar): 1 Sugar Cane → 1.
+Giấy (Paper): 3 Sugar Cane xếp ngang → 3.
+Hạt giống (Seeds): thu hoạch/cỏ; không có công thức bàn chế tạo.
+Bó cỏ khô (Hay Bale): 9 Wheat.
+Cỏ khô thành Wheat: 1 Hay Bale → 9 Wheat.
+Hạt dưa (Melon Seeds): 1 Melon Slice → 1.
+Hạt bí ngô (Pumpkin Seeds): 1 Pumpkin → 4.
+Hạt củ dền: thu hoạch Beetroot; không chế tạo.
+Hạt cacao: thu hoạch Cocoa Pod; không chế tạo.
+Mật ong (Honey Bottle): dùng Glass Bottle lên Beehive/Bee Nest đầy mật; không phải công thức bàn chế tạo.
+Khối mật ong (Honey Block): 4 Honey Bottle → 1 (chai rỗng được trả lại).
+Tổ ong (Honeycomb): dùng Shears lên tổ ong đầy mật.
+Nến: KHÔNG CÓ trong 1.16.
+
+============================================================
+D. VẬT PHẨM, TIỆN ÍCH, DI CHUYỂN
+============================================================
+Sách (Book): 3 Paper + 1 Leather.
+Giá sách (Bookshelf): 6 Planks + 3 Book.
+Bản đồ trống (Empty Map): 8 Paper + 1 Compass (Java); Bedrock có công thức bản đồ khác tùy loại/phiên bản, có thể tạo map không la bàn.
+Bản đồ đã mở rộng: 1 Map + 8 Paper trên Cartography Table.
+Bản đồ khóa: Map + Glass Pane trên Cartography Table.
+Bản đồ đánh dấu vị trí (Bedrock): Map + Compass (tùy loại).
+Khung vật phẩm (Item Frame): 8 Stick + 1 Leather.
+Khung phát sáng (Glow Item Frame): KHÔNG CÓ trong 1.16.
+Tranh (Painting): 8 Stick + 1 Wool.
+Biển hiệu (Sign): 6 Planks + 1 Stick → 3.
+Thang (Ladder): 7 Stick → 3.
+Giường (Bed): 3 Wool cùng màu + 3 Planks → 1.
+Cửa gỗ (Door): 6 Planks → 3.
+Cửa sắt (Iron Door): 6 Iron Ingot → 3.
+Cửa sập gỗ (Trapdoor): 6 Planks → 2.
+Cửa sập sắt (Iron Trapdoor): 4 Iron Ingot → 1.
+Hàng rào (Fence): 4 Planks + 2 Stick → 3.
+Cổng hàng rào (Fence Gate): 2 Planks + 4 Stick → 1.
+Tấm áp lực gỗ: 2 Planks → 1.
+Tấm áp lực đá: 2 Stone → 1.
+Nút gỗ/đá/Blackstone: 1 khối/ván tương ứng → 1.
+Thuyền (Boat): 5 Planks cùng loại theo hình chữ U → 1.
+Xe mỏ (Minecart): 5 Iron Ingot hình chữ U.
+Xe mỏ có rương: Minecart + Chest (shapeless).
+Xe mỏ có phễu: Minecart + Hopper.
+Xe mỏ có TNT: Minecart + TNT.
+Đường ray (Rail): 6 Iron Ingot + 1 Stick → 16.
+Đường ray điện (Powered Rail): 6 Gold Ingot + 1 Stick + 1 Redstone → 6.
+Đường ray cảm biến (Detector Rail): 6 Iron Ingot + 1 Stone Pressure Plate + 1 Redstone → 6.
+Đường ray kích hoạt (Activator Rail): 6 Iron Ingot + 2 Stick + 1 Redstone Torch → 6.
+Giấy pháo hoa (Firework Rocket): 1 Paper + 1–3 Gunpowder → 1 rocket; thời gian bay tùy lượng thuốc súng.
+Sao pháo hoa (Firework Star): Gunpowder + Dye (thêm vật liệu tùy hiệu ứng: Diamond, Glowstone Dust, Gold Nugget, Feather, Fire Charge, Mob Head).
+Tên lửa pháo hoa có hiệu ứng: Rocket + Firework Star(s) (recipe đặc biệt, biến thể).
+Bàn phù phép (Enchanting Table): 4 Obsidian + 2 Diamond + 1 Book.
+Bàn đọc sách (Lectern): 1 Bookshelf + 4 Wooden Slab.
+Bàn chế tạo (Crafting Table): 4 Planks.
+Rương Ender (Ender Chest): 8 Obsidian + 1 Eye of Ender.
+Hòm Shulker: Shulker Shell + Chest + Shulker Shell (xếp dọc).
+Đèn lồng (Lantern): 8 Iron Nugget + 1 Torch.
+Đèn lồng linh hồn (Soul Lantern): 8 Iron Nugget + 1 Soul Torch.
+Đèn biển (Sea Lantern): không chế tạo; có thể thu thập bằng Silk Touch.
+Đèn bí ngô (Jack o'Lantern): Carved Pumpkin + Torch.
+Bí ngô khắc: dùng Shears lên Pumpkin.
+Bó đuốc: không có.
+Móc neo hồi sinh (Respawn Anchor): 6 Crying Obsidian + 3 Glowstone.
+Đá nam châm (Lodestone): 8 Chiseled Stone Bricks + 1 Netherite Ingot.
+Đá phát nhạc (Note Block): 8 Planks + 1 Redstone.
+Máy phát nhạc (Jukebox): 8 Planks + 1 Diamond.
+Bản đồ kho báu, đĩa nhạc: không chế tạo.
+
+============================================================
+E. REDSTONE VÀ MÁY MÓC
+============================================================
+Bụi Redstone: khai thác quặng Redstone; không chế tạo.
+Đuốc Redstone: 1 Stick + 1 Redstone.
+Bộ lặp Redstone (Repeater): 3 Stone + 2 Redstone Torch + 1 Redstone.
+Bộ so sánh Redstone (Comparator): 3 Stone + 3 Redstone Torch + 1 Nether Quartz.
+Piston: 3 Planks + 4 Cobblestone + 1 Iron Ingot + 1 Redstone.
+Piston dính: 1 Piston + 1 Slimeball.
+Máy phân phát (Dispenser): 7 Cobblestone + 1 Bow + 1 Redstone.
+Máy bắn (Dropper): 7 Cobblestone + 1 Redstone.
+Phễu (Hopper): 5 Iron Ingot + 1 Chest.
+Máy quan sát (Observer): 6 Cobblestone + 2 Redstone + 1 Nether Quartz.
+Máy phát hiện ánh sáng ban ngày (Daylight Detector): 3 Glass + 3 Nether Quartz + 3 Wooden Slab.
+Đèn Redstone (Redstone Lamp): 4 Redstone + 1 Glowstone.
+Khối Redstone: 9 Redstone Dust.
+TNT: 5 Gunpowder + 4 Sand/Red Sand.
+Cần gạt (Lever): 1 Stick + 1 Cobblestone.
+Móc dây (Tripwire Hook): Iron Ingot + Stick + Plank.
+Cảm biến áp lực nặng/nhẹ: 2 Iron Ingot / 2 Gold Ingot.
+Cửa sập: xem mục D.
+Cửa bẫy: xem mục D.
+Máy cắt đá (Stonecutter): 1 Iron Ingot + 3 Stone.
+Máy dệt (Loom): 2 String + 2 Planks.
+Máy bắn pháo hoa? Không có công thức riêng.
+Giá đỡ áo giáp: xem mục B.
+Đường ray: xem mục D.
+Khối slime: 9 Slimeball.
+Khối mật ong: 4 Honey Bottle.
+Đá phát nhạc: xem mục D.
+
+============================================================
+F. KHỐI XÂY DỰNG, GẠCH, ĐÁ
+============================================================
+Phiến (Slab): 3 khối/ván cùng loại xếp ngang → 6 slab (tùy loại).
+Cầu thang (Stairs): 6 khối cùng loại theo bậc → 4 stairs (tùy loại).
+Tường (Wall): 6 khối cùng loại → 6 wall (tùy loại).
+Gạch đá (Stone Bricks): 4 Stone.
+Gạch đá nứt: nung Stone Bricks.
+Gạch đá rêu: Stone Bricks + Vine.
+Gạch đá đục: 2 Stone Brick Slab.
+Gạch Nether: 4 Nether Brick.
+Gạch Nether đỏ: 2 Nether Brick + 2 Nether Wart.
+Gạch Nether hàng rào? Nether Brick Fence: 6 Nether Brick → 6.
+Gạch Nether slab: 3 Nether Brick → 6.
+Gạch Nether stairs: 6 Nether Brick → 4.
+Gạch Quartz: 4 Nether Quartz Block? (dùng 4 Block of Quartz).
+Quartz Pillar: 2 Block of Quartz xếp dọc.
+Quartz Slab: 3 Block of Quartz → 6.
+Quartz Stairs: 6 Block of Quartz → 4.
+Prismarine Bricks: 9 Prismarine Shard.
+Dark Prismarine: 8 Prismarine Shard + 1 Black Dye.
+Prismarine: 4 Prismarine Shard.
+Sea Lantern: không chế tạo trong survival 1.16.
+End Stone Bricks: 4 End Stone.
+Purpur Block: 4 Popped Chorus Fruit.
+Purpur Pillar: 2 Purpur Slab xếp dọc.
+Purpur Slab: 3 Purpur Block → 6.
+Purpur Stairs: 6 Purpur Block → 4.
+Gạch đỏ (Bricks): 4 Brick.
+Chậu hoa (Flower Pot): 3 Brick hình chữ V.
+Kính (Glass): nung Sand/Red Sand.
+Kính màu (Stained Glass): 8 Glass + 1 Dye.
+Tấm kính (Glass Pane): 6 Glass → 16.
+Tấm kính màu (Stained Glass Pane): 6 Stained Glass → 16.
+Đá phát sáng (Glowstone): 4 Glowstone Dust.
+Đất sét nung màu (Colored Terracotta): 8 Terracotta + 1 Dye.
+Bê tông bột: 4 Sand + 4 Gravel + 1 Dye → 8.
+Len màu: 1 Wool + 1 Dye (shapeless).
+Thảm màu: 2 Wool cùng màu → 3 Carpet.
+Len: 4 String → 1 Wool.
+Thảm rêu (Moss Carpet): không có trong 1.16.
+Gạch đá đen (Blackstone): không chế tạo; khai thác.
+Polished Blackstone: 4 Blackstone.
+Polished Blackstone Bricks: 4 Polished Blackstone.
+Cracked Polished Blackstone Bricks: nung Polished Blackstone Bricks.
+Chiseled Polished Blackstone: 2 Polished Blackstone Slab.
+Polished Blackstone Slab: 3 Polished Blackstone → 6.
+Polished Blackstone Stairs: 6 Polished Blackstone → 4.
+Polished Blackstone Wall: 6 Polished Blackstone → 6.
+Polished Blackstone Button: 1 Polished Blackstone.
+Polished Blackstone Pressure Plate: 2 Polished Blackstone.
+Quartz Block: 4 Nether Quartz.
+Chiseled Quartz Block: 2 Quartz Slab.
+Smooth Quartz: nung Block of Quartz.
+Smooth Sandstone: nung Sandstone.
+Sandstone: 4 Sand.
+Red Sandstone: 4 Red Sand.
+Cut Sandstone: 4 Sandstone.
+Chiseled Sandstone: 2 Sandstone Slab.
+Hay Bale: xem mục C.
+
+============================================================
+G. THUỐC NHUỘM, LEN, BANNER
+============================================================
+Công thức thuốc nhuộm cơ bản:
+- Red Dye: Poppy/Red Tulip/Rose Bush/Beetroot.
+- Orange Dye: Orange Tulip hoặc Red Dye + Yellow Dye.
+- Yellow Dye: Dandelion/Sunflower.
+- Lime Dye: Sea Pickle (nung) hoặc Green Dye + White Dye.
+- Green Dye: nung Cactus.
+- Cyan Dye: Blue Dye + Green Dye.
+- Light Blue Dye: Blue Orchid hoặc Blue Dye + White Dye.
+- Blue Dye: Cornflower hoặc Lapis Lazuli.
+- Purple Dye: Red Dye + Blue Dye.
+- Magenta Dye: Allium/Lilac hoặc Purple Dye + Pink Dye, hoặc Red + Blue + White theo công thức kết hợp.
+- Pink Dye: Pink Tulip/Peony hoặc Red Dye + White Dye.
+- Brown Dye: Cocoa Beans.
+- Black Dye: Ink Sac hoặc Wither Rose.
+- Gray Dye: Black Dye + White Dye.
+- Light Gray Dye: Azure Bluet/Oxeye Daisy/White Tulip hoặc Gray Dye + White Dye.
+- White Dye: Bone Meal hoặc Lily of the Valley.
+Len màu: 1 Wool + 1 Dye.
+Thảm: 2 Wool cùng màu → 3.
+Kính màu: 8 Glass + 1 Dye.
+Đất sét nung màu: 8 Terracotta + 1 Dye.
+Bê tông bột màu: 4 Sand + 4 Gravel + 1 Dye → 8.
+Hộp Shulker màu: 1 Shulker Box + 1 Dye (shapeless).
+Banner: 6 Wool cùng màu + 1 Stick.
+Banner nhuộm hoa văn: Banner + Dye + mẫu/đối tượng (nhiều kiểu; một số dùng Banner Pattern).
+Banner Pattern (Creeper/Skull/Flower/Mojang): giấy + nguyên liệu tương ứng; mẫu Brick, Vine, Creeper Head, Wither Skeleton Skull, Oxeye Daisy, Enchanted Golden Apple tùy mẫu.
+Loom dùng Banner + Dye + Banner Pattern để thêm họa tiết; đây là thao tác giao diện, không phải một recipe đơn nhất.
+Khiên có họa tiết: Shield + Banner (Java); Bedrock hỗ trợ khác/không giống Java trong 1.16.
+
+============================================================
+H. VẬT PHẨM NETHER UPDATE 1.16
+============================================================
+Soul Torch: Coal/Charcoal + Stick + Soul Soil/Soul Sand → 4.
+Soul Lantern: 8 Iron Nugget + Soul Torch.
+Crimson Planks: Crimson Stem/Hyphe → 4.
+Warped Planks: Warped Stem/Hyphae → 4.
+Crimson/Warped Stick: 2 planks xếp dọc → 4.
+Crimson/Warped Door: 6 planks → 3.
+Crimson/Warped Trapdoor: 6 planks → 2.
+Crimson/Warped Fence: 4 planks + 2 Stick → 3.
+Crimson/Warped Fence Gate: 2 planks + 4 Stick → 1.
+Crimson/Warped Slab: 3 planks → 6.
+Crimson/Warped Stairs: 6 planks → 4.
+Crimson/Warped Button: 1 plank.
+Crimson/Warped Pressure Plate: 2 planks.
+Crimson/Warped Sign: 6 planks + 1 Stick → 3.
+Crimson/Warped Boat: 5 planks hình chữ U → 1.
+Netherite Scrap: nung Ancient Debris.
+Netherite Ingot: 4 Scrap + 4 Gold Ingot.
+Lodestone: 8 Chiseled Stone Bricks + 1 Netherite Ingot.
+Respawn Anchor: 6 Crying Obsidian + 3 Glowstone.
+Warped Fungus on a Stick: Fishing Rod + Warped Fungus.
+Target Block:  hay? 4 Hay Bale? Công thức chuẩn: 1 Hay Bale ở giữa + 4 Redstone Dust ở bốn cạnh → 1 Target Block.
+Chain: 2 Iron Nugget + 1 Iron Ingot xếp dọc.
+Chiseled Nether Bricks: 2 Nether Brick Slab.
+Cracked Nether Bricks: nung Nether Bricks block.
+Nether Gold Ore: không chế tạo.
+Netherite tools/armor: nâng cấp ở Smithing Table, Diamond item + Netherite Ingot.
+Piglin banner pattern: không có trong 1.16.
+Ancient Debris: không chế tạo.
+Blackstone Furnace: dùng Blackstone như Cobblestone trong công thức Furnace.
+Basalt: không chế tạo; tạo tự nhiên từ lava + blue ice cạnh Soul Soil.
+Polished Basalt: 4 Basalt (2x2).
+Smooth Basalt: không có trong 1.16.
+Nether Sprouts, Roots, Fungi: không chế tạo.
+
+============================================================
+I. NUNG / SMELTING / BLASTING / SMOKING / CAMPFIRE
+============================================================
+Quy ước: Furnace là lò nung thông thường; Blast Furnace nung quặng/kim loại nhanh hơn; Smoker và Campfire nấu đồ ăn. Các đầu vào dạng quặng có thể có biến thể theo loại.
+Furnace:
+- Iron Ore → Iron Ingot.
+- Gold Ore → Gold Ingot.
+- Ancient Debris → Netherite Scrap.
+- Sand → Glass.
+- Red Sand → Glass.
+- Cobblestone → Stone.
+- Stone → Smooth Stone.
+- Sandstone → Smooth Sandstone.
+- Red Sandstone → Smooth Red Sandstone.
+- Clay Ball → Brick.
+- Clay Block → Terracotta.
+- Cactus → Green Dye.
+- Kelp → Dried Kelp.
+- Wet Sponge → Sponge.
+- Netherrack → Nether Brick.
+- Chorus Fruit → Popped Chorus Fruit.
+- Log/Wood/Stem/Hyphae có thể nung thành Charcoal chỉ với loại gỗ cháy được (không gồm Nether Stem/Hyphae).
+- Potato → Baked Potato.
+- Raw Beef → Steak.
+- Raw Porkchop → Cooked Porkchop.
+- Raw Chicken → Cooked Chicken.
+- Raw Mutton → Cooked Mutton.
+- Raw Rabbit → Cooked Rabbit.
+- Raw Cod → Cooked Cod.
+- Raw Salmon → Cooked Salmon.
+Blast Furnace (cũng có thể nung ở Furnace):
+- Iron Ore → Iron Ingot.
+- Gold Ore → Gold Ingot.
+- Chainmail/iron/gold armor, tools, weapons → Iron Nugget/Gold Nugget tương ứng (đồ kim loại).
+Smoker (cũng có thể nấu ở Furnace/Campfire):
+- Beef → Steak.
+- Porkchop → Cooked Porkchop.
+- Chicken → Cooked Chicken.
+- Mutton → Cooked Mutton.
+- Rabbit → Cooked Rabbit.
+- Cod → Cooked Cod.
+- Salmon → Cooked Salmon.
+- Potato → Baked Potato.
+- Kelp → Dried Kelp.
+Campfire:
+- Các thực phẩm sống tương ứng (Beef, Porkchop, Chicken, Mutton, Rabbit, Cod, Salmon, Potato) → món chín; không nung quặng/khối.
+Lưu ý: XP, thời gian nung và nhiên liệu không được liệt kê ở đây; phụ thuộc thiết bị.
+
+============================================================
+J. THUỐC / BREWING
+============================================================
+Quy trình cơ bản: Water Bottle + Nether Wart → Awkward Potion.
+Brewing Stand: 1 Blaze Powder làm nhiên liệu.
+Các thuốc nền:
+- Water Bottle + Nether Wart → Awkward Potion.
+- Water Bottle + Fermented Spider Eye → Weakness Potion.
+- Water Bottle + Glowstone Dust → Thick Potion.
+- Water Bottle + Redstone Dust → Mundane Potion (không hữu ích).
+Các thuốc từ Awkward Potion:
+- Ghast Tear → Potion of Regeneration.
+- Blaze Powder → Potion of Strength.
+- Sugar → Potion of Swiftness.
+- Rabbit's Foot → Potion of Leaping.
+- Glistering Melon Slice → Potion of Healing.
+- Spider Eye → Potion of Poison.
+- Pufferfish → Potion of Water Breathing.
+- Magma Cream → Potion of Fire Resistance.
+- Golden Carrot → Potion of Night Vision.
+- Turtle Shell → Potion of the Turtle Master.
+- Phantom Membrane → Potion of Slow Falling.
+Biến đổi:
+- Fermented Spider Eye + Potion of Night Vision → Potion of Invisibility.
+- Fermented Spider Eye + Potion of Swiftness → Potion of Slowness.
+- Fermented Spider Eye + Potion of Leaping → Potion of Slowness.
+- Fermented Spider Eye + Potion of Healing → Potion of Harming.
+- Fermented Spider Eye + Potion of Poison → Potion of Harming.
+- Redstone Dust: kéo dài thời lượng ở các thuốc có thể kéo dài.
+- Glowstone Dust: tăng cấp độ ở các thuốc có thể tăng cấp.
+- Gunpowder: biến potion thành Splash Potion.
+- Dragon's Breath + Splash Potion → Lingering Potion.
+- Fermented Spider Eye: chuyển đổi một số loại potion.
+Thuốc đặc biệt:
+- Awkward Potion + Turtle Shell → Turtle Master.
+- Potion of Slow Falling: Awkward + Phantom Membrane.
+Fermented Spider Eye: Spider Eye + Brown Mushroom + Sugar.
+Glistering Melon Slice: Melon Slice + 8 Gold Nugget.
+Blaze Powder: 1 Blaze Rod → 2 Blaze Powder.
+Magma Cream: Slimeball + Blaze Powder.
+Golden Carrot: 8 Gold Nugget + Carrot.
+Rabbit's Foot, Ghast Tear, Phantom Membrane, Pufferfish: thu thập, không chế tạo.
+Lưu ý: Bedrock và Java có một số khác biệt nhỏ về thời lượng/hiệu ứng; công thức nguyên liệu cơ bản tương đồng.
+
+============================================================
+K. VẬT PHẨM KHÔNG CÓ CÔNG THỨC CHẾ TẠO CỐ ĐỊNH
+============================================================
+Các vật phẩm dưới đây có thể thu thập, rơi ra từ mob, đào, giao dịch hoặc tìm trong rương; không có recipe chế tạo tiêu chuẩn:
+- Elytra, Dragon Egg, Dragon Head, Wither Skeleton Skull.
+- Totem of Undying, Trident, Heart of the Sea, Nautilus Shell.
+- Nether Star, Beacon (Beacon có recipe; xem dưới đây).
+- Enchanted Golden Apple.
+- Music Discs, Name Tag, Saddle, Horse Armor.
+- Sponges (wet/dry: wet nung thành dry).
+- End Portal Frame, Spawner, Bedrock, Barrier, Command Block.
+- Budding Amethyst (không tồn tại trong 1.16).
+- Netherite Upgrade Smithing Template (không tồn tại trong 1.16).
+- Axolotl Bucket, Goat Horn, Copper items (không tồn tại trong 1.16).
+- Spyglass, Bundle, Scaffolding? Scaffolding có công thức ở 1.14+; xem mục dưới.
+Beacon: 5 Glass + 3 Obsidian + 1 Nether Star.
+Scaffolding: 6 Bamboo + 1 String → 6.
+Saddle: không chế tạo.
+Name Tag: không chế tạo.
+Elytra: không chế tạo.
+Totem: không chế tạo.
+Trident: không chế tạo.
+
+============================================================
+L. CÔNG THỨC BỔ SUNG QUAN TRỌNG
+============================================================
+Beacon: 5 Glass + 3 Obsidian + 1 Nether Star.
+Giàn giáo (Scaffolding): 6 Bamboo + 1 String → 6.
+Giấy: 3 Sugar Cane → 3.
+Sách và bút (Book and Quill): 1 Book + 1 Feather + 1 Ink Sac.
+Bản đồ: xem mục D.
+Đĩa nhạc: không chế tạo.
+Mũi tên phổ (Spectral Arrow): 4 Glowstone Dust bao quanh 1 Arrow → 2 (Java; không có trong Bedrock 1.16).
+Mũi tên nghiêng (Tipped Arrow): 8 Arrow bao quanh 1 Lingering Potion → 8 (Java; Bedrock có khác biệt).
+Fire Charge: 1 Blaze Powder + 1 Coal/Charcoal + 1 Gunpowder → 3.
+Firework Star: Gunpowder + dye; thêm nguyên liệu hiệu ứng tùy chọn.
+Firework Rocket: Paper + Gunpowder (1–3) → 1.
+End Crystal: 7 Glass + 1 Eye of Ender + 1 Ghast Tear.
+Eye of Ender: 1 Ender Pearl + 1 Blaze Powder.
+Ender Chest: 8 Obsidian + Eye of Ender.
+End Rod: 1 Blaze Rod + 1 Popped Chorus Fruit → 4.
+Chorus Fruit: thu hoạch; không chế tạo.
+Popped Chorus Fruit: nung Chorus Fruit.
+Purpur Block: 4 Popped Chorus Fruit.
+Dragon's Breath: thu thập bằng chai ở vùng hơi thở rồng; không chế tạo.
+Enchanted Book: tạo qua Enchanting Table/loot/trade; không có recipe bàn chế tạo.
+Book and Quill: Book + Feather + Ink Sac.
+Flower Pot: 3 Brick.
+Armor Stand: 6 Stick + Smooth Stone Slab.
+Item Frame: 8 Stick + Leather.
+Painting: 8 Stick + Wool.
+End Crystal: 7 Glass + Eye of Ender + Ghast Tear.
+Target Block: 1 Hay Bale + 4 Redstone Dust.
+Chain: 1 Iron Ingot + 2 Iron Nugget.
+Lodestone: 8 Chiseled Stone Bricks + 1 Netherite Ingot.
+Respawn Anchor: 6 Crying Obsidian + 3 Glowstone.
+Soul Campfire: 3 Stick + 1 Soul Soil/Soul Sand + 3 Log/Wood.
+Campfire: 3 Stick + 1 Coal/Charcoal + 3 Log/Wood.
+Composter: 7 Wooden Slab hình chữ U.
+Beehive: 6 Planks + 3 Honeycomb.
+Honeycomb Block: 4 Honeycomb.
+Honey Block: 4 Honey Bottle.
+Barrel: 6 Planks + 2 Slab.
+Bell: không chế tạo trong 1.16.
+Lodestone Compass: dùng Compass lên Lodestone (không phải recipe bàn chế tạo).
+
+============================================================
+M. KHÁC BIỆT JAVA / BEDROCK 1.16 VÀ GIỚI HẠN PHẠM VI
+============================================================
+1. Java 1.16 có recipe types: crafting shaped/shapeless, smelting, blasting, smoking, campfire cooking, stonecutting và smithing.
+2. Bedrock 1.16 recipe JSON chính thức mô tả 3 nhóm chính: shaped, shapeless và furnace. Nhiều thao tác khác (brewing, anvil, cartography, loom, grindstone, smithing UI) có cơ chế riêng hoặc khác Java.
+3. Java có Spectral Arrow; Bedrock 1.16 không có vật phẩm này.
+4. Công thức bản đồ, khiên có banner, tipped arrow, và một số biến thể phụ thuộc Edition.
+5. Không đưa các vật phẩm được thêm sau 1.16 như Copper, Amethyst, Spyglass, Bundle, Candle, Deepslate, Sculk, Mangrove, Cherry, Netherite Upgrade Template.
+6. Bản 1.16 là một nhánh cập nhật; các bản 1.16.1–1.16.5 có thể có sửa lỗi nhưng không làm thay đổi phần lớn công thức cơ bản.
+7. Đây là tài liệu tổng hợp tra cứu thủ công, không phải bản dump đầy đủ từng file recipe JSON trong game. Những công thức đặc biệt theo NBT, màu, hoa văn, dữ liệu potion và recipe biến thể không thể liệt kê thành một dòng nguyên liệu duy nhất.
+
+============================================================
+NGUỒN THAM KHẢO
+============================================================
+- Minecraft Wiki — Recipe (Java Edition): https://minecraft.wiki/w/Recipe_(Java_Edition)
+- Minecraft Wiki — Recipe (Bedrock Edition): https://minecraft.wiki/w/Recipe_(Bedrock_Edition)
+- Bedrock.dev — Recipes 1.16.0.2: https://bedrock.dev/docs/1.16.0.0/1.16.0.2/Recipes
+- Minecraft Wiki — Java Edition 1.16: https://minecraft.wiki/w/Java_Edition_1.16
+
+KẾT THÚC

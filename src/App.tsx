@@ -18,10 +18,10 @@ import { TitleAndWorlds } from './components/TitleAndWorlds';
 import { NetherCraftEngine } from './game/engine';
 import { loadSavedSkinConfig, saveSkinConfig } from './game/playerSkin';
 import {
+  buildHd32DefaultPack,
   CompiledResourcePack,
   DownloadProgress,
   compileResourcePack,
-  downloadDefaultGithubPack,
 } from './game/resourcePack';
 import {
   createNewWorldRecord,
@@ -289,15 +289,20 @@ export default function App() {
         ]);
         if (!alive) return;
 
-        if (!cachedPack) {
-          setBootStatus('Đang tự động tải gói tài nguyên Block & UI 1.16...');
-          cachedPack = await downloadDefaultGithubPack((p) => {
-            if (alive) setBootProgress({ ...p });
-          });
+        if (!cachedPack || cachedPack.sourceType === 'github-default') {
+          setBootStatus('Đang nạp gói Texture 32×32 HD 1.16...');
+          cachedPack = await buildHd32DefaultPack(cachedPack?.guiBlobs);
+          if (!alive) return;
+        } else if (
+          cachedPack.sourceType === 'original-classic' &&
+          cachedPack.version !== '1.16.5-official-v2'
+        ) {
+          setBootStatus('Đang cập nhật Texture Minecraft 1.16.5 Chính Gốc...');
+          cachedPack = await buildOriginalMinecraftPack(cachedPack.guiBlobs);
           if (!alive) return;
         }
 
-        setBootStatus('Đang biên dịch Texture Atlas 16×16 & giao diện 1.16...');
+        setBootStatus('Đang biên dịch Texture Atlas 32×32 HD & giao diện 1.16...');
         await applyCompiledPack(cachedPack);
         if (!alive) return;
 
@@ -369,7 +374,7 @@ export default function App() {
       if (preset === 'original') {
         nextCached = await buildOriginalMinecraftPack(existing?.guiBlobs);
       } else {
-        nextCached = await downloadDefaultGithubPack();
+        nextCached = await buildHd32DefaultPack(existing?.guiBlobs);
       }
       await applyCompiledPack(nextCached);
       setSettings((prev) => {

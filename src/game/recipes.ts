@@ -1,3 +1,4 @@
+import { EXT_CRAFTING_RECIPES, EXT_SMELTING_RECIPES } from './catalog116';
 import { ItemStack } from './types';
 
 export interface CraftingRecipe {
@@ -197,6 +198,7 @@ export const CRAFTING_RECIPES: CraftingRecipe[] = [
   { id: 'diamond_chestplate', nameVi: 'Áo Giáp Kim Cương', pattern: [['diamond', null, 'diamond'], ['diamond', 'diamond', 'diamond'], ['diamond', 'diamond', 'diamond']], output: { itemId: 'diamond_chestplate', count: 1 } },
   { id: 'diamond_leggings', nameVi: 'Quần Kim Cương', pattern: [['diamond', 'diamond', 'diamond'], ['diamond', null, 'diamond'], ['diamond', null, 'diamond']], output: { itemId: 'diamond_leggings', count: 1 } },
   { id: 'diamond_boots', nameVi: 'Giày Kim Cương', pattern: [['diamond', null, 'diamond'], ['diamond', null, 'diamond']], output: { itemId: 'diamond_boots', count: 1 } },
+  ...EXT_CRAFTING_RECIPES,
 ];
 
 export const SMELTING_RECIPES: Record<string, string> = {
@@ -210,9 +212,10 @@ export const SMELTING_RECIPES: Record<string, string> = {
   raw_porkchop: 'cooked_porkchop',
   raw_beef: 'steak',
   raw_chicken: 'cooked_chicken',
-  oak_log: 'coal',
-  spruce_log: 'coal',
-  birch_log: 'coal',
+  oak_log: 'charcoal',
+  spruce_log: 'charcoal',
+  birch_log: 'charcoal',
+  ...EXT_SMELTING_RECIPES,
 };
 
 export const SMITHING_UPGRADES: Record<string, string> = {
@@ -274,16 +277,20 @@ export function matchCraftingGrid(slots: (ItemStack | null)[], size: 2 | 3): Cra
     } else if (recipe.pattern) {
       if (recipe.pattern.length !== trimmed.length) continue;
       if (recipe.pattern[0].length !== trimmed[0].length) continue;
-      let match = true;
-      for (let r = 0; r < trimmed.length && match; r++) {
-        for (let c = 0; c < trimmed[r].length; c++) {
-          if (recipe.pattern[r][c] !== trimmed[r][c]) {
-            match = false;
-            break;
+      const cols = trimmed[0].length;
+      let matchDirect = true;
+      let matchMirrored = true;
+      for (let r = 0; r < trimmed.length && (matchDirect || matchMirrored); r++) {
+        for (let c = 0; c < cols; c++) {
+          if (matchDirect && recipe.pattern[r][c] !== trimmed[r][c]) {
+            matchDirect = false;
+          }
+          if (matchMirrored && recipe.pattern[r][c] !== trimmed[r][cols - 1 - c]) {
+            matchMirrored = false;
           }
         }
       }
-      if (match) return recipe;
+      if (matchDirect || matchMirrored) return recipe;
     }
   }
   return null;

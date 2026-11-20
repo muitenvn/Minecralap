@@ -38,6 +38,8 @@ const CREATIVE_TABS: { id: 'all' | CreativeCategory; label: string }[] = [
   { id: 'ores', label: 'Quặng' },
   { id: 'tools', label: 'Công cụ' },
   { id: 'armor_food', label: 'Giáp & Ăn' },
+  { id: 'redstone', label: 'Redstone' },
+  { id: 'decor_brew', label: 'Trang trí & Thuốc' },
 ];
 
 function cloneStack(s: ItemStack | null): ItemStack | null {
@@ -109,9 +111,10 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
   const [smithBase, setSmithBase] = useState<ItemStack | null>(null);
   const [smithAdd, setSmithAdd] = useState<ItemStack | null>(null);
 
-  // Creative filters — default to 'all' so player immediately sees full catalog
+  // Creative & Recipe Book filters
   const [creativeTab, setCreativeTab] = useState<'all' | CreativeCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [recipeQuery, setRecipeQuery] = useState('');
 
   useEffect(() => {
     const onResize = () => setViewportWidth(window.innerWidth);
@@ -440,15 +443,17 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
     smithing: 'Bàn Rèn',
   };
 
-  const relevantRecipes = useMemo(
-    () =>
-      CRAFTING_RECIPES.filter((r) => {
-        if (r.pattern) return r.pattern.length <= gridSize && r.pattern[0].length <= gridSize;
-        if (r.shapeless) return r.shapeless.length <= gridSize * gridSize;
-        return true;
-      }),
-    [gridSize],
-  );
+  const relevantRecipes = useMemo(() => {
+    const q = recipeQuery.trim().toLowerCase();
+    return CRAFTING_RECIPES.filter((r) => {
+      if (r.pattern && (r.pattern.length > gridSize || r.pattern[0].length > gridSize)) return false;
+      if (r.shapeless && r.shapeless.length > gridSize * gridSize) return false;
+      if (q && !r.nameVi.toLowerCase().includes(q) && !r.output.itemId.toLowerCase().includes(q)) {
+        return false;
+      }
+      return true;
+    }).sort((a, b) => Number(canAffordRecipe(b)) - Number(canAffordRecipe(a)));
+  }, [gridSize, recipeQuery, itemCounts]);
 
   return (
     <div
@@ -639,9 +644,18 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
             </div>
 
             {/* Quick 2x2 Recipe Book */}
-            <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-2 max-h-[192px] overflow-y-auto">
-              <div className="text-xs font-mc font-bold mb-1.5 text-[#222]">Công thức</div>
-              <div className="space-y-1">
+            <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-2 max-h-[192px] flex flex-col">
+              <div className="flex items-center gap-1.5 mb-1.5 shrink-0">
+                <span className="text-xs font-mc font-bold text-[#222]">Công thức</span>
+                <input
+                  type="text"
+                  value={recipeQuery}
+                  onChange={(e) => setRecipeQuery(e.target.value)}
+                  placeholder="Tìm..."
+                  className="flex-1 min-w-0 bg-[#222] text-white border border-black px-1.5 py-0.5 text-[11px] outline-none"
+                />
+              </div>
+              <div className="space-y-1 overflow-y-auto flex-1">
                 {relevantRecipes.map((r) => {
                   const ok = canAffordRecipe(r);
                   const icon = pack.itemIcons[r.output.itemId];
@@ -708,10 +722,21 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
               />
             </div>
 
-            <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-2 max-h-[210px] overflow-y-auto">
-              <div className="text-xs font-mc font-bold mb-1.5 text-[#222]">Công thức</div>
-              <div className="space-y-1">
-                {CRAFTING_RECIPES.map((r) => {
+            <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-2 max-h-[210px] flex flex-col">
+              <div className="flex items-center gap-1.5 mb-1.5 shrink-0">
+                <span className="text-xs font-mc font-bold text-[#222]">
+                  Công thức ({relevantRecipes.length})
+                </span>
+                <input
+                  type="text"
+                  value={recipeQuery}
+                  onChange={(e) => setRecipeQuery(e.target.value)}
+                  placeholder="Tìm..."
+                  className="flex-1 min-w-0 bg-[#222] text-white border border-black px-1.5 py-0.5 text-[11px] outline-none"
+                />
+              </div>
+              <div className="space-y-1 overflow-y-auto flex-1">
+                {relevantRecipes.map((r) => {
                   const ok = canAffordRecipe(r);
                   const icon = pack.itemIcons[r.output.itemId];
                   return (

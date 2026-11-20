@@ -1,10 +1,10 @@
 import React, { useRef, useState } from 'react';
 import { Download, FolderArchive, Globe, RefreshCw, ShieldCheck, Trash2, ArrowLeft } from 'lucide-react';
 import {
+  buildHd32DefaultPack,
   CompiledResourcePack,
   DownloadProgress,
   downloadCustomGithubRawPack,
-  downloadDefaultGithubPack,
   importZipResourcePack,
 } from '../game/resourcePack';
 import { clearResourcePackCache, loadActiveResourcePack } from '../game/storage';
@@ -50,12 +50,12 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
     setNotice(null);
     setDownloading(true);
     try {
-      const cached = await downloadDefaultGithubPack((p) => setProgress({ ...p }));
-      setProgress((prev) => (prev ? { ...prev, phase: 'compiling', currentFile: 'Texture Atlas 16×16 & GUI' } : null));
+      const existing = await loadActiveResourcePack();
+      const cached = await buildHd32DefaultPack(existing?.guiBlobs);
       await onPackReady(cached);
-      setNotice('Đã nạp thành công Dạng 1: Texture Hiện Tại (NetherCraft 1.16)!');
+      setNotice('Đã nạp thành công Dạng 1: Texture 32×32 HD (Mặc Định)!');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Lỗi tải gói tài nguyên 1.16.');
+      setError(e instanceof Error ? e.message : 'Lỗi nạp gói tài nguyên 32×32 HD.');
     } finally {
       setDownloading(false);
     }
@@ -69,8 +69,8 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
       await onSelectPreset(preset);
       setNotice(
         preset === 'original'
-          ? 'Đã chuyển sang Dạng 2: Texture Minecraft 1.16 Chính Gốc (Classic Vanilla)!'
-          : 'Đã chuyển sang Dạng 1: Texture Hiện Tại (NetherCraft 1.16)!',
+          ? 'Đã chuyển sang Dạng 2: Minecraft 1.16.5 Chính Gốc (Official Vanilla)!'
+          : 'Đã chuyển sang Dạng 1: Texture 32×32 HD (Mặc Định)!',
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không thể chuyển bộ texture.');
@@ -206,10 +206,10 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
               >
                 <div>
                   <div className="text-sm font-mc font-bold text-[#fde68a]">
-                    1. Texture Hiện Tại (NetherCraft 1.16)
+                    1. Texture 32×32 HD (Mặc Định)
                   </div>
                   <div className="text-xs text-zinc-300 mt-1">
-                    Bộ texture 16×16 chuẩn của app hiện tại (72 khối Overworld + Nether 1.16 + 3 tệp UI tải từ gói GitHub Pages).
+                    Độ phân giải 32×32 HD sắc nét (Faithful style) cho toàn bộ 337 khối 1.16, chuyển đổi tức thì không cần chờ tải.
                   </div>
                 </div>
                 <McButton
@@ -222,7 +222,7 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
                   widgetsUrl={compiledPack?.guiUrls.widgets}
                 >
                   {downloading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                  {texturePreset === 'current' && compiledPack ? 'Đang dùng · Nạp lại' : 'Dùng Texture Hiện Tại'}
+                  {texturePreset === 'current' && compiledPack ? 'Đang dùng · Nạp lại' : 'Dùng Texture 32×32 HD'}
                 </McButton>
               </div>
 
@@ -235,10 +235,10 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
               >
                 <div>
                   <div className="text-sm font-mc font-bold text-[#5eead4]">
-                    2. Texture Chính Gốc (Minecraft 1.16 Classic)
+                    2. Minecraft 1.16.5 Chính Gốc (Vanilla)
                   </div>
                   <div className="text-xs text-zinc-300 mt-1">
-                    Bộ texture Minecraft 1.16 chính gốc với sọc đá, vữa đá cuội, cỏ viền rũ, quặng cổ điển, Ancient Debris xoắn ốc &amp; nền đất cổ điển.
+                    Tải trực tiếp bộ ảnh khối Minecraft Java 1.16.5 thật (đúng màu cỏ, nước, đá, gỗ, Nether gốc) và lưu cache để đổi tức thì.
                   </div>
                 </div>
                 <McButton
@@ -249,7 +249,7 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
                   widgetsUrl={compiledPack?.guiUrls.widgets}
                 >
                   {downloading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                  {texturePreset === 'original' && compiledPack ? 'Đang dùng · Nạp lại' : 'Dùng Texture Chính Gốc'}
+                  {texturePreset === 'original' && compiledPack ? 'Đang dùng · Nạp lại' : 'Dùng Chính Gốc 1.16'}
                 </McButton>
               </div>
             </div>

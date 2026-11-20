@@ -1,5 +1,6 @@
 import { ALL_TEXTURE_KEYS } from './blocks';
-import { saveResourcePack } from './storage';
+import { EXT_TEXTURE_SPECS } from './catalog116';
+import { loadResourcePackById, saveResourcePack } from './storage';
 import { CachedResourcePack } from './types';
 
 function hash2d(x: number, y: number, seed: number): number {
@@ -978,13 +979,418 @@ export function paintOriginalBlockCanvas(key: string): HTMLCanvasElement {
       break;
     }
     default: {
-      paintStoneBase(120);
+      const spec = EXT_TEXTURE_SPECS[key];
+      if (!spec) {
+        paintStoneBase(120);
+        break;
+      }
+      let seed = 31;
+      for (let i = 0; i < key.length; i++) seed = (seed * 33 + key.charCodeAt(i)) & 0xffff;
+      const [br, bg, bb] = hexToRgb(spec.base);
+      const [ar, ag, ab] = hexToRgb(spec.accent);
+      const [tr, tg, tb] = hexToRgb(spec.trim || spec.accent);
+      const shadeHex = (r: number, g: number, b: number, delta: number) =>
+        `#${[r + delta, g + delta, b + delta]
+          .map((v) => clamp255(v).toString(16).padStart(2, '0'))
+          .join('')}`;
+      const darkBase = shadeHex(br, bg, bb, -26);
+      const lightBase = shadeHex(br, bg, bb, 22);
+
+      switch (spec.style) {
+        case 'stone':
+          paintNoise([spec.base, darkBase, lightBase, spec.accent], seed);
+          for (let y = 0; y < 16; y += 4) {
+            for (let x = 0; x < 16; x++) {
+              if (hash2d(x, y, seed + 5) > 0.45) setHex(x, y, darkBase);
+            }
+          }
+          if (spec.trim) {
+            for (let i = 0; i < 16; i++) {
+              setHex(i, 0, spec.trim);
+              setHex(0, i, spec.trim);
+              setHex(i, 15, darkBase);
+              setHex(15, i, darkBase);
+            }
+          }
+          break;
+        case 'bricks':
+          paintNoise([spec.base, lightBase, darkBase], seed);
+          for (let y = 0; y < 16; y++) {
+            if (y % 4 === 0) {
+              fillRect(0, y, 16, 1, spec.accent);
+            } else {
+              const offset = Math.floor(y / 4) % 2 === 0 ? 0 : 4;
+              for (let x = offset; x < 16; x += 8) setHex(x, y, spec.accent);
+            }
+          }
+          break;
+        case 'planks':
+          paintNoise([spec.base, lightBase, darkBase], seed);
+          for (const py of [0, 4, 8, 12]) fillRect(0, py, 16, 1, spec.accent);
+          for (let row = 0; row < 4; row++) {
+            const seamX = (row * 5 + 3) % 14 + 1;
+            fillRect(seamX, row * 4, 1, 4, spec.accent);
+          }
+          break;
+        case 'log':
+          for (let x = 0; x < 16; x++) {
+            const col = x % 3 === 0 ? spec.accent : x % 2 === 0 ? spec.base : darkBase;
+            for (let y = 0; y < 16; y++) {
+              const h = hash2d(x, y, seed);
+              setHex(x, y, h > 0.78 ? lightBase : h < 0.22 ? darkBase : col);
+            }
+          }
+          break;
+        case 'log_top':
+          fillRect(0, 0, 16, 16, spec.accent);
+          fillRect(1, 1, 14, 14, spec.base);
+          fillRect(3, 3, 10, 10, lightBase);
+          fillRect(5, 5, 6, 6, spec.base);
+          fillRect(7, 7, 2, 2, spec.accent);
+          break;
+        case 'wool':
+          paintNoise([spec.base, lightBase, darkBase, spec.base], seed);
+          for (let y = 0; y < 16; y += 2) {
+            for (let x = (y / 2) % 2; x < 16; x += 2) {
+              if (hash2d(x, y, seed + 9) > 0.55) setHex(x, y, lightBase);
+            }
+          }
+          break;
+        case 'glass':
+          for (let y = 0; y < 16; y++) {
+            for (let x = 0; x < 16; x++) {
+              const border = x === 0 || x === 15 || y === 0 || y === 15;
+              const innerBorder = x === 1 || x === 14 || y === 1 || y === 14;
+              if (border) setPx(x, y, br, bg, bb, 235);
+              else if (innerBorder) setPx(x, y, ar, ag, ab, 150);
+              else setPx(x, y, br, bg, bb, 72);
+            }
+          }
+          setPx(3, 3, ar, ag, ab, 210);
+          setPx(4, 3, ar, ag, ab, 210);
+          setPx(3, 4, ar, ag, ab, 210);
+          setPx(11, 12, ar, ag, ab, 180);
+          setPx(12, 11, ar, ag, ab, 180);
+          break;
+        case 'terracotta':
+          paintNoise([spec.base, shadeHex(br, bg, bb, -12), shadeHex(br, bg, bb, 10)], seed);
+          if (key.includes('glazed')) {
+            fillRect(2, 2, 12, 12, spec.accent);
+            fillRect(4, 4, 8, 8, spec.base);
+            fillRect(6, 6, 4, 4, spec.trim || lightBase);
+          }
+          break;
+        case 'concrete':
+          paintNoise([spec.base, shadeHex(br, bg, bb, -6), shadeHex(br, bg, bb, 6)], seed);
+          break;
+        case 'powder':
+          paintNoise([spec.base, lightBase, darkBase, spec.accent], seed);
+          break;
+        case 'station':
+          paintNoise([spec.base, darkBase, lightBase], seed);
+          for (let i = 0; i < 16; i++) {
+            setHex(i, 0, spec.accent);
+            setHex(i, 15, spec.accent);
+            setHex(0, i, spec.accent);
+            setHex(15, i, spec.accent);
+          }
+          fillRect(3, 3, 10, 10, darkBase);
+          fillRect(4, 4, 8, 8, spec.trim || spec.accent);
+          fillRect(6, 6, 4, 4, spec.base);
+          break;
+        case 'redstone':
+          paintNoise([spec.base, darkBase, lightBase], seed);
+          for (let i = 0; i < 16; i++) {
+            setHex(i, 0, darkBase);
+            setHex(i, 15, darkBase);
+            setHex(0, i, darkBase);
+            setHex(15, i, darkBase);
+          }
+          fillRect(5, 5, 6, 6, spec.accent);
+          fillRect(7, 2, 2, 12, spec.trim || '#dc2626');
+          fillRect(2, 7, 12, 2, spec.trim || '#dc2626');
+          break;
+        case 'ore':
+          paintStoneBase(seed);
+          paintOreClusters(spec.base, spec.accent, seed + 7);
+          break;
+        case 'metal':
+          paintMetalBlock([spec.base, lightBase, darkBase], lightBase, darkBase, seed);
+          if (spec.trim) fillRect(4, 4, 8, 8, spec.trim);
+          break;
+        case 'pillar':
+          for (let x = 0; x < 16; x++) {
+            const col = x % 4 === 0 ? darkBase : x % 4 === 2 ? lightBase : spec.base;
+            for (let y = 0; y < 16; y++) setHex(x, y, col);
+          }
+          fillRect(0, 0, 16, 2, spec.accent);
+          fillRect(0, 14, 16, 2, spec.accent);
+          break;
+        case 'plant':
+          for (let y = 2; y < 16; y++) {
+            const sway = Math.round(Math.sin(y * 0.6 + seed) * 1.4);
+            setPx(7 + sway, y, br, bg, bb, 255);
+            setPx(8 + sway, y, ar, ag, ab, 255);
+            if (y % 3 === 0) {
+              setPx(5 + sway, y, br, bg, bb, 255);
+              setPx(10 + sway, y, ar, ag, ab, 255);
+            }
+          }
+          fillRect(5, 2, 6, 4, spec.trim || spec.accent);
+          break;
+        case 'flat':
+        default: {
+          if (key.includes('rail')) {
+            fillRect(2, 0, 2, 16, spec.base);
+            fillRect(12, 0, 2, 16, spec.base);
+            for (const ry of [2, 6, 10, 14]) fillRect(1, ry, 14, 2, spec.accent);
+            if (spec.trim) fillRect(6, 0, 4, 16, spec.trim);
+          } else if (key.includes('torch') || key.includes('rod') || key.includes('chain') || key.includes('lever')) {
+            fillRect(7, 4, 2, 12, spec.base);
+            fillRect(6, 2, 4, 4, spec.accent);
+            if (spec.trim) fillRect(7, 3, 2, 2, spec.trim);
+          } else if (key.includes('carpet') || key.includes('pressure_plate') || key.includes('slab')) {
+            paintNoise([spec.base, lightBase, darkBase], seed);
+            for (let y = 0; y < 8; y++) {
+              for (let x = 0; x < 16; x++) setPx(x, y, 0, 0, 0, 0);
+            }
+            fillRect(0, 8, 16, 1, spec.accent);
+          } else if (key.includes('door') || key.includes('bars') || key.includes('pane')) {
+            fillRect(2, 0, 12, 16, spec.base);
+            fillRect(4, 2, 8, 5, spec.accent);
+            fillRect(4, 9, 8, 5, darkBase);
+            setPx(11, 8, tr, tg, tb, 255);
+          } else {
+            fillRect(3, 3, 10, 10, spec.base);
+            fillRect(5, 5, 6, 6, spec.accent);
+            if (spec.trim) fillRect(7, 7, 2, 2, spec.trim);
+          }
+          break;
+        }
+      }
       break;
     }
   }
 
   ctx.putImageData(img, 0, 0);
   return c;
+}
+
+const OFFICIAL_MC116_MIRRORS = [
+  'https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@1.16.5/assets/minecraft/textures',
+  'https://assets.mcasset.cloud/1.16.5/assets/minecraft/textures',
+  'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.16.5/assets/minecraft/textures',
+];
+
+const ORIGINAL_CACHE_ID = 'original_mc116_cache_v2';
+const ORIGINAL_CACHE_VERSION = '1.16.5-official-v2';
+
+// Map internal texture keys to exact official Minecraft Java Edition 1.16.5 filenames
+function mapKeyToOfficialMc116Block(key: string): string {
+  const exactMap: Record<string, string> = {
+    wool_white: 'white_wool',
+    wool_red: 'red_wool',
+    wool_blue: 'blue_wool',
+    wool_yellow: 'yellow_wool',
+    wool_green: 'green_wool',
+    wool_black: 'black_wool',
+    bed_top: 'red_wool',
+    bed_side: 'red_wool',
+    chest_top: 'oak_planks',
+    chest_side: 'oak_planks',
+    chest_front: 'barrel_side',
+    campfire_top: 'campfire_log_lit',
+    campfire_side: 'campfire_log',
+    soul_campfire: 'soul_campfire_log_lit',
+    anvil_side: 'anvil',
+    pumpkin_front: 'carved_pumpkin',
+    jack_o_lantern_front: 'jack_o_lantern',
+    magma: 'magma',
+    blast_furnace: 'blast_furnace_front',
+    smoker: 'smoker_front',
+    stonecutter: 'stonecutter_side',
+    loom: 'loom_front',
+    cartography_table: 'cartography_table_top',
+    fletching_table: 'fletching_table_front',
+    grindstone: 'grindstone_side',
+    lectern: 'lectern_front',
+    composter: 'composter_side',
+    barrel: 'barrel_side',
+    dispenser: 'dispenser_front',
+    dropper: 'dropper_front',
+    observer: 'observer_front',
+    piston: 'piston_side',
+    sticky_piston: 'piston_top_sticky',
+    target: 'target_side',
+    jukebox: 'jukebox_side',
+    bell: 'gold_block',
+    lodestone: 'lodestone_side',
+    ender_chest: 'obsidian',
+    bee_nest: 'bee_nest_front',
+    beehive: 'beehive_front',
+    dried_kelp_block: 'dried_kelp_side',
+    polished_basalt: 'polished_basalt_side',
+    smooth_stone_slab: 'smooth_stone_slab_side',
+    stone_slab: 'stone',
+    stone_stairs: 'stone',
+    cobblestone_slab: 'cobblestone',
+    cobblestone_stairs: 'cobblestone',
+    cobblestone_wall: 'cobblestone',
+    stone_brick_slab: 'stone_bricks',
+    stone_brick_stairs: 'stone_bricks',
+    stone_brick_wall: 'stone_bricks',
+    oak_slab: 'oak_planks',
+    oak_stairs: 'oak_planks',
+    oak_fence: 'oak_planks',
+    oak_fence_gate: 'oak_planks',
+    oak_button: 'oak_planks',
+    oak_pressure_plate: 'oak_planks',
+    oak_sign: 'oak_planks',
+    stone_button: 'stone',
+    stone_pressure_plate: 'stone',
+    heavy_weighted_pressure_plate: 'iron_block',
+    light_weighted_pressure_plate: 'gold_block',
+    daylight_detector: 'daylight_detector_top',
+    scaffolding: 'scaffolding_side',
+    cake: 'cake_side',
+    glass_pane: 'glass',
+    oak_door: 'oak_door_top',
+    iron_door: 'iron_door_top',
+    crimson_door: 'crimson_door_top',
+    warped_door: 'warped_door_top',
+    conduit: 'prismarine_bricks',
+    hopper: 'hopper_outside',
+    cauldron: 'cauldron_side',
+    repeater: 'repeater',
+    comparator: 'comparator',
+    crimson_nylium: 'crimson_nylium',
+    warped_nylium: 'warped_nylium',
+    respawn_anchor_top: 'respawn_anchor_top',
+    respawn_anchor_side: 'respawn_anchor_side4',
+    beacon: 'beacon',
+    quartz_block: 'quartz_block_side',
+    sandstone: 'sandstone',
+    red_sandstone: 'red_sandstone',
+    smooth_sandstone: 'sandstone_top',
+    smooth_red_sandstone: 'red_sandstone_top',
+    chiseled_sandstone: 'chiseled_sandstone',
+    cut_sandstone: 'cut_sandstone',
+    tnt_top: 'tnt_top',
+    tnt_side: 'tnt_side',
+    bamboo: 'bamboo_stalk',
+    redstone_lamp: 'redstone_lamp_on',
+  };
+  if (exactMap[key]) return exactMap[key];
+  if (key.endsWith('_carpet')) return key.replace('_carpet', '_wool');
+  return key;
+}
+
+async function fetchWithTimeout(url: string, timeoutMs = 3000): Promise<Blob | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { mode: 'cors', signal: controller.signal });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return blob.size > 40 ? blob : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function pickFastestOfficialMirror(): Promise<string | null> {
+  try {
+    const winner = await Promise.any(
+      OFFICIAL_MC116_MIRRORS.map(async (base) => {
+        const probe = await fetchWithTimeout(`${base}/block/grass_block_top.png`, 2600);
+        if (!probe) throw new Error('unreachable');
+        return base;
+      }),
+    );
+    return winner;
+  } catch {
+    return null;
+  }
+}
+
+function blobToImg(blob: Blob): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = (e) => {
+      URL.revokeObjectURL(url);
+      reject(e);
+    };
+    img.src = url;
+  });
+}
+
+// Multiply-tint a grayscale official Minecraft texture with authentic biome color
+async function tintVanillaBlob(blob: Blob, hexColor: string): Promise<Blob> {
+  try {
+    const img = await blobToImg(blob);
+    const s = Math.min(img.width, img.height);
+    const c = document.createElement('canvas');
+    c.width = s;
+    c.height = s;
+    const ctx = c.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, 0, 0, s, s, 0, 0, s, s);
+    const imgData = ctx.getImageData(0, 0, s, s);
+    const data = imgData.data;
+    const [tr, tg, tb] = hexToRgb(hexColor);
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] === 0) continue;
+      data[i] = Math.round((data[i] * tr) / 255);
+      data[i + 1] = Math.round((data[i + 1] * tg) / 255);
+      data[i + 2] = Math.round((data[i + 2] * tb) / 255);
+    }
+    ctx.putImageData(imgData, 0, 0);
+    return await canvasToBlob(c);
+  } catch {
+    return blob;
+  }
+}
+
+// Composite official grass_block_side.png + tinted grass_block_side_overlay.png
+async function compositeVanillaGrassSide(baseBlob: Blob, overlayBlob: Blob): Promise<Blob> {
+  try {
+    const [baseImg, overImg] = await Promise.all([blobToImg(baseBlob), blobToImg(overlayBlob)]);
+    const s = Math.min(baseImg.width, baseImg.height);
+    const c = document.createElement('canvas');
+    c.width = s;
+    c.height = s;
+    const ctx = c.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(baseImg, 0, 0, s, s, 0, 0, s, s);
+
+    // Tint overlay with Plains green #79c05a then draw over dirt side
+    const oc = document.createElement('canvas');
+    oc.width = s;
+    oc.height = s;
+    const octx = oc.getContext('2d')!;
+    octx.imageSmoothingEnabled = false;
+    octx.drawImage(overImg, 0, 0, s, s, 0, 0, s, s);
+    const oData = octx.getImageData(0, 0, s, s);
+    const [tr, tg, tb] = hexToRgb('#79c05a');
+    for (let i = 0; i < oData.data.length; i += 4) {
+      if (oData.data[i + 3] === 0) continue;
+      oData.data[i] = Math.round((oData.data[i] * tr) / 255);
+      oData.data[i + 1] = Math.round((oData.data[i + 1] * tg) / 255);
+      oData.data[i + 2] = Math.round((oData.data[i + 2] * tb) / 255);
+    }
+    octx.putImageData(oData, 0, 0);
+    ctx.drawImage(oc, 0, 0);
+    return await canvasToBlob(c);
+  } catch {
+    return baseBlob;
+  }
 }
 
 function paintClassicOptionsBgCanvas(): HTMLCanvasElement {
@@ -999,10 +1405,10 @@ function paintClassicOptionsBgCanvas(): HTMLCanvasElement {
   return c;
 }
 
-async function fetchDefaultGuiBlob(name: 'widgets' | 'icons'): Promise<Blob | null> {
+async function fetchDefaultGuiBlob(name: 'widgets' | 'icons' | 'options_background'): Promise<Blob | null> {
   try {
     const res = await fetch(`./packs/mc116-nether-pack/assets/minecraft/textures/gui/${name}.png`, {
-      cache: 'no-cache',
+      cache: 'force-cache',
     });
     if (!res.ok) return null;
     return await res.blob();
@@ -1013,18 +1419,106 @@ async function fetchDefaultGuiBlob(name: 'widgets' | 'icons'): Promise<Blob | nu
 
 export async function buildOriginalMinecraftPack(
   baseGuiBlobs?: Record<string, Blob>,
+  forceRefresh = false,
 ): Promise<CachedResourcePack> {
-  const blockBlobs: Record<string, Blob> = {};
-  let totalBytes = 0;
-
-  for (const key of ALL_TEXTURE_KEYS) {
-    const canvas = paintOriginalBlockCanvas(key);
-    const blob = await canvasToBlob(canvas);
-    blockBlobs[key] = blob;
-    totalBytes += blob.size;
+  // 1. Instant switch from persistent cache if already downloaded!
+  if (!forceRefresh) {
+    const existingCache = await loadResourcePackById(ORIGINAL_CACHE_ID);
+    if (
+      existingCache &&
+      existingCache.version === ORIGINAL_CACHE_VERSION &&
+      Object.keys(existingCache.blockBlobs).length > 30
+    ) {
+      const promoted: CachedResourcePack = {
+        ...existingCache,
+        id: 'active_pack',
+      };
+      await saveResourcePack(promoted);
+      return promoted;
+    }
   }
 
+  const blockBlobs: Record<string, Blob> = {};
   const guiBlobs: Record<string, Blob> = { ...(baseGuiBlobs || {}) };
+  let totalBytes = 0;
+
+  // 2. Pick fastest official Minecraft 1.16.5 CDN mirror
+  const mirror = await pickFastestOfficialMirror();
+
+  if (mirror) {
+    // Deduplicate official filenames so we fetch each PNG only once!
+    const nameToKeys = new Map<string, string[]>();
+    for (const key of ALL_TEXTURE_KEYS) {
+      const mcName = mapKeyToOfficialMc116Block(key);
+      const list = nameToKeys.get(mcName);
+      if (list) list.push(key);
+      else nameToKeys.set(mcName, [key]);
+    }
+
+    const uniqueNames = Array.from(nameToKeys.keys());
+    const fetchedByName = new Map<string, Blob>();
+
+    // Also fetch grass_block_side_overlay for authentic Plains green grass overhang
+    const extraPromise = fetchWithTimeout(`${mirror}/block/grass_block_side_overlay.png`, 3000);
+
+    // High-concurrency parallel fetch over HTTP/2 (batches of 32 -> ~0.5-1.2s total!)
+    const BATCH = 32;
+    for (let i = 0; i < uniqueNames.length; i += BATCH) {
+      const slice = uniqueNames.slice(i, i + BATCH);
+      await Promise.all(
+        slice.map(async (mcName) => {
+          const blob = await fetchWithTimeout(`${mirror}/block/${mcName}.png`, 2800);
+          if (blob) fetchedByName.set(mcName, blob);
+        }),
+      );
+    }
+
+    const grassOverlayBlob = await extraPromise;
+
+    // Apply authentic Minecraft 1.16.5 Plains biome tinting to grayscale official textures
+    const tintedCache = new Map<string, Blob>();
+    const tintTargets: [string, string][] = [
+      ['grass_block_top', '#79c05a'],
+      ['oak_leaves', '#59ae30'],
+      ['vine', '#59ae30'],
+      ['lily_pad', '#4ea832'],
+      ['sugar_cane', '#79c05a'],
+      ['water_still', '#3f76e4'],
+    ];
+    await Promise.all(
+      tintTargets.map(async ([name, hex]) => {
+        const raw = fetchedByName.get(name);
+        if (raw) tintedCache.set(name, await tintVanillaBlob(raw, hex));
+      }),
+    );
+
+    const rawGrassSide = fetchedByName.get('grass_block_side');
+    if (rawGrassSide && grassOverlayBlob) {
+      tintedCache.set('grass_block_side', await compositeVanillaGrassSide(rawGrassSide, grassOverlayBlob));
+    }
+
+    // Assign fetched blobs to all mapped keys (zero redundant PNG re-encoding!)
+    for (const [mcName, keys] of nameToKeys.entries()) {
+      const finalBlob = tintedCache.get(mcName) || fetchedByName.get(mcName);
+      if (!finalBlob) continue;
+      totalBytes += finalBlob.size;
+      for (const key of keys) {
+        blockBlobs[key] = finalBlob;
+      }
+    }
+
+    // Official Minecraft 1.16.5 GUI sprites if reachable
+    const [w, ic, bg] = await Promise.all([
+      fetchWithTimeout(`${mirror}/gui/widgets.png`, 2500),
+      fetchWithTimeout(`${mirror}/gui/icons.png`, 2500),
+      fetchWithTimeout(`${mirror}/gui/options_background.png`, 2500),
+    ]);
+    if (w) guiBlobs.widgets = w;
+    if (ic) guiBlobs.icons = ic;
+    if (bg) guiBlobs.options_background = bg;
+  }
+
+  // Ensure GUI fallbacks always exist
   if (!guiBlobs.widgets) {
     const w = await fetchDefaultGuiBlob('widgets');
     if (w) guiBlobs.widgets = w;
@@ -1033,15 +1527,23 @@ export async function buildOriginalMinecraftPack(
     const ic = await fetchDefaultGuiBlob('icons');
     if (ic) guiBlobs.icons = ic;
   }
-  const bgBlob = await canvasToBlob(paintClassicOptionsBgCanvas());
-  guiBlobs.options_background = bgBlob;
+  if (!guiBlobs.options_background) {
+    guiBlobs.options_background = await canvasToBlob(paintClassicOptionsBgCanvas());
+  }
   for (const b of Object.values(guiBlobs)) totalBytes += b.size;
 
+  const fetchedCount = Object.keys(blockBlobs).length;
   const cached: CachedResourcePack = {
     id: 'active_pack',
-    name: 'Minecraft 1.16 Chính Gốc (Classic Vanilla)',
-    version: '1.16.5-vanilla',
-    sourceLabel: 'Texture Chính Gốc 1.16 (Tích hợp sẵn)',
+    name:
+      fetchedCount > 30
+        ? 'Minecraft 1.16.5 Chính Gốc (Official Vanilla)'
+        : 'Minecraft 1.16 Chính Gốc (Offline)',
+    version: ORIGINAL_CACHE_VERSION,
+    sourceLabel:
+      fetchedCount > 30
+        ? `Texture Minecraft 1.16.5 Chính Gốc (${fetchedCount} block)`
+        : 'Texture 1.16 Chính Gốc (Chế độ ngoại tuyến)',
     sourceType: 'original-classic',
     downloadedAt: Date.now(),
     totalBytes,
@@ -1049,6 +1551,9 @@ export async function buildOriginalMinecraftPack(
     guiBlobs,
   };
 
-  await saveResourcePack(cached);
+  await Promise.all([
+    saveResourcePack(cached),
+    fetchedCount > 30 ? saveResourcePack({ ...cached, id: ORIGINAL_CACHE_ID }) : Promise.resolve(),
+  ]);
   return cached;
 }

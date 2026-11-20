@@ -1,3 +1,6 @@
+import { EXT_BLOCK_DEFS, EXT_ITEMS } from './catalog116';
+import { EffectId } from './types';
+
 export const BLOCK = {
   AIR: 0,
   GRASS: 1,
@@ -109,7 +112,14 @@ export type SoundMaterial =
   | 'metal'
   | 'liquid';
 export type ToolKind = 'none' | 'pickaxe' | 'axe' | 'shovel' | 'sword' | 'hoe';
-export type CreativeCategory = 'building' | 'nether116' | 'ores' | 'tools' | 'armor_food';
+export type CreativeCategory =
+  | 'building'
+  | 'nether116'
+  | 'ores'
+  | 'tools'
+  | 'armor_food'
+  | 'redstone'
+  | 'decor_brew';
 
 export interface BlockDef {
   id: number;
@@ -609,6 +619,9 @@ export const BLOCK_DEFS: Record<number, BlockDef> = {
   },
 };
 
+// Merge all extended Minecraft 1.16 blocks (IDs 94+)
+Object.assign(BLOCK_DEFS, EXT_BLOCK_DEFS);
+
 export const BLOCK_BY_KEY: Record<string, BlockDef> = {};
 for (const def of Object.values(BLOCK_DEFS)) {
   BLOCK_BY_KEY[def.key] = def;
@@ -646,7 +659,16 @@ export type ItemIconShape =
   | 'totem'
   | 'rod'
   | 'pearl'
-  | 'feather';
+  | 'feather'
+  | 'potion'
+  | 'elytra'
+  | 'trident'
+  | 'compass'
+  | 'clock'
+  | 'bowl'
+  | 'boat'
+  | 'banner'
+  | 'disc';
 
 export interface ItemDef {
   id: string;
@@ -662,6 +684,7 @@ export interface ItemDef {
   armorDefense?: number;
   foodRestore?: number;
   healRestore?: number;
+  potionEffect?: { id: EffectId; amplifier: number; durationSec: number };
   fuelTime?: number;
   isFlintAndSteel?: boolean;
   bucketKind?: 'empty' | 'water' | 'lava';
@@ -693,9 +716,24 @@ for (const def of Object.values(BLOCK_DEFS)) {
     fuelTime:
       def.key === 'coal_block'
         ? 800
-        : def.key.includes('log') || def.key.includes('planks') || def.key === 'oak_fence'
-          ? 15
-          : undefined,
+        : def.key === 'dried_kelp_block'
+          ? 200
+          : def.key === 'bamboo' || def.key === 'scaffolding'
+            ? 4
+            : def.key.includes('log') ||
+                def.key.includes('planks') ||
+                def.key.includes('fence') ||
+                def.key.includes('oak_') ||
+                def.key === 'barrel' ||
+                def.key === 'loom' ||
+                def.key === 'cartography_table' ||
+                def.key === 'fletching_table' ||
+                def.key === 'lectern' ||
+                def.key === 'composter' ||
+                def.key === 'note_block' ||
+                def.key === 'jukebox'
+              ? 15
+              : undefined,
   };
 }
 
@@ -830,6 +868,11 @@ const EXTRA_ITEMS: ItemDef[] = [
 
 for (const item of EXTRA_ITEMS) {
   ITEM_DEFS[item.id] = item;
+}
+for (const item of EXT_ITEMS) {
+  if (!ITEM_DEFS[item.id]) {
+    ITEM_DEFS[item.id] = item;
+  }
 }
 
 export const ALL_TEXTURE_KEYS = Array.from(

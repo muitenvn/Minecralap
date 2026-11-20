@@ -353,8 +353,8 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
             {switchingPack
               ? 'Đang đổi Texture...'
               : settings.texturePreset === 'original'
-                ? 'Texture: Chính Gốc'
-                : 'Texture: Hiện Tại'}
+                ? 'Texture: Chính Gốc 1.16'
+                : 'Texture: 32×32 HD'}
           </McButton>
         </div>
       </div>

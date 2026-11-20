@@ -42,18 +42,22 @@ export async function saveResourcePack(pack: CachedResourcePack): Promise<void> 
   });
 }
 
-export async function loadActiveResourcePack(): Promise<CachedResourcePack | null> {
+export async function loadResourcePackById(id: string): Promise<CachedResourcePack | null> {
   try {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_PACKS, 'readonly');
-      const req = tx.objectStore(STORE_PACKS).get('active_pack');
+      const req = tx.objectStore(STORE_PACKS).get(id);
       req.onsuccess = () => resolve((req.result as CachedResourcePack) || null);
       req.onerror = () => reject(req.error);
     });
   } catch {
     return null;
   }
+}
+
+export async function loadActiveResourcePack(): Promise<CachedResourcePack | null> {
+  return loadResourcePackById('active_pack');
 }
 
 export async function clearResourcePackCache(): Promise<void> {

@@ -1796,6 +1796,52 @@ export class NetherCraftEngine {
       return;
     }
 
+    // 1.75 Drink Potions & Milk Bucket on Right-Click / Tap Đặt!
+    if (
+      held &&
+      itemDef &&
+      (itemDef.potionEffect ||
+        held.itemId === 'milk_bucket' ||
+        held.itemId === 'potion_healing' ||
+        held.itemId === 'honey_bottle')
+    ) {
+      if (held.itemId === 'milk_bucket') {
+        this.world.player.effects = [];
+        if (this.world.gameMode === 'survival') {
+          this.world.player.inventory[this.world.player.selectedSlot] = { itemId: 'bucket', count: 1 };
+        }
+      } else {
+        if (itemDef.potionEffect) {
+          const eff = itemDef.potionEffect;
+          const idx = this.world.player.effects.findIndex((e) => e.id === eff.id);
+          const nextEff = { id: eff.id, amplifier: eff.amplifier, remainingSec: eff.durationSec };
+          if (idx >= 0) this.world.player.effects[idx] = nextEff;
+          else this.world.player.effects.push(nextEff);
+        }
+        if (itemDef.healRestore) {
+          this.world.player.hp = Math.min(this.world.player.maxHp, this.world.player.hp + itemDef.healRestore);
+        }
+        if (itemDef.foodRestore) {
+          this.world.player.hunger = Math.min(20, this.world.player.hunger + itemDef.foodRestore);
+        }
+        if (this.world.gameMode === 'survival') {
+          if (held.count > 1) {
+            held.count -= 1;
+            this.addItemToInventory('glass_bottle', 1);
+          } else {
+            this.world.player.inventory[this.world.player.selectedSlot] = { itemId: 'glass_bottle', count: 1 };
+          }
+        }
+      }
+      soundEngine.playLevelUp();
+      this.handSwing = 0.85;
+      this.heldItemToast = `Đã uống: ${itemDef.nameVi}`;
+      this.heldItemToastAt = performance.now();
+      this.updateFirstPersonHeldVisual();
+      this.emitHud();
+      return;
+    }
+
     // 2. Try eating food if hungry or hurt
     if (itemDef?.foodRestore && this.world.gameMode === 'survival' && (this.world.player.hunger < 20 || this.world.player.hp < 20)) {
       this.world.player.hunger = Math.min(20, this.world.player.hunger + itemDef.foodRestore);
@@ -1816,12 +1862,27 @@ export class NetherCraftEngine {
     // 3. Interact with functional 1.16 blocks (unless sneaking)
     const sneaking = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || this.touchSneak;
     if (!sneaking) {
-      if (tb.blockId === BLOCK.CRAFTING_TABLE) {
+      const targetKey = BLOCK_DEFS[tb.blockId]?.key || '';
+      if (
+        tb.blockId === BLOCK.CRAFTING_TABLE ||
+        targetKey === 'brewing_stand' ||
+        targetKey === 'stonecutter' ||
+        targetKey === 'loom' ||
+        targetKey === 'cartography_table' ||
+        targetKey === 'fletching_table' ||
+        targetKey === 'grindstone'
+      ) {
         this.exitPointerLock();
         this.callbacks.onOpenContainer('crafting');
         return;
       }
-      if (tb.blockId === BLOCK.FURNACE) {
+      if (
+        tb.blockId === BLOCK.FURNACE ||
+        targetKey === 'blast_furnace' ||
+        targetKey === 'smoker' ||
+        targetKey === 'campfire' ||
+        targetKey === 'soul_campfire'
+      ) {
         this.exitPointerLock();
         this.callbacks.onOpenContainer('furnace');
         return;
@@ -1829,6 +1890,15 @@ export class NetherCraftEngine {
       if (tb.blockId === BLOCK.SMITHING_TABLE) {
         this.exitPointerLock();
         this.callbacks.onOpenContainer('smithing');
+        return;
+      }
+      if (targetKey === 'cake') {
+        this.world.player.hunger = Math.min(20, this.world.player.hunger + 3);
+        this.world.player.hp = Math.min(this.world.player.maxHp, this.world.player.hp + 1);
+        soundEngine.playEat();
+        this.heldItemToast = 'Đã ăn Bánh Kem (+3 đói)';
+        this.heldItemToastAt = performance.now();
+        this.emitHud();
         return;
       }
       if (tb.blockId === BLOCK.BED) {

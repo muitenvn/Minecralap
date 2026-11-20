@@ -3,6 +3,7 @@ import { unzipSync } from 'fflate';
 import { ALL_TEXTURE_KEYS, BLOCK_DEFS, ITEM_DEFS } from './blocks';
 import { CachedResourcePack, PackManifest } from './types';
 import { saveResourcePack } from './storage';
+import { paintHd32BlockCanvas } from './hdTextures32';
 import { paintOriginalBlockCanvas } from './vanillaTextures';
 
 export interface AtlasUV {
@@ -48,9 +49,46 @@ export interface DownloadProgress {
 const DEFAULT_PACK_BASE = './packs/mc116-nether-pack';
 
 async function fetchBlob(url: string): Promise<Blob> {
-  const res = await fetch(url, { cache: 'no-cache' });
+  const res = await fetch(url, { cache: 'force-cache' });
   if (!res.ok) throw new Error(`HTTP ${res.status} (${url})`);
   return res.blob();
+}
+
+export async function buildHd32DefaultPack(
+  baseGuiBlobs?: Record<string, Blob>,
+): Promise<CachedResourcePack> {
+  const guiBlobs: Record<string, Blob> = { ...(baseGuiBlobs || {}) };
+  const guiKeys: ('widgets' | 'icons' | 'options_background')[] = [
+    'widgets',
+    'icons',
+    'options_background',
+  ];
+  await Promise.all(
+    guiKeys.map(async (g) => {
+      if (guiBlobs[g]) return;
+      try {
+        guiBlobs[g] = await fetchBlob(`${DEFAULT_PACK_BASE}/assets/minecraft/textures/gui/${g}.png`);
+      } catch {
+        // Optional GUI fallback handled cleanly by CSS
+      }
+    }),
+  );
+  let totalBytes = 0;
+  for (const b of Object.values(guiBlobs)) totalBytes += b.size;
+
+  const record: CachedResourcePack = {
+    id: 'active_pack',
+    name: 'NetherCraft 1.16 HD (32×32)',
+    version: '1.16.5-hd32',
+    sourceLabel: 'Texture 32×32 HD Mặc Định (Faithful Style)',
+    sourceType: 'hd-32',
+    downloadedAt: Date.now(),
+    totalBytes,
+    blockBlobs: {},
+    guiBlobs,
+  };
+  await saveResourcePack(record);
+  return record;
 }
 
 export async function downloadDefaultGithubPack(
@@ -466,6 +504,58 @@ function drawToolIconDataUrl(shape: string, color: string, accent: string): stri
   } else if (shape === 'feather') {
     for (let i = 0; i < 9; i++) p(3 + i, 12 - i, 3, 2, i < 3 ? '#a1a1aa' : color);
     p(8, 3, 4, 4, accent);
+  } else if (shape === 'potion') {
+    // Glass bottle neck & cork
+    p(6, 2, 4, 2, '#9c6b3b');
+    p(6, 4, 4, 2, '#cbd5e1');
+    // Glass flask outline
+    p(4, 6, 8, 8, '#e2e8f0');
+    p(3, 7, 10, 6, '#e2e8f0');
+    // Glowing liquid inside
+    p(5, 7, 6, 6, color);
+    p(4, 8, 8, 4, color);
+    p(5, 8, 2, 2, accent);
+  } else if (shape === 'elytra') {
+    p(6, 3, 4, 2, accent);
+    p(2, 4, 5, 9, color);
+    p(9, 4, 5, 9, color);
+    p(3, 5, 3, 6, accent);
+    p(10, 5, 3, 6, accent);
+  } else if (shape === 'trident') {
+    for (let i = 0; i < 9; i++) p(3 + i, 12 - i, 2, 2, color);
+    p(9, 2, 2, 5, accent);
+    p(12, 3, 2, 4, accent);
+    p(10, 5, 5, 2, accent);
+  } else if (shape === 'compass') {
+    p(4, 2, 8, 12, color);
+    p(2, 4, 12, 8, color);
+    p(4, 4, 8, 8, '#1e293b');
+    p(7, 4, 2, 5, accent);
+    p(7, 9, 2, 3, '#cbd5e1');
+  } else if (shape === 'clock') {
+    p(4, 2, 8, 12, color);
+    p(2, 4, 12, 8, color);
+    p(4, 4, 8, 8, '#1d4ed8');
+    p(4, 4, 8, 4, '#38bdf8');
+    p(7, 4, 2, 2, accent);
+  } else if (shape === 'bowl') {
+    p(2, 7, 12, 4, color);
+    p(4, 11, 8, 2, '#5c3b1e');
+    p(4, 7, 8, 2, accent);
+  } else if (shape === 'boat') {
+    p(2, 7, 12, 5, color);
+    p(4, 12, 8, 2, '#5c3b1e');
+    p(4, 8, 8, 2, accent);
+    p(6, 4, 4, 3, color);
+  } else if (shape === 'banner') {
+    p(7, 11, 2, 4, '#8d6438');
+    p(4, 2, 8, 10, color);
+    p(5, 4, 6, 4, accent);
+  } else if (shape === 'disc') {
+    p(4, 3, 8, 10, color);
+    p(3, 4, 10, 8, color);
+    p(6, 6, 4, 4, accent);
+    p(7, 7, 2, 2, '#111827');
   } else {
     p(4, 4, 8, 8, color);
     p(5, 5, 4, 4, accent);
@@ -478,10 +568,12 @@ export async function compileResourcePack(
   maxAnisotropy = 4,
 ): Promise<CompiledResourcePack> {
   const keys = ALL_TEXTURE_KEYS;
-  const TILE = 16;
+  // Crisp 32x32 HD tile atlas (1024x1024 RGBA = 4MB VRAM, 4x sharper than 16x16)
+  const TILE = 32;
   const cols = Math.ceil(Math.sqrt(keys.length));
   const atlasDim = Math.pow(2, Math.ceil(Math.log2(cols * TILE)));
   const tilesPerRow = atlasDim / TILE;
+  const useHd32 = cached.sourceType === 'hd-32';
 
   const atlasCanvas = document.createElement('canvas');
   atlasCanvas.width = atlasDim;
@@ -494,19 +586,31 @@ export async function compileResourcePack(
   const tileImages: Record<string, HTMLImageElement | HTMLCanvasElement> = {};
   const previewTiles: { key: string; url: string }[] = [];
 
+  // Deduplicate blob decoding when multiple keys share the same Blob instance (e.g. planks/stairs/slabs)
+  const decodedBlobCache = new Map<Blob, Promise<HTMLImageElement>>();
+  const decodeSharedBlob = (blob: Blob): Promise<HTMLImageElement> => {
+    let p = decodedBlobCache.get(blob);
+    if (!p) {
+      p = blobToImage(blob);
+      decodedBlobCache.set(blob, p);
+    }
+    return p;
+  };
+
   await Promise.all(
     keys.map(async (key, idx) => {
       const col = idx % tilesPerRow;
       const row = Math.floor(idx / tilesPerRow);
       const px = col * TILE;
       const py = row * TILE;
-      const blob = cached.blockBlobs[key];
+      const blob = useHd32 ? undefined : cached.blockBlobs[key];
       let drawn = false;
       if (blob) {
         try {
-          const img = await blobToImage(blob);
+          const img = await decodeSharedBlob(blob);
           tileImages[key] = img;
           const srcSize = Math.min(img.width, img.height);
+          ctx.imageSmoothingEnabled = false;
           ctx.drawImage(img, 0, 0, srcSize, srcSize, px, py, TILE, TILE);
           drawn = true;
         } catch {
@@ -514,12 +618,24 @@ export async function compileResourcePack(
         }
       }
       if (!drawn) {
-        // Crisp 16x16 classic Minecraft texture fallback for expanded blocks
-        const fallbackCanvas = paintOriginalBlockCanvas(key);
+        const fallbackCanvas = useHd32
+          ? paintHd32BlockCanvas(key)
+          : paintOriginalBlockCanvas(key);
         tileImages[key] = fallbackCanvas;
-        ctx.drawImage(fallbackCanvas, 0, 0, 16, 16, px, py, TILE, TILE);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(
+          fallbackCanvas,
+          0,
+          0,
+          fallbackCanvas.width,
+          fallbackCanvas.height,
+          px,
+          py,
+          TILE,
+          TILE,
+        );
       }
-      const eps = 0.0008;
+      const eps = 0.0005;
       uvMap[key] = {
         u0: px / atlasDim + eps,
         u1: (px + TILE) / atlasDim - eps,
@@ -546,9 +662,26 @@ export async function compileResourcePack(
       if (
         bdef.key === 'torch' ||
         bdef.key === 'soul_torch' ||
+        bdef.key === 'redstone_torch' ||
         bdef.key === 'soul_lantern' ||
         bdef.key === 'lantern' ||
-        bdef.key === 'ladder'
+        bdef.key === 'ladder' ||
+        bdef.key.includes('rail') ||
+        bdef.key === 'chain' ||
+        bdef.key === 'end_rod' ||
+        bdef.key === 'lever' ||
+        bdef.key === 'tripwire_hook' ||
+        bdef.key === 'flower_pot' ||
+        bdef.key === 'vine' ||
+        bdef.key === 'sugar_cane' ||
+        bdef.key === 'bamboo' ||
+        bdef.key === 'cobweb' ||
+        bdef.key === 'brewing_stand' ||
+        bdef.key === 'bell' ||
+        bdef.key.includes('_door') ||
+        bdef.key.includes('bars') ||
+        bdef.key === 'glass_pane' ||
+        bdef.key === 'lily_pad'
       ) {
         if (sideImg) {
           const s = Math.min(sideImg.width, sideImg.height);
@@ -607,12 +740,12 @@ export async function compileResourcePack(
     const img = tileImages[pk];
     if (img) {
       const pc = document.createElement('canvas');
-      pc.width = 16;
-      pc.height = 16;
+      pc.width = 32;
+      pc.height = 32;
       const pctx = pc.getContext('2d')!;
       pctx.imageSmoothingEnabled = false;
       const s = Math.min(img.width, img.height);
-      pctx.drawImage(img, 0, 0, s, s, 0, 0, 16, 16);
+      pctx.drawImage(img, 0, 0, s, s, 0, 0, 32, 32);
       previewTiles.push({ key: pk, url: pc.toDataURL('image/png') });
     }
   }
@@ -639,7 +772,7 @@ export async function compileResourcePack(
       sourceType: cached.sourceType,
       downloadedAt: cached.downloadedAt,
       totalBytes: cached.totalBytes,
-      blockCount: Object.keys(cached.blockBlobs).length,
+      blockCount: useHd32 ? keys.length : Math.max(Object.keys(cached.blockBlobs).length, keys.length),
       guiCount: Object.keys(cached.guiBlobs).length,
     },
     atlasTexture,

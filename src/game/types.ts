@@ -282,7 +282,7 @@ export interface CachedResourcePack {
   name: string;
   version: string;
   sourceLabel: string;
-  sourceType: 'github-default' | 'original-classic' | 'github-raw' | 'zip-upload';
+  sourceType: 'hd-32' | 'github-default' | 'original-classic' | 'github-raw' | 'zip-upload';
   sourceUrl?: string;
   downloadedAt: number;
   totalBytes: number;
