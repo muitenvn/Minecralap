@@ -134,6 +134,7 @@ export class NetherCraftEngine {
 
   // Panorama showcase group (visible on Resource Gate & Title Screen)
   private panoramaGroup = new THREE.Group();
+  private panoramaMobsGroup = new THREE.Group();
   private panoramaAngle = 0;
 
   // Player physics & interaction
@@ -380,6 +381,7 @@ export class NetherCraftEngine {
     };
 
     window.addEventListener('resize', this.onResizeBound);
+    window.addEventListener('orientationchange', this.onResizeBound);
     window.addEventListener('keydown', this.onKeyDownBound);
     window.addEventListener('keyup', this.onKeyUpBound);
     window.addEventListener('mousemove', this.onMouseMoveBound);
@@ -667,16 +669,27 @@ export class NetherCraftEngine {
     addBox(-2, 0.7, 2.5, 1, 1, 1, 0xeab308, 0.22, 0.88);
     addBox(-2, 0.7, -2.5, 1, 1, 1, 0x6c4c40, 0.55, 0.45); // Ancient Debris showcase
 
-    // Decorative composite Piglin & Strider in panorama
-    const piglin = buildMobMesh('piglin').group;
+    // Decorative Piglin & Strider in panorama (rebuilt automatically with active resource pack entity textures)
+    g.add(this.panoramaMobsGroup);
+    this.rebuildPanoramaMobs();
+  }
+
+  private rebuildPanoramaMobs(): void {
+    while (this.panoramaMobsGroup.children.length > 0) {
+      const child = this.panoramaMobsGroup.children[0];
+      this.panoramaMobsGroup.remove(child);
+      if (child instanceof THREE.Group) disposeMobMesh(child);
+    }
+    const entityTex = this.pack?.entityTextures;
+    const piglin = buildMobMesh('piglin', entityTex).group;
     piglin.position.set(2.5, 0.2, -1.6);
     piglin.rotation.y = -0.8;
-    g.add(piglin);
+    this.panoramaMobsGroup.add(piglin);
 
-    const strider = buildMobMesh('strider').group;
+    const strider = buildMobMesh('strider', entityTex).group;
     strider.position.set(3.2, 0.2, 2.2);
     strider.rotation.y = -2.2;
-    g.add(strider);
+    this.panoramaMobsGroup.add(strider);
   }
 
   public setResourcePack(pack: CompiledResourcePack): void {
@@ -693,6 +706,20 @@ export class NetherCraftEngine {
       for (let s = 0; s < SUBCHUNK_COUNT; s++) {
         if (entry.col.sections[s]) entry.col.dirtySections[s] = true;
       }
+    }
+    // Hot-swap textures on panorama mobs & all active spawned mobs immediately
+    this.rebuildPanoramaMobs();
+    for (const mob of this.mobs) {
+      const oldMesh = mob.mesh;
+      const { group, limbs } = buildMobMesh(mob.type, pack.entityTextures);
+      group.position.copy(oldMesh.position);
+      group.rotation.y = mob.yaw;
+      group.scale.copy(oldMesh.scale);
+      this.worldGroup.remove(oldMesh);
+      disposeMobMesh(oldMesh);
+      this.worldGroup.add(group);
+      mob.mesh = group;
+      mob.limbs = limbs;
     }
     this.updateFirstPersonHeldVisual();
     if (this.world) {
@@ -1525,7 +1552,7 @@ export class NetherCraftEngine {
     if (!this.world) return;
     const spec = MOB_SPECS[type];
     if (spec.hostile && this.world.difficulty === 'peaceful') return;
-    const { group, limbs } = buildMobMesh(type);
+    const { group, limbs } = buildMobMesh(type, this.pack?.entityTextures);
     group.position.set(x - this.originCX * CHUNK_SIZE, y, z - this.originCZ * CHUNK_SIZE);
     this.worldGroup.add(group);
     this.mobs.push({
@@ -2935,6 +2962,206 @@ export class NetherCraftEngine {
     this.renderer.setSize(w, h);
   }
 
+  private getMapBlockRgb(blockId: number): [number, number, number] {
+    switch (blockId) {
+      case BLOCK.GRASS:
+        return [125, 178, 56];
+      case BLOCK.OAK_LEAVES:
+        return [48, 126, 44];
+      case BLOCK.WATER:
+        return [60, 114, 224];
+      case BLOCK.SAND:
+        return [227, 214, 158];
+      case BLOCK.SNOW:
+        return [242, 246, 250];
+      case BLOCK.ICE:
+        return [148, 194, 252];
+      case BLOCK.STONE:
+      case BLOCK.COBBLESTONE:
+      case BLOCK.GRAVEL:
+      case BLOCK.BEDROCK:
+        return [132, 132, 138];
+      case BLOCK.DIRT:
+      case BLOCK.OAK_LOG:
+      case BLOCK.OAK_PLANKS:
+      case BLOCK.SPRUCE_LOG:
+      case BLOCK.SPRUCE_PLANKS:
+        return [146, 108, 70];
+      case BLOCK.BIRCH_LOG:
+      case BLOCK.BIRCH_PLANKS:
+        return [214, 200, 154];
+      case BLOCK.LAVA:
+      case BLOCK.MAGMA:
+        return [238, 96, 26];
+      case BLOCK.NETHERRACK:
+      case BLOCK.NETHER_QUARTZ_ORE:
+      case BLOCK.NETHER_GOLD_ORE:
+      case BLOCK.NETHER_BRICKS:
+        return [118, 42, 42];
+      case BLOCK.CRIMSON_NYLIUM:
+      case BLOCK.CRIMSON_STEM:
+      case BLOCK.NETHER_WART_BLOCK:
+      case BLOCK.CRIMSON_PLANKS:
+        return [156, 36, 56];
+      case BLOCK.WARPED_NYLIUM:
+      case BLOCK.WARPED_STEM:
+      case BLOCK.WARPED_WART_BLOCK:
+      case BLOCK.WARPED_PLANKS:
+        return [28, 138, 126];
+      case BLOCK.SOUL_SAND:
+      case BLOCK.SOUL_SOIL:
+        return [92, 69, 54];
+      case BLOCK.BASALT:
+      case BLOCK.BLACKSTONE:
+      case BLOCK.POLISHED_BLACKSTONE:
+      case BLOCK.GILDED_BLACKSTONE:
+      case BLOCK.OBSIDIAN:
+      case BLOCK.CRYING_OBSIDIAN:
+        return [58, 54, 68];
+      case BLOCK.GLOWSTONE:
+      case BLOCK.SHROOMLIGHT:
+      case BLOCK.GOLD_BLOCK:
+        return [236, 186, 60];
+      case BLOCK.BRICKS:
+      case BLOCK.TNT:
+        return [168, 72, 56];
+      case BLOCK.NETHER_PORTAL:
+        return [148, 54, 224];
+      default: {
+        const def = BLOCK_DEFS[blockId];
+        if (!def) return [134, 128, 118];
+        if (def.key.includes('water') || def.key.includes('ice')) return [130, 178, 240];
+        if (def.key.includes('sand')) return [224, 208, 152];
+        if (def.key.includes('wood') || def.key.includes('plank') || def.key.includes('log')) {
+          return [150, 112, 72];
+        }
+        if (def.key.includes('crimson') || def.key.includes('red_')) return [158, 46, 52];
+        if (def.key.includes('warped') || def.key.includes('prismarine')) return [38, 140, 128];
+        if (def.key.includes('leaf') || def.key.includes('grass') || def.key.includes('sapling')) {
+          return [74, 146, 52];
+        }
+        if (def.key.includes('blackstone') || def.key.includes('netherite')) return [56, 52, 66];
+        return [154, 148, 138];
+      }
+    }
+  }
+
+  public renderMinimap(canvas: HTMLCanvasElement, scaleBlocksPerPx = 2): void {
+    if (!this.world || !this.generator) return;
+    const size = 64;
+    if (canvas.width !== size || canvas.height !== size) {
+      canvas.width = size;
+      canvas.height = size;
+    }
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = ctx.createImageData(size, size);
+    const data = img.data;
+    const half = size >> 1;
+    const centerX = Math.floor(this.px);
+    const centerZ = Math.floor(this.pz);
+    const dim = this.world.dimension;
+    const prevRowH = new Int16Array(size);
+    prevRowH.fill(dim === 'nether' ? 40 : SEA_LEVEL);
+
+    for (let pz = 0; pz < size; pz++) {
+      const wz = centerZ + (pz - half) * scaleBlocksPerPx;
+      const cz = Math.floor(wz / CHUNK_SIZE);
+      const lz = ((wz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+
+      for (let px = 0; px < size; px++) {
+        const wx = centerX + (px - half) * scaleBlocksPerPx;
+        const cx = Math.floor(wx / CHUNK_SIZE);
+        const lx = ((wx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+        const entry = this.chunks.get(`${cx},${cz}`);
+
+        let blockId: number = BLOCK.AIR;
+        let topY = dim === 'nether' ? 32 : SEA_LEVEL;
+
+        if (entry) {
+          const col = entry.col;
+          const startSec = dim === 'nether' ? 5 : SUBCHUNK_COUNT - 1;
+          const startY = dim === 'nether' ? 86 : WORLD_HEIGHT_MAX - 1;
+          for (let s = startSec; s >= 0; s--) {
+            const sec = col.sections[s];
+            if (!sec) continue;
+            const yHi = Math.min((s << 4) + 15, startY);
+            const yLo = s << 4;
+            for (let y = yHi; y >= yLo; y--) {
+              const id = sec[((y & 15) << 8) | (lz << 4) | lx];
+              if (id !== BLOCK.AIR) {
+                blockId = id;
+                topY = y;
+                break;
+              }
+            }
+            if (blockId !== BLOCK.AIR) break;
+          }
+        } else if (dim === 'overworld') {
+          topY = this.generator.getOverworldSurfaceY(wx, wz);
+          const biome = this.generator.getOverworldBiome(wx, wz);
+          if (topY < SEA_LEVEL) {
+            blockId = BLOCK.WATER;
+            topY = SEA_LEVEL;
+          } else if (biome === 'desert') {
+            blockId = BLOCK.SAND;
+          } else if (biome === 'snowy_tundra') {
+            blockId = BLOCK.SNOW;
+          } else if (biome === 'mountains' && topY > 86) {
+            blockId = BLOCK.STONE;
+          } else if (biome === 'forest') {
+            blockId = ((wx * 13 + wz * 7) & 3) === 0 ? BLOCK.OAK_LEAVES : BLOCK.GRASS;
+          } else {
+            blockId = BLOCK.GRASS;
+          }
+        } else {
+          const biome = this.generator.getNetherBiome(wx, wz);
+          topY = 44;
+          if (biome === 'crimson_forest') blockId = BLOCK.CRIMSON_NYLIUM;
+          else if (biome === 'warped_forest') blockId = BLOCK.WARPED_NYLIUM;
+          else if (biome === 'soul_sand_valley') blockId = BLOCK.SOUL_SAND;
+          else if (biome === 'basalt_deltas') blockId = BLOCK.BASALT;
+          else blockId = BLOCK.NETHERRACK;
+        }
+
+        const [br, bg, bb] = this.getMapBlockRgb(blockId);
+        // Authentic Minecraft filled-map 3-level height slope shading
+        const dh = topY - prevRowH[px];
+        prevRowH[px] = topY;
+        const shade =
+          blockId === BLOCK.WATER || blockId === BLOCK.LAVA
+            ? (px + pz) % 2 === 0
+              ? 1.0
+              : 0.94
+            : dh > 0
+              ? 1.13
+              : dh < 0
+                ? 0.85
+                : 1.0;
+
+        // Subtle warm parchment tint blend for Minecraft map feel
+        const idx = (pz * size + px) * 4;
+        data[idx] = Math.min(255, Math.max(0, Math.round(br * shade)));
+        data[idx + 1] = Math.min(255, Math.max(0, Math.round(bg * shade)));
+        data[idx + 2] = Math.min(255, Math.max(0, Math.round(bb * shade)));
+        data[idx + 3] = 255;
+      }
+    }
+
+    ctx.putImageData(img, 0, 0);
+
+    // Draw nearby mobs as tiny crisp blips
+    for (const mob of this.mobs) {
+      const mx = Math.round(half + (mob.x - this.px) / scaleBlocksPerPx);
+      const mz = Math.round(half + (mob.z - this.pz) / scaleBlocksPerPx);
+      if (mx < 1 || mx >= size - 1 || mz < 1 || mz >= size - 1) continue;
+      const spec = MOB_SPECS[mob.type];
+      ctx.fillStyle = spec?.hostile ? '#ef4444' : '#fef08a';
+      ctx.fillRect(mx - 1, mz - 1, 2, 2);
+    }
+  }
+
   public dispose(): void {
     this.disposed = true;
     cancelAnimationFrame(this.frameId);
@@ -2942,6 +3169,7 @@ export class NetherCraftEngine {
     this.saveCurrentWorld();
 
     window.removeEventListener('resize', this.onResizeBound);
+    window.removeEventListener('orientationchange', this.onResizeBound);
     window.removeEventListener('keydown', this.onKeyDownBound);
     window.removeEventListener('keyup', this.onKeyUpBound);
     window.removeEventListener('mousemove', this.onMouseMoveBound);

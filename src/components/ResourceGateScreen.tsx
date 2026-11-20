@@ -150,7 +150,7 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
               </p>
             </div>
             {mode === 'manager' && onBack && (
-              <McButton onClick={onBack} className="shrink-0">
+              <McButton widgetsUrl={compiledPack?.guiUrls.widgets} onClick={onBack} className="shrink-0">
                 <ArrowLeft className="w-4 h-4" />
                 Quay lại
               </McButton>
@@ -321,6 +321,7 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
                 />
                 <McButton
                   variant="primary"
+                  widgetsUrl={compiledPack?.guiUrls.widgets}
                   disabled={downloading}
                   onClick={handleDownloadGithubRaw}
                   className="shrink-0"
@@ -346,6 +347,7 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
               />
               <McButton
                 variant="primary"
+                widgetsUrl={compiledPack?.guiUrls.widgets}
                 disabled={downloading}
                 onClick={() => fileRef.current?.click()}
                 className="w-full sm:w-auto"
@@ -423,6 +425,7 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
             {compiledPack ? (
               <McButton
                 variant="crimson"
+                widgetsUrl={compiledPack.guiUrls.widgets}
                 disabled={downloading}
                 onClick={handleClearCache}
                 className="text-xs sm:text-sm"
@@ -438,6 +441,7 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
 
             <McButton
               variant="primary"
+              widgetsUrl={compiledPack?.guiUrls.widgets}
               disabled={!compiledPack || downloading}
               onClick={onProceedToTitle}
               className="flex-1 sm:flex-none min-w-[210px]"

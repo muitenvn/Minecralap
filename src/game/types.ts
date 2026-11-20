@@ -94,6 +94,8 @@ export interface PlayerSkinConfig {
   modelCode: PlayerModelCode;
 }
 
+export type MinimapMode = 'compact' | 'expanded' | 'off';
+
 export interface VideoSettings {
   renderDistance: number; // 2..8 chunks
   fov: number; // 50..110
@@ -110,6 +112,7 @@ export interface VideoSettings {
   muted: boolean;
   touchMode: 'auto' | 'on' | 'off';
   texturePreset: TexturePreset;
+  minimapMode: MinimapMode;
 }
 
 export const DEFAULT_GAMERULES: GameRules = {
@@ -141,6 +144,7 @@ export const DEFAULT_VIDEO_SETTINGS: VideoSettings = {
   muted: false,
   touchMode: 'auto',
   texturePreset: 'hd_plus',
+  minimapMode: 'compact',
 };
 
 export interface FurnaceState {
@@ -288,7 +292,8 @@ export interface CachedResourcePack {
   totalBytes: number;
   blockBlobs: Record<string, Blob>; // textureKey -> PNG Blob
   itemBlobs?: Record<string, Blob>; // itemId -> PNG Blob
-  guiBlobs: Record<string, Blob>; // 'widgets' | 'icons' | 'options_background' -> PNG Blob
+  entityBlobs?: Record<string, Blob>; // mob entity key -> PNG Blob
+  guiBlobs: Record<string, Blob>; // widgets, icons, options_background, container_*, map_background, map_icons
 }
 
 export const WORLD_BORDER_DEFAULT = 29_999_984;

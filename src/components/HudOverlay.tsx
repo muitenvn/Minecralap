@@ -2,8 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Camera, Maximize2, Minimize2, Pause } from 'lucide-react';
 import { autocompleteCommand } from '../game/commands';
 import { CompiledResourcePack } from '../game/resourcePack';
-import { ChatMessage, HudSnapshot, TitleBanner } from '../game/types';
-import { McHudIcon, McItemSlot } from './McSprites';
+import { ChatMessage, HudSnapshot, MinimapMode, TitleBanner } from '../game/types';
+import { McButton, McHudIcon, McItemSlot, McSpriteSlice } from './McSprites';
+import { MinimapHud } from './MinimapHud';
 
 interface HudOverlayProps {
   hud: HudSnapshot;
@@ -14,9 +15,12 @@ interface HudOverlayProps {
   chatMessages: ChatMessage[];
   titleBanner: TitleBanner | null;
   guiScale: 'auto' | 'small' | 'medium' | 'large';
+  minimapMode: MinimapMode;
   touchVisible: boolean;
   isFullscreen: boolean;
   onSelectSlot: (idx: number) => void;
+  onChangeMinimapMode: (next: MinimapMode) => void;
+  onRenderMinimap: (canvas: HTMLCanvasElement, scaleBlocksPerPx: number) => void;
   onSubmitChat: (text: string) => void;
   onCloseChat: () => void;
   onRequestLock: () => void;
@@ -35,9 +39,12 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   chatMessages,
   titleBanner,
   guiScale,
+  minimapMode,
   touchVisible,
   isFullscreen,
   onSelectSlot,
+  onChangeMinimapMode,
+  onRenderMinimap,
   onSubmitChat,
   onCloseChat,
   onRequestLock,
@@ -101,15 +108,26 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   const showToast = hud.heldItemToast && now - hud.heldItemToastAt < 2400;
   const showBanner = titleBanner && Date.now() < titleBanner.expiresAt;
   const baseSlotSize =
-    guiScale === 'small' ? 36 : guiScale === 'large' ? 48 : touchVisible ? 40 : 44;
+    guiScale === 'small' ? 36 : guiScale === 'large' ? 46 : touchVisible ? 38 : 42;
   const hotbarCount = touchVisible ? 10 : 9;
-  const maxFitSlot = Math.floor((viewportWidth - 24 - (hotbarCount - 1) * 2) / hotbarCount);
+  const maxFitSlot = Math.floor((viewportWidth - 28) / hotbarCount);
   const slotSize = Math.max(28, Math.min(baseSlotSize, maxFitSlot));
+
+  // Pixel-exact scaling for Minecraft widgets.png (182x22) and icons.png XP bar (182x5)
+  const uiScale = slotSize / 20;
+  const hotbarW = Math.round(182 * uiScale);
+  const hotbarH = Math.round(22 * uiScale);
+  const hotbarPad = Math.max(1, Math.round(uiScale));
+  const xpBarH = Math.max(8, Math.round(5 * uiScale));
+  const xpPercent = Math.min(100, Math.max(0, hud.xp * 100));
 
   const isSurvival = hud.gameMode === 'survival' || hud.gameMode === 'adventure';
   const compassDirs = ['Nam (+Z)', 'Tây (-X)', 'Bắc (-Z)', 'Đông (+X)'];
   const deg = (((-hud.yaw * 180) / Math.PI) % 360 + 360) % 360;
   const dirLabel = compassDirs[Math.floor(((deg + 45) % 360) / 90)];
+
+  const widgetsUrl = pack.guiUrls.widgets;
+  const iconsUrl = pack.guiUrls.icons;
 
   return (
     <div className="fixed inset-0 z-[25] pointer-events-none select-none overflow-hidden">
@@ -122,9 +140,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
       )}
 
       {/* Underwater Blue Tint */}
-      {hud.underwater && (
-        <div className="absolute inset-0 bg-blue-900/35" />
-      )}
+      {hud.underwater && <div className="absolute inset-0 bg-blue-900/35" />}
 
       {/* Purple Nether Portal Warp Overlay */}
       {hud.portalProgress > 0.02 && (
@@ -138,58 +154,67 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
         </div>
       )}
 
-      {/* Center Crosshair */}
+      {/* Resource Pack Center Crosshair (icons.png 0,0 15x15) */}
       {!hud.dead && !chatOpen && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="relative w-5 h-5">
-            <span className="absolute left-1/2 top-0 -translate-x-1/2 w-[2px] h-full bg-white/90 shadow-[0_0_2px_#000]" />
-            <span className="absolute top-1/2 left-0 -translate-y-1/2 h-[2px] w-full bg-white/90 shadow-[0_0_2px_#000]" />
-          </div>
+          {iconsUrl ? (
+            <McSpriteSlice
+              src={iconsUrl}
+              sx={0}
+              sy={0}
+              sw={15}
+              sh={15}
+              width={22}
+              height={22}
+              className="mix-blend-difference opacity-95"
+            />
+          ) : (
+            <div className="relative w-5 h-5">
+              <span className="absolute left-1/2 top-0 -translate-x-1/2 w-[2px] h-full bg-white/90 shadow-[0_0_2px_#000]" />
+              <span className="absolute top-1/2 left-0 -translate-y-1/2 h-[2px] w-full bg-white/90 shadow-[0_0_2px_#000]" />
+            </div>
+          )}
         </div>
       )}
 
-      {/* Minimal Top Bar on PC when mouse unlocked */}
-      {!touchVisible && !hud.pointerLocked && !hud.dead && !chatOpen && (
-        <div className="absolute top-2.5 inset-x-3 flex items-center justify-between gap-2 pointer-events-none">
-          <div className="pointer-events-auto">
-            <button
-              type="button"
-              onClick={onRequestLock}
-              className="mc-btn mc-btn-primary min-h-[36px] px-4 py-1 text-xs sm:text-sm"
-            >
-              Chơi
-            </button>
-          </div>
-
-          <div className="flex items-center gap-1.5 pointer-events-auto">
-            <button
-              type="button"
-              onClick={onCycleCamera}
-              title="Đổi góc nhìn (F5)"
-              aria-label="F5"
-              className="mc-btn w-[36px] h-[36px] flex items-center justify-center"
-            >
-              <Camera className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={onToggleFullscreen}
-              title={isFullscreen ? 'Thu nhỏ (F11)' : 'Toàn màn hình (F11)'}
-              aria-label="Toàn màn hình"
-              className="mc-btn w-[36px] h-[36px] flex items-center justify-center"
-            >
-              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-            </button>
-            <button
-              type="button"
-              onClick={onOpenPause}
-              title="Menu (Esc)"
-              aria-label="Menu"
-              className="mc-btn w-[36px] h-[36px] flex items-center justify-center"
-            >
-              <Pause className="w-4 h-4" />
-            </button>
-          </div>
+      {/* Compact Top-Left Action Bar on PC when mouse unlocked (leaves Top-Right clean for Minimap) */}
+      {!touchVisible && !hud.pointerLocked && !hud.dead && !chatOpen && !showF3 && (
+        <div className="absolute top-2.5 left-3 flex items-center gap-1.5 pointer-events-auto">
+          <McButton
+            variant="primary"
+            widgetsUrl={widgetsUrl}
+            onClick={onRequestLock}
+            className="min-h-[36px] h-[36px] px-4 py-1 text-xs sm:text-sm"
+          >
+            Chơi
+          </McButton>
+          <McButton
+            widgetsUrl={widgetsUrl}
+            onClick={onCycleCamera}
+            title="Đổi góc nhìn (F5)"
+            aria-label="F5"
+            className="min-h-[36px] w-[36px] h-[36px] px-0 py-0"
+          >
+            <Camera className="w-4 h-4" />
+          </McButton>
+          <McButton
+            widgetsUrl={widgetsUrl}
+            onClick={onToggleFullscreen}
+            title={isFullscreen ? 'Thu nhỏ (F11)' : 'Toàn màn hình (F11)'}
+            aria-label="Toàn màn hình"
+            className="min-h-[36px] w-[36px] h-[36px] px-0 py-0"
+          >
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </McButton>
+          <McButton
+            widgetsUrl={widgetsUrl}
+            onClick={onOpenPause}
+            title="Menu (Esc)"
+            aria-label="Menu"
+            className="min-h-[36px] w-[36px] h-[36px] px-0 py-0"
+          >
+            <Pause className="w-4 h-4" />
+          </McButton>
         </div>
       )}
 
@@ -223,17 +248,30 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
         </div>
       )}
 
-      {/* Active Potion Effects (Top-Right) */}
-      {hud.effects.length > 0 && !showF3 && (
-        <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
-          {hud.effects.map((eff) => (
-            <div
-              key={eff.id}
-              className="bg-black/65 border border-white/20 px-2.5 py-1 text-xs font-mono-num text-[#5eead4]"
-            >
-              {eff.id} {eff.amplifier + 1} · {Math.ceil(eff.remainingSec)}s
+      {/* Top-Right Stack: Sleek Resource-Pack Map HUD + Active Potion Effects */}
+      {!showF3 && !hud.dead && (
+        <div className="absolute top-2 right-2 flex flex-col items-end gap-1.5">
+          <MinimapHud
+            hud={hud}
+            pack={pack}
+            mode={minimapMode}
+            touchVisible={touchVisible}
+            onChangeMode={onChangeMinimapMode}
+            onRenderMap={onRenderMinimap}
+          />
+
+          {hud.effects.length > 0 && (
+            <div className="flex flex-col gap-1 items-end">
+              {hud.effects.map((eff) => (
+                <div
+                  key={eff.id}
+                  className="bg-black/65 border border-white/20 px-2 py-0.5 text-[11px] font-mono-num text-[#5eead4]"
+                >
+                  {eff.id} {eff.amplifier + 1} · {Math.ceil(eff.remainingSec)}s
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
 
@@ -312,22 +350,23 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               placeholder="Nhập tin nhắn hoặc lệnh (/help, /tp, /gamemode, /weather, /give...)"
               className="flex-1 bg-black/85 border-2 border-white/40 focus:border-[#2dd4bf] outline-none px-3 py-2 text-sm font-mono-num text-white"
             />
-            <button
-              type="button"
+            <McButton
+              variant="primary"
+              widgetsUrl={widgetsUrl}
               onClick={() => {
                 if (chatText.trim()) onSubmitChat(chatText);
                 setChatText('');
                 onCloseChat();
               }}
-              className="mc-btn mc-btn-primary px-4 text-sm"
+              className="px-4 text-sm min-h-[40px]"
             >
               Gửi
-            </button>
+            </McButton>
           </div>
         </div>
       )}
 
-      {/* Bottom Survival Bars & 9-Slot Hotbar */}
+      {/* Bottom Survival Bars & Authentic Resource Pack Hotbar */}
       <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 pointer-events-auto">
         {showBanner && titleBanner.actionbar && (
           <div className="text-xs sm:text-sm font-mc text-amber-200 mc-text-shadow-sm mb-1">
@@ -342,49 +381,54 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
         )}
 
         {isSurvival && (
-          <div className="w-full max-w-[404px] px-1 flex flex-col gap-1 pointer-events-none">
+          <div
+            className="flex flex-col gap-0.5 pointer-events-none"
+            style={{ width: hotbarW }}
+          >
             {/* Armor + Oxygen Row */}
             <div className="flex items-center justify-between min-h-[14px]">
-              <div className="flex items-center gap-0.5">
+              <div className="flex items-center gap-[1px]">
                 {hud.armorPoints > 0 &&
                   Array.from({ length: 10 }).map((_, i) => {
                     const val = hud.armorPoints - i * 2;
                     return (
                       <McHudIcon
                         key={i}
-                        iconsUrl={pack.guiUrls.icons}
+                        iconsUrl={iconsUrl}
                         sx={val >= 2 ? 34 : val === 1 ? 25 : 16}
                         sy={9}
-                        size={14}
+                        size={touchVisible ? 13 : 15}
                         fallbackColor={val > 0 ? '#cbd5e1' : '#334155'}
                       />
                     );
                   })}
               </div>
-              <div className="flex items-center gap-0.5">
+              <div className="flex items-center gap-[1px]">
                 {hud.underwater &&
                   Array.from({ length: Math.ceil(hud.oxygen / 2) }).map((_, i) => (
                     <McHudIcon
                       key={i}
-                      iconsUrl={pack.guiUrls.icons}
+                      iconsUrl={iconsUrl}
                       sx={16}
                       sy={18}
-                      size={14}
+                      size={touchVisible ? 13 : 15}
                       fallbackColor="#38bdf8"
                     />
                   ))}
               </div>
             </div>
 
-            {/* Hearts (Left) & Drumsticks (Right) */}
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-0.5">
+            {/* Layered Hearts (Left) & Drumsticks (Right) from icons.png */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-[1px]">
                 {Array.from({ length: 10 }).map((_, i) => {
                   const val = hud.hp - i * 2;
                   return (
                     <McHudIcon
                       key={i}
-                      iconsUrl={pack.guiUrls.icons}
+                      iconsUrl={iconsUrl}
+                      bgSx={16}
+                      bgSy={0}
                       sx={val >= 2 ? 52 : val === 1 ? 61 : 16}
                       sy={0}
                       size={touchVisible ? 13 : 15}
@@ -394,14 +438,16 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                 })}
               </div>
 
-              <div className="flex items-center gap-0.5">
+              <div className="flex items-center gap-[1px]">
                 {Array.from({ length: 10 }).map((_, i) => {
                   const idx = 9 - i;
                   const val = hud.hunger - idx * 2;
                   return (
                     <McHudIcon
                       key={i}
-                      iconsUrl={pack.guiUrls.icons}
+                      iconsUrl={iconsUrl}
+                      bgSx={16}
+                      bgSy={27}
                       sx={val >= 2 ? 52 : val === 1 ? 61 : 16}
                       sy={27}
                       size={touchVisible ? 13 : 15}
@@ -412,12 +458,45 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               </div>
             </div>
 
-            {/* Green Experience Bar + Level */}
-            <div className="relative w-full h-[7px] bg-[#161c16] border border-black mt-0.5">
-              <div
-                className="h-full bg-[#7ee64a]"
-                style={{ width: `${Math.min(100, Math.max(0, hud.xp * 100))}%` }}
-              />
+            {/* Authentic Resource Pack XP Bar (icons.png 0,64 & 0,69 182x5) + Level */}
+            <div
+              className="relative mt-0.5"
+              style={{ width: hotbarW, height: xpBarH }}
+            >
+              {iconsUrl ? (
+                <>
+                  <McSpriteSlice
+                    src={iconsUrl}
+                    sx={0}
+                    sy={64}
+                    sw={182}
+                    sh={5}
+                    width={hotbarW}
+                    height={xpBarH}
+                    className="block"
+                  />
+                  <div
+                    className="absolute left-0 top-0 bottom-0 overflow-hidden"
+                    style={{ width: `${xpPercent}%` }}
+                  >
+                    <McSpriteSlice
+                      src={iconsUrl}
+                      sx={0}
+                      sy={69}
+                      sw={182}
+                      sh={5}
+                      width={hotbarW}
+                      height={xpBarH}
+                      className="block"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="w-full h-full bg-[#161c16] border border-black">
+                  <div className="h-full bg-[#7ee64a]" style={{ width: `${xpPercent}%` }} />
+                </div>
+              )}
+
               {hud.level > 0 && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 font-mono-num text-xs font-bold text-[#80ff20] mc-text-shadow">
                   {hud.level}
@@ -427,25 +506,46 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
           </div>
         )}
 
-        {/* 9-Slot Minecraft Hotbar + Mobile Inventory Button */}
+        {/* Authentic Resource Pack 9-Slot Hotbar (widgets.png 0,0 182x22) + Mobile Inventory Button */}
         <div
-          className="mc-hotbar-shell flex items-center p-1 gap-0.5 pointer-events-auto"
+          className="flex items-center gap-1 pointer-events-auto"
           onPointerDown={(e) => e.stopPropagation()}
         >
-          {Array.from({ length: 9 }).map((_, idx) => (
-            <McItemSlot
-              key={idx}
-              stack={hud.inventory[idx]}
-              pack={pack}
-              active={hud.selectedSlot === idx}
-              size={slotSize}
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                onSelectSlot(idx);
-              }}
-              onClick={() => onSelectSlot(idx)}
-            />
-          ))}
+          <div
+            style={
+              widgetsUrl
+                ? {
+                    width: hotbarW,
+                    height: hotbarH,
+                    padding: hotbarPad,
+                    backgroundImage: `url(${widgetsUrl})`,
+                    backgroundSize: `${256 * uiScale}px ${256 * uiScale}px`,
+                    backgroundPosition: '0px 0px',
+                    backgroundRepeat: 'no-repeat',
+                  }
+                : undefined
+            }
+            className={`relative flex items-center pixelated ${
+              widgetsUrl ? '' : 'mc-hotbar-shell p-1 gap-0.5'
+            }`}
+          >
+            {Array.from({ length: 9 }).map((_, idx) => (
+              <McItemSlot
+                key={idx}
+                stack={hud.inventory[idx]}
+                pack={pack}
+                hotbarMode={Boolean(widgetsUrl)}
+                active={hud.selectedSlot === idx}
+                size={slotSize}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  onSelectSlot(idx);
+                }}
+                onClick={() => onSelectSlot(idx)}
+              />
+            ))}
+          </div>
+
           {touchVisible && (
             <button
               type="button"
@@ -456,8 +556,18 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               }}
               title="Mở Túi Đồ & Chế Tạo"
               aria-label="Mở Túi Đồ và Chế Tạo"
-              style={{ width: slotSize, height: slotSize }}
-              className="mc-slot flex items-center justify-center font-mc font-bold text-[#fde68a] mc-text-shadow-sm cursor-pointer active:bg-white/30 touch-manipulation"
+              style={{
+                width: slotSize,
+                height: slotSize,
+                ...(pack.guiUrls.containerInventory
+                  ? {
+                      backgroundImage: `url(${pack.guiUrls.containerInventory})`,
+                      backgroundSize: `${(256 * slotSize) / 18}px ${(256 * slotSize) / 18}px`,
+                      backgroundPosition: `-${(7 * slotSize) / 18}px -${(7 * slotSize) / 18}px`,
+                    }
+                  : {}),
+              }}
+              className="mc-slot border border-black/80 pixelated flex items-center justify-center font-mc font-bold text-[#fde68a] mc-text-shadow-sm cursor-pointer active:brightness-125 touch-manipulation"
             >
               ···
             </button>

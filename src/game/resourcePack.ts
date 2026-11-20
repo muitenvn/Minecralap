@@ -28,10 +28,18 @@ export interface CompiledResourcePack {
   atlasCanvas: HTMLCanvasElement;
   uvMap: Record<string, AtlasUV>;
   itemIcons: Record<string, string>; // itemId -> dataURL
+  entityTextures: Record<string, THREE.Texture>; // mob entity key -> THREE.Texture
   guiUrls: {
     widgets: string;
     icons: string;
     optionsBackground: string;
+    containerInventory: string;
+    containerCrafting: string;
+    containerFurnace: string;
+    containerSmithing: string;
+    recipeButton: string;
+    mapBackground: string;
+    mapIcons: string;
   };
   previewTiles: { key: string; url: string }[];
   dispose: () => void;
@@ -188,10 +196,33 @@ export async function downloadCustomGithubRawPack(
   const texturesRoot = normalizeGithubTexturesRoot(rawUrl);
 
   const blockBlobs: Record<string, Blob> = { ...fallback.blockBlobs };
+  const entityBlobs: Record<string, Blob> = { ...(fallback.entityBlobs || {}) };
   const guiBlobs: Record<string, Blob> = { ...fallback.guiBlobs };
   const keys = [...ALL_TEXTURE_KEYS];
-  const guiKeys = ['widgets', 'icons', 'options_background'];
-  const totalFiles = keys.length + guiKeys.length;
+  const entityTargets: [string, string][] = [
+    ['pig', 'entity/pig/pig.png'],
+    ['sheep', 'entity/sheep/sheep.png'],
+    ['sheep_fur', 'entity/sheep/sheep_fur.png'],
+    ['zombie', 'entity/zombie/zombie.png'],
+    ['creeper', 'entity/creeper/creeper.png'],
+    ['piglin', 'entity/piglin/piglin.png'],
+    ['zombified_piglin', 'entity/piglin/zombified_piglin.png'],
+    ['strider', 'entity/strider/strider.png'],
+    ['ghast', 'entity/ghast/ghast.png'],
+  ];
+  const guiTargets: [string, string][] = [
+    ['widgets', 'gui/widgets.png'],
+    ['icons', 'gui/icons.png'],
+    ['options_background', 'gui/options_background.png'],
+    ['container_inventory', 'gui/container/inventory.png'],
+    ['container_crafting', 'gui/container/crafting_table.png'],
+    ['container_furnace', 'gui/container/furnace.png'],
+    ['container_smithing', 'gui/container/smithing.png'],
+    ['recipe_button', 'gui/recipe_button.png'],
+    ['map_background', 'map/map_background.png'],
+    ['map_icons', 'map/map_icons.png'],
+  ];
+  const totalFiles = keys.length + entityTargets.length + guiTargets.length;
 
   let loadedFiles = 0;
   let loadedBytes = 0;
@@ -227,9 +258,31 @@ export async function downloadCustomGithubRawPack(
     );
   }
 
-  for (const gKey of guiKeys) {
+  for (const [eKey, relPath] of entityTargets) {
     try {
-      const blob = await fetchBlob(`${texturesRoot}/gui/${gKey}.png`);
+      const blob = await fetchBlob(`${texturesRoot}/${relPath}`);
+      if (blob.size > 40) {
+        entityBlobs[eKey] = blob;
+        loadedBytes += blob.size;
+      }
+    } catch {
+      // fallback retained
+    } finally {
+      loadedFiles++;
+      onProgress?.({
+        phase: 'blocks',
+        loadedFiles,
+        totalFiles,
+        loadedBytes,
+        totalBytes: Math.max(loadedBytes, fallback.totalBytes),
+        currentFile: relPath,
+      });
+    }
+  }
+
+  for (const [gKey, relPath] of guiTargets) {
+    try {
+      const blob = await fetchBlob(`${texturesRoot}/${relPath}`);
       if (blob.size > 40) {
         guiBlobs[gKey] = blob;
         replacedGui++;
@@ -245,7 +298,7 @@ export async function downloadCustomGithubRawPack(
         totalFiles,
         loadedBytes,
         totalBytes: Math.max(loadedBytes, fallback.totalBytes),
-        currentFile: `gui/${gKey}.png`,
+        currentFile: relPath,
       });
     }
   }
@@ -266,6 +319,8 @@ export async function downloadCustomGithubRawPack(
     downloadedAt: Date.now(),
     totalBytes: loadedBytes + fallback.totalBytes,
     blockBlobs,
+    itemBlobs: fallback.itemBlobs,
+    entityBlobs,
     guiBlobs,
   };
   await saveResourcePack(record);
@@ -291,6 +346,7 @@ export async function importZipResourcePack(
   const unzipped = unzipSync(buf);
   const blockBlobs: Record<string, Blob> = { ...fallback.blockBlobs };
   const itemBlobs: Record<string, Blob> = { ...(fallback.itemBlobs || {}) };
+  const entityBlobs: Record<string, Blob> = { ...(fallback.entityBlobs || {}) };
   const guiBlobs: Record<string, Blob> = { ...fallback.guiBlobs };
   const keySet = new Set(ALL_TEXTURE_KEYS);
   const zipItemAlias: Record<string, string> = {
@@ -314,8 +370,21 @@ export async function importZipResourcePack(
 
   let replacedBlocks = 0;
   let replacedItems = 0;
+  let replacedEntities = 0;
   let replacedGui = 0;
   let loadedBytes = 0;
+
+  const zipEntityPaths: Record<string, string> = {
+    'pig/pig': 'pig',
+    'sheep/sheep': 'sheep',
+    'sheep/sheep_fur': 'sheep_fur',
+    'zombie/zombie': 'zombie',
+    'creeper/creeper': 'creeper',
+    'piglin/piglin': 'piglin',
+    'piglin/zombified_piglin': 'zombified_piglin',
+    'strider/strider': 'strider',
+    'ghast/ghast': 'ghast',
+  };
 
   for (const [entryPath, data] of Object.entries(unzipped)) {
     const lower = entryPath.toLowerCase().replace(/\\/g, '/');
@@ -343,18 +412,51 @@ export async function importZipResourcePack(
       }
     }
 
-    // Match GUI textures (widgets.png, icons.png, options_background.png)
-    const guiMatch = lower.match(/(?:textures\/gui\/)(widgets|icons|options_background)\.png$/);
+    // Match mob entity textures (textures/entity/<folder>/<name>.png)
+    const entityMatch = lower.match(/(?:textures\/entity\/)([^/]+\/[^/]+)\.png$/);
+    if (entityMatch && zipEntityPaths[entityMatch[1]]) {
+      entityBlobs[zipEntityPaths[entityMatch[1]]] = new Blob([data], { type: 'image/png' });
+      replacedEntities++;
+      loadedBytes += data.byteLength;
+      continue;
+    }
+
+    // Match GUI, Container & Map textures
+    const guiMatch = lower.match(
+      /(?:textures\/gui\/)(widgets|icons|options_background|recipe_button)\.png$/,
+    );
     if (guiMatch) {
       guiBlobs[guiMatch[1]] = new Blob([data], { type: 'image/png' });
+      replacedGui++;
+      loadedBytes += data.byteLength;
+      continue;
+    }
+
+    const containerMatch = lower.match(
+      /(?:textures\/gui\/container\/)(inventory|crafting_table|furnace|smithing)\.png$/,
+    );
+    if (containerMatch) {
+      const mapKey =
+        containerMatch[1] === 'crafting_table'
+          ? 'container_crafting'
+          : `container_${containerMatch[1]}`;
+      guiBlobs[mapKey] = new Blob([data], { type: 'image/png' });
+      replacedGui++;
+      loadedBytes += data.byteLength;
+      continue;
+    }
+
+    const mapMatch = lower.match(/(?:textures\/map\/)(map_background|map_icons)\.png$/);
+    if (mapMatch) {
+      guiBlobs[mapMatch[1]] = new Blob([data], { type: 'image/png' });
       replacedGui++;
       loadedBytes += data.byteLength;
     }
   }
 
-  if (replacedBlocks === 0 && replacedItems === 0 && replacedGui === 0) {
+  if (replacedBlocks === 0 && replacedItems === 0 && replacedEntities === 0 && replacedGui === 0) {
     throw new Error(
-      'File .zip không chứa thư mục textures/block/*.png, textures/item/*.png hoặc textures/gui/*.png chuẩn Minecraft 1.16.',
+      'File .zip không chứa thư mục textures/block/*.png, textures/item/*.png, textures/entity/*.png hoặc textures/gui/*.png chuẩn Minecraft 1.16.',
     );
   }
 
@@ -362,12 +464,13 @@ export async function importZipResourcePack(
     id: 'active_pack',
     name: file.name.replace(/\.zip$/i, ''),
     version: '1.16.5 ZIP',
-    sourceLabel: `Gói ZIP cục bộ (${replacedBlocks} block · ${replacedItems} vật phẩm · ${replacedGui} UI)`,
+    sourceLabel: `Gói ZIP cục bộ (${replacedBlocks} block · ${replacedItems} vật phẩm · ${replacedEntities} mob · ${replacedGui} UI)`,
     sourceType: 'zip-upload',
     downloadedAt: Date.now(),
     totalBytes: loadedBytes || file.size,
     blockBlobs,
     itemBlobs,
+    entityBlobs,
     guiBlobs,
   };
   await saveResourcePack(record);
@@ -739,7 +842,13 @@ export async function compileResourcePack(
         bdef.key.includes('_door') ||
         bdef.key.includes('bars') ||
         bdef.key === 'glass_pane' ||
-        bdef.key === 'lily_pad'
+        bdef.key === 'lily_pad' ||
+        bdef.key.endsWith('_sapling') ||
+        bdef.key.endsWith('_roots') ||
+        bdef.key.endsWith('_vines') ||
+        bdef.key === 'nether_sprouts' ||
+        bdef.key === 'sea_pickle' ||
+        bdef.key === 'turtle_egg'
       ) {
         if (sideImg) {
           const s = Math.min(sideImg.width, sideImg.height);
@@ -808,11 +917,51 @@ export async function compileResourcePack(
     }
   }
 
-  const widgetsUrl = cached.guiBlobs.widgets ? URL.createObjectURL(cached.guiBlobs.widgets) : '';
-  const iconsUrl = cached.guiBlobs.icons ? URL.createObjectURL(cached.guiBlobs.icons) : '';
-  const optionsBackgroundUrl = cached.guiBlobs.options_background
-    ? URL.createObjectURL(cached.guiBlobs.options_background)
-    : '';
+  const mkUrl = (blob?: Blob) => (blob ? URL.createObjectURL(blob) : '');
+  const widgetsUrl = mkUrl(cached.guiBlobs.widgets);
+  const iconsUrl = mkUrl(cached.guiBlobs.icons);
+  const optionsBackgroundUrl = mkUrl(cached.guiBlobs.options_background);
+  const containerInventoryUrl = mkUrl(cached.guiBlobs.container_inventory);
+  const containerCraftingUrl = mkUrl(cached.guiBlobs.container_crafting);
+  const containerFurnaceUrl = mkUrl(cached.guiBlobs.container_furnace);
+  const containerSmithingUrl = mkUrl(cached.guiBlobs.container_smithing);
+  const recipeButtonUrl = mkUrl(cached.guiBlobs.recipe_button);
+  const mapBackgroundUrl = mkUrl(cached.guiBlobs.map_background);
+  const mapIconsUrl = mkUrl(cached.guiBlobs.map_icons);
+
+  const allGuiUrls = [
+    widgetsUrl,
+    iconsUrl,
+    optionsBackgroundUrl,
+    containerInventoryUrl,
+    containerCraftingUrl,
+    containerFurnaceUrl,
+    containerSmithingUrl,
+    recipeButtonUrl,
+    mapBackgroundUrl,
+    mapIconsUrl,
+  ];
+
+  // Decode all real 3D Mob Entity PNG textures into crisp NearestFilter SRGB THREE.Textures
+  const entityTextures: Record<string, THREE.Texture> = {};
+  if (cached.entityBlobs) {
+    await Promise.all(
+      Object.entries(cached.entityBlobs).map(async ([eKey, blob]) => {
+        try {
+          const img = await decodeSharedBlob(blob);
+          const tex = new THREE.Texture(img);
+          tex.colorSpace = THREE.SRGBColorSpace;
+          tex.magFilter = THREE.NearestFilter;
+          tex.minFilter = THREE.NearestFilter;
+          tex.generateMipmaps = false;
+          tex.needsUpdate = true;
+          entityTextures[eKey] = tex;
+        } catch {
+          // fallback procedural mob colors
+        }
+      }),
+    );
+  }
 
   const atlasTexture = new THREE.CanvasTexture(atlasCanvas);
   atlasTexture.colorSpace = THREE.SRGBColorSpace;
@@ -837,17 +986,28 @@ export async function compileResourcePack(
     atlasCanvas,
     uvMap,
     itemIcons,
+    entityTextures,
     guiUrls: {
       widgets: widgetsUrl,
       icons: iconsUrl,
       optionsBackground: optionsBackgroundUrl,
+      containerInventory: containerInventoryUrl,
+      containerCrafting: containerCraftingUrl,
+      containerFurnace: containerFurnaceUrl,
+      containerSmithing: containerSmithingUrl,
+      recipeButton: recipeButtonUrl,
+      mapBackground: mapBackgroundUrl,
+      mapIcons: mapIconsUrl,
     },
     previewTiles,
     dispose: () => {
       atlasTexture.dispose();
-      if (widgetsUrl) URL.revokeObjectURL(widgetsUrl);
-      if (iconsUrl) URL.revokeObjectURL(iconsUrl);
-      if (optionsBackgroundUrl) URL.revokeObjectURL(optionsBackgroundUrl);
+      for (const tex of Object.values(entityTextures)) {
+        tex.dispose();
+      }
+      for (const u of allGuiUrls) {
+        if (u) URL.revokeObjectURL(u);
+      }
     },
   };
 }

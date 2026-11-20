@@ -37,6 +37,7 @@ import {
   ChatMessage,
   ContainerType,
   HudSnapshot,
+  MinimapMode,
   PlayerSkinConfig,
   TexturePreset,
   TitleBanner,
@@ -112,10 +113,70 @@ export default function App() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  const lockLandscapeOrientation = useCallback(async () => {
+    const scr = window.screen as Screen & {
+      orientation?: ScreenOrientation & {
+        lock?: (orientation: 'landscape' | 'landscape-primary') => Promise<void>;
+        unlock?: () => void;
+      };
+      lockOrientation?: (o: string) => boolean;
+      mozLockOrientation?: (o: string) => boolean;
+      msLockOrientation?: (o: string) => boolean;
+    };
+    try {
+      if (scr.orientation && typeof scr.orientation.lock === 'function') {
+        try {
+          await scr.orientation.lock('landscape');
+        } catch {
+          await scr.orientation.lock('landscape-primary');
+        }
+      } else if (typeof scr.lockOrientation === 'function') {
+        scr.lockOrientation('landscape');
+      } else if (typeof scr.mozLockOrientation === 'function') {
+        scr.mozLockOrientation('landscape');
+      } else if (typeof scr.msLockOrientation === 'function') {
+        scr.msLockOrientation('landscape');
+      }
+    } catch {
+      // Desktop browsers or OS policies that reject orientation lock ignore gracefully
+    }
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 80);
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 280);
+  }, []);
+
+  const unlockScreenOrientation = useCallback(() => {
+    const scr = window.screen as Screen & {
+      orientation?: ScreenOrientation & { unlock?: () => void };
+      unlockOrientation?: () => void;
+      mozUnlockOrientation?: () => void;
+      msUnlockOrientation?: () => void;
+    };
+    try {
+      if (scr.orientation && typeof scr.orientation.unlock === 'function') {
+        scr.orientation.unlock();
+      } else if (typeof scr.unlockOrientation === 'function') {
+        scr.unlockOrientation();
+      } else if (typeof scr.mozUnlockOrientation === 'function') {
+        scr.mozUnlockOrientation();
+      } else if (typeof scr.msUnlockOrientation === 'function') {
+        scr.msUnlockOrientation();
+      }
+    } catch {
+      // Ignore unsupported unlock
+    }
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 80);
+  }, []);
+
   useEffect(() => {
     const syncFullscreen = () => {
       const doc = document as Document & { webkitFullscreenElement?: Element | null };
-      setIsFullscreen(Boolean(doc.fullscreenElement || doc.webkitFullscreenElement));
+      const full = Boolean(doc.fullscreenElement || doc.webkitFullscreenElement);
+      setIsFullscreen(full);
+      if (full) {
+        void lockLandscapeOrientation();
+      } else {
+        unlockScreenOrientation();
+      }
     };
     syncFullscreen();
     document.addEventListener('fullscreenchange', syncFullscreen);
@@ -124,7 +185,7 @@ export default function App() {
       document.removeEventListener('fullscreenchange', syncFullscreen);
       document.removeEventListener('webkitfullscreenchange', syncFullscreen);
     };
-  }, []);
+  }, [lockLandscapeOrientation, unlockScreenOrientation]);
 
   const handleToggleFullscreen = useCallback(async () => {
     const doc = document as Document & {
@@ -138,6 +199,7 @@ export default function App() {
     try {
       const currentlyFull = Boolean(doc.fullscreenElement || doc.webkitFullscreenElement);
       if (currentlyFull) {
+        unlockScreenOrientation();
         if (doc.exitFullscreen) {
           await doc.exitFullscreen();
         } else if (doc.webkitExitFullscreen) {
@@ -145,21 +207,45 @@ export default function App() {
         }
       } else {
         if (root.requestFullscreen) {
-          await root.requestFullscreen();
+          try {
+            await root.requestFullscreen({ navigationUI: 'hide' });
+          } catch {
+            await root.requestFullscreen();
+          }
         } else if (root.webkitRequestFullscreen) {
           await root.webkitRequestFullscreen();
         }
+        await lockLandscapeOrientation();
       }
     } catch {
       // Ignore browser-restricted fullscreen rejections
     }
-  }, []);
+  }, [lockLandscapeOrientation, unlockScreenOrientation]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'F11') {
         e.preventDefault();
         void handleToggleFullscreen();
+        return;
+      }
+      if (
+        e.code === 'KeyM' &&
+        screenRef.current === 'playing' &&
+        !pausedRef.current &&
+        !chatOpenRef.current &&
+        containerRef.current === 'none' &&
+        document.activeElement?.tagName !== 'INPUT'
+      ) {
+        e.preventDefault();
+        setSettings((prev) => {
+          const order: MinimapMode[] = ['compact', 'expanded', 'off'];
+          const cur = prev.minimapMode || 'compact';
+          const nextMode = order[(order.indexOf(cur) + 1) % order.length];
+          const next = { ...prev, minimapMode: nextMode };
+          saveVideoSettings(next);
+          return next;
+        });
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -294,16 +380,16 @@ export default function App() {
           cachedPack.sourceType === 'github-default' ||
           cachedPack.sourceType === 'hd-32' ||
           (cachedPack.sourceType === 'faithful-32x' &&
-            cachedPack.version !== '1.16.5-faithful32-hdplus-v1')
+            cachedPack.version !== '1.16.5-faithful32-hdplus-v3')
         ) {
-          setBootStatus('Đang nạp gói chính thức HD+ Faithful 32x (Block & Vật phẩm 1.16)...');
+          setBootStatus('Đang nạp gói chính thức HD+ Faithful 32x (Block, Vật phẩm, Mob, UI & Bản đồ)...');
           cachedPack = await buildFaithfulHdPlusPack(cachedPack?.guiBlobs);
           if (!alive) return;
         } else if (
           cachedPack.sourceType === 'original-classic' &&
-          cachedPack.version !== '1.16.5-official-v3'
+          cachedPack.version !== '1.16.5-official-v5'
         ) {
-          setBootStatus('Đang cập nhật Minecraft 1.16.5 Chính Gốc (Block & Vật phẩm)...');
+          setBootStatus('Đang cập nhật Minecraft 1.16.5 Chính Gốc (Block, Vật phẩm, Mob, UI & Bản đồ)...');
           cachedPack = await buildOriginalMinecraftPack(cachedPack.guiBlobs);
           if (!alive) return;
         }
@@ -556,9 +642,15 @@ export default function App() {
             chatMessages={chatMessages}
             titleBanner={titleBanner}
             guiScale={settings.guiScale}
+            minimapMode={settings.minimapMode || 'compact'}
             touchVisible={touchVisible}
             isFullscreen={isFullscreen}
             onSelectSlot={(idx) => engineRef.current?.selectHotbarSlot(idx)}
+            onChangeMinimapMode={(nextMode) => {
+              const next = { ...settings, minimapMode: nextMode };
+              handleSettingsChange(next);
+            }}
+            onRenderMinimap={(canvas, scale) => engineRef.current?.renderMinimap(canvas, scale)}
             onSubmitChat={(text) => engineRef.current?.runCommand(text)}
             onCloseChat={() => {
               setChatOpen(false);
@@ -683,6 +775,7 @@ export default function App() {
               y={hud.y}
               z={hud.z}
               level={hud.level}
+              widgetsUrl={compiledPack.guiUrls.widgets}
               onRespawn={() => engineRef.current?.respawnPlayer()}
               onQuitToTitle={handleSaveAndQuit}
             />

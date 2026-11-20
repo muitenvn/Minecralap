@@ -5,6 +5,7 @@ import {
   Download,
   Layers,
   LogOut,
+  Map as MapIcon,
   Maximize2,
   Minimize2,
   Package,
@@ -17,7 +18,7 @@ import {
   VolumeX,
 } from 'lucide-react';
 import { CompiledResourcePack } from '../game/resourcePack';
-import { DEFAULT_VIDEO_SETTINGS, TexturePreset, VideoSettings } from '../game/types';
+import { DEFAULT_VIDEO_SETTINGS, MinimapMode, TexturePreset, VideoSettings } from '../game/types';
 import { McButton, McDirtBackdrop } from './McSprites';
 
 // --- 1. PAUSE MODAL (Authentic Classic Minecraft Pause Overlay) ---
@@ -147,6 +148,12 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
     update('touchMode', order[(order.indexOf(settings.touchMode) + 1) % order.length]);
   };
 
+  const cycleMinimap = () => {
+    const order: MinimapMode[] = ['compact', 'expanded', 'off'];
+    const cur = settings.minimapMode || 'compact';
+    update('minimapMode', order[(order.indexOf(cur) + 1) % order.length]);
+  };
+
   const cloudsLabel = { fancy: 'Đẹp', fast: 'Nhanh', off: 'Tắt' }[settings.clouds];
   const particlesLabel = { all: 'Đầy đủ', decreased: 'Ít', minimal: 'Tối thiểu' }[
     settings.particles
@@ -155,12 +162,16 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
     settings.guiScale
   ];
   const touchLabel = { auto: 'Tự động', on: 'Bật', off: 'Tắt' }[settings.touchMode];
+  const minimapLabel = { compact: 'Gọn', expanded: 'Lớn', off: 'Tắt' }[
+    settings.minimapMode || 'compact'
+  ];
 
   const content = (
     <div className="flex flex-col h-full">
       <div className="px-4 py-3.5 border-b-2 border-black bg-black/55 flex items-center justify-between gap-3">
         <h2 className="font-mc text-lg font-bold text-white mc-text-shadow">Cài Đặt</h2>
         <McButton
+          widgetsUrl={pack?.guiUrls.widgets}
           onClick={() => onChange({ ...DEFAULT_VIDEO_SETTINGS })}
           className="min-h-[36px] text-xs px-3"
         >
@@ -259,14 +270,14 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
               <span className="text-xs font-mc text-white">
                 Âm lượng: {settings.muted ? 'Tắt' : `${Math.round(settings.volume * 100)}%`}
               </span>
-              <button
-                type="button"
+              <McButton
+                widgetsUrl={pack?.guiUrls.widgets}
                 onClick={() => update('muted', !settings.muted)}
-                className="mc-btn min-h-[30px] px-2.5 py-0.5 text-xs flex items-center gap-1"
+                className="min-h-[30px] h-[30px] px-2.5 py-0.5 text-xs"
               >
                 {settings.muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
                 {settings.muted ? 'Bật' : 'Tắt'}
-              </button>
+              </McButton>
             </div>
             <input
               type="range"
@@ -334,6 +345,11 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
             Tọa độ F3: {showF3 ? 'BẬT' : 'TẮT'}
           </McButton>
 
+          <McButton widgetsUrl={pack?.guiUrls.widgets} onClick={cycleMinimap} className="sm:col-span-2">
+            <MapIcon className="w-4 h-4" />
+            Bản đồ nhỏ (M): {minimapLabel}
+          </McButton>
+
           <McButton
             disabled={switchingPack}
             widgetsUrl={pack?.guiUrls.widgets}
@@ -387,6 +403,7 @@ interface DeathModalProps {
   y: number;
   z: number;
   level: number;
+  widgetsUrl?: string;
   onRespawn: () => void;
   onQuitToTitle: () => void;
 }
@@ -396,6 +413,7 @@ export const DeathModal: React.FC<DeathModalProps> = ({
   y,
   z,
   level,
+  widgetsUrl,
   onRespawn,
   onQuitToTitle,
 }) => (
@@ -409,10 +427,10 @@ export const DeathModal: React.FC<DeathModalProps> = ({
         {Math.floor(x)}, {Math.floor(y)}, {Math.floor(z)} · XP: {level}
       </p>
       <div className="w-full flex flex-col gap-2.5 mt-1">
-        <McButton onClick={onRespawn} className="w-full h-11">
+        <McButton widgetsUrl={widgetsUrl} onClick={onRespawn} className="w-full h-11">
           Hồi Sinh
         </McButton>
-        <McButton onClick={onQuitToTitle} className="w-full h-11">
+        <McButton widgetsUrl={widgetsUrl} onClick={onQuitToTitle} className="w-full h-11">
           Menu Chính
         </McButton>
       </div>

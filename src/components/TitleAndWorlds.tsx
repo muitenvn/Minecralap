@@ -113,15 +113,15 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
     return (
       <div className="fixed inset-0 z-20 flex flex-col items-center justify-between px-4 py-8 sm:py-12 pointer-events-none">
         <div className="fixed top-3 right-3 pointer-events-auto">
-          <button
-            type="button"
+          <McButton
+            widgetsUrl={pack.guiUrls.widgets}
             onClick={onToggleFullscreen}
             title={isFullscreen ? 'Thu nhỏ (F11)' : 'Toàn màn hình (F11)'}
             aria-label="Toàn màn hình"
-            className="mc-btn w-[38px] h-[38px] flex items-center justify-center"
+            className="min-h-[38px] w-[38px] h-[38px] px-0 py-0"
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
+          </McButton>
         </div>
 
         <div className="mt-2 sm:mt-6">
@@ -189,7 +189,12 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
             {worlds.length === 0 ? (
               <div className="border-2 border-dashed border-zinc-600 bg-black/45 p-8 text-center">
                 <p className="font-mc text-base text-zinc-200 mb-4">Chưa có thế giới nào</p>
-                <McButton variant="primary" onClick={() => onNavigate('create_world')} className="mx-auto">
+                <McButton
+                  variant="primary"
+                  widgetsUrl={pack.guiUrls.widgets}
+                  onClick={() => onNavigate('create_world')}
+                  className="mx-auto"
+                >
                   <Plus className="w-4 h-4" />
                   Tạo Mới
                 </McButton>
@@ -230,6 +235,7 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
                     </div>
                     <McButton
                       variant="primary"
+                      widgetsUrl={pack.guiUrls.widgets}
                       onClick={(e) => {
                         e.stopPropagation();
                         onLaunchWorld(w);
@@ -251,6 +257,7 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
           <div className="max-w-[700px] mx-auto grid grid-cols-2 sm:grid-cols-5 gap-2">
             <McButton
               variant="primary"
+              widgetsUrl={pack.guiUrls.widgets}
               disabled={!selectedWorld}
               onClick={() => selectedWorld && onLaunchWorld(selectedWorld)}
               className="col-span-2"
@@ -259,12 +266,17 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
               Chơi
             </McButton>
 
-            <McButton onClick={() => onNavigate('create_world')} className="col-span-2 sm:col-span-1">
+            <McButton
+              widgetsUrl={pack.guiUrls.widgets}
+              onClick={() => onNavigate('create_world')}
+              className="col-span-2 sm:col-span-1"
+            >
               <Plus className="w-4 h-4" />
               Tạo Mới
             </McButton>
 
             <McButton
+              widgetsUrl={pack.guiUrls.widgets}
               disabled={!selectedWorld}
               onClick={() => selectedWorld && exportWorldToFile(selectedWorld)}
             >
@@ -272,7 +284,7 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
               Xuất
             </McButton>
 
-            <McButton onClick={() => importRef.current?.click()}>
+            <McButton widgetsUrl={pack.guiUrls.widgets} onClick={() => importRef.current?.click()}>
               <Upload className="w-4 h-4" />
               Nhập
             </McButton>
@@ -289,6 +301,7 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
           <div className="max-w-[700px] mx-auto flex items-center justify-between gap-2 mt-2">
             <McButton
               variant="crimson"
+              widgetsUrl={pack.guiUrls.widgets}
               disabled={!selectedWorld}
               onClick={() => selectedWorld && handleDelete(selectedWorld.id)}
               className="text-xs sm:text-sm"
@@ -297,7 +310,7 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
               Xóa
             </McButton>
 
-            <McButton onClick={() => onNavigate('title')}>
+            <McButton widgetsUrl={pack.guiUrls.widgets} onClick={() => onNavigate('title')}>
               <ArrowLeft className="w-4 h-4" />
               Quay Lại
             </McButton>
@@ -352,8 +365,10 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
           </div>
 
           <div className="grid grid-cols-2 gap-2.5 pt-1">
-            <McButton onClick={cycleMode}>Chế độ: {modeLabel[newMode]}</McButton>
-            <McButton onClick={() => setCheats((c) => !c)}>
+            <McButton widgetsUrl={pack.guiUrls.widgets} onClick={cycleMode}>
+              Chế độ: {modeLabel[newMode]}
+            </McButton>
+            <McButton widgetsUrl={pack.guiUrls.widgets} onClick={() => setCheats((c) => !c)}>
               Lệnh: {cheats ? 'BẬT' : 'TẮT'}
             </McButton>
           </div>
@@ -362,11 +377,13 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
 
       <div className="px-4 py-3.5 border-t-2 border-black bg-black/65">
         <div className="max-w-[500px] mx-auto grid grid-cols-2 gap-2.5">
-          <McButton variant="primary" onClick={handleCreate}>
+          <McButton variant="primary" widgetsUrl={pack.guiUrls.widgets} onClick={handleCreate}>
             <FolderOpen className="w-4 h-4" />
             Tạo Thế Giới
           </McButton>
-          <McButton onClick={() => onNavigate('worlds')}>Hủy</McButton>
+          <McButton widgetsUrl={pack.guiUrls.widgets} onClick={() => onNavigate('worlds')}>
+            Hủy
+          </McButton>
         </div>
       </div>
     </McDirtBackdrop>

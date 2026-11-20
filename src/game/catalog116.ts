@@ -298,6 +298,45 @@ addBlock({ key: 'oak_sign', nameVi: 'Biển Hiệu Gỗ', category: 'decor_brew'
 addBlock({ key: 'crimson_sign', nameVi: 'Biển Hiệu Nấm Đỏ', category: 'nether116', hardness: 0.8, tool: 'axe', sound: 'wood', nonSolid: true, texStyle: 'planks', base: '#75334f', accent: '#4d1c31' });
 addBlock({ key: 'warped_sign', nameVi: 'Biển Hiệu Nấm Xanh', category: 'nether116', hardness: 0.8, tool: 'axe', sound: 'wood', nonSolid: true, texStyle: 'planks', base: '#2b706d', accent: '#1a4c4a' });
 
+// Essential missing Minecraft 1.16.5 blocks (building, nature, ocean, redstone, Nether 1.16)
+addBlock({ key: 'packed_ice', nameVi: 'Băng Nén', category: 'building', hardness: 1.0, tool: 'pickaxe', sound: 'glass', texStyle: 'stone', base: '#8bb8f8', accent: '#b7d7ff' });
+addBlock({ key: 'iron_bars', nameVi: 'Song Sắt', category: 'building', hardness: 3.5, tool: 'pickaxe', sound: 'metal', transparent: true, texStyle: 'flat', base: '#8d9299', accent: '#cbd5e1' });
+addBlock({ key: 'cobweb', nameVi: 'Mạng Nhện', category: 'decor_brew', hardness: 2.0, tool: 'sword', sound: 'grass', transparent: true, nonSolid: true, dropItem: 'string', texStyle: 'flat', base: '#e5e7eb', accent: '#ffffff' });
+addBlock({ key: 'conduit', nameVi: 'Lõi Dẫn Biển (Conduit)', category: 'decor_brew', hardness: 3.0, sound: 'glass', emissive: true, texStyle: 'station', base: '#9d8268', accent: '#38bdf8', trim: '#e0f2fe' });
+addBlock({ key: 'coarse_dirt', nameVi: 'Đất Thô', category: 'building', hardness: 0.55, tool: 'shovel', sound: 'dirt', texStyle: 'powder', base: '#77553b', accent: '#593d28' });
+addBlock({ key: 'podzol', nameVi: 'Đất Podzol', category: 'building', hardness: 0.6, tool: 'shovel', sound: 'dirt', texStyle: 'stone', base: '#6e4a25', accent: '#8c6239', trim: '#52341a' });
+addBlock({ key: 'mycelium', nameVi: 'Đất Nấm Mycelium', category: 'building', hardness: 0.6, tool: 'shovel', sound: 'dirt', texStyle: 'stone', base: '#6f6269', accent: '#8c7e87', trim: '#77553b' });
+addBlock({ key: 'farmland', nameVi: 'Đất Canh Tác', category: 'building', hardness: 0.6, tool: 'shovel', sound: 'dirt', texStyle: 'planks', base: '#59371e', accent: '#77553b' });
+addBlock({ key: 'grass_path', nameVi: 'Đường Cỏ Mòn', category: 'building', hardness: 0.65, tool: 'shovel', sound: 'grass', texStyle: 'stone', base: '#9e8b52', accent: '#7c6a3a' });
+addBlock({ key: 'polished_andesite', nameVi: 'Andesite Mài Bóng', category: 'building', texStyle: 'bricks', base: '#8b8d91', accent: '#707277' });
+addBlock({ key: 'polished_granite', nameVi: 'Granite Mài Bóng', category: 'building', texStyle: 'bricks', base: '#a66e5b', accent: '#855342' });
+addBlock({ key: 'polished_diorite', nameVi: 'Diorite Mài Bóng', category: 'building', texStyle: 'bricks', base: '#cccdcf', accent: '#9e9fa6' });
+addBlock({ key: 'stripped_oak_log', nameVi: 'Gỗ Sồi Bóc Vỏ', category: 'building', tool: 'axe', sound: 'wood', texStyle: 'log', base: '#b8945f', accent: '#997745' });
+addBlock({ key: 'stripped_spruce_log', nameVi: 'Gỗ Vân Sam Bóc Vỏ', category: 'building', tool: 'axe', sound: 'wood', texStyle: 'log', base: '#735432', accent: '#593f23' });
+addBlock({ key: 'stripped_birch_log', nameVi: 'Gỗ Bạch Dương Bóc Vỏ', category: 'building', tool: 'axe', sound: 'wood', texStyle: 'log', base: '#d4c385', accent: '#b8a567' });
+addBlock({ key: 'stripped_crimson_stem', nameVi: 'Thân Nấm Đỏ Bóc Vỏ', category: 'nether116', tool: 'axe', sound: 'wood', texStyle: 'log', base: '#873353', accent: '#69223d' });
+addBlock({ key: 'stripped_warped_stem', nameVi: 'Thân Nấm Xanh Bóc Vỏ', category: 'nether116', tool: 'axe', sound: 'wood', texStyle: 'log', base: '#348e8b', accent: '#236e6c' });
+addBlock({ key: 'oak_sapling', nameVi: 'Chồi Cây Sồi', category: 'decor_brew', hardness: 0.1, tool: 'none', sound: 'grass', transparent: true, nonSolid: true, texStyle: 'plant', base: '#4f912a', accent: '#75b843' });
+addBlock({ key: 'spruce_sapling', nameVi: 'Chồi Cây Vân Sam', category: 'decor_brew', hardness: 0.1, tool: 'none', sound: 'grass', transparent: true, nonSolid: true, texStyle: 'plant', base: '#2c5432', accent: '#44754b' });
+addBlock({ key: 'birch_sapling', nameVi: 'Chồi Bạch Dương', category: 'decor_brew', hardness: 0.1, tool: 'none', sound: 'grass', transparent: true, nonSolid: true, texStyle: 'plant', base: '#6ca343', accent: '#93c965' });
+addBlock({ key: 'jungle_sapling', nameVi: 'Chồi Rừng Rậm', category: 'decor_brew', hardness: 0.1, tool: 'none', sound: 'grass', transparent: true, nonSolid: true, texStyle: 'plant', base: '#388524', accent: '#5cb543' });
+addBlock({ key: 'acacia_sapling', nameVi: 'Chồi Cây Keo', category: 'decor_brew', hardness: 0.1, tool: 'none', sound: 'grass', transparent: true, nonSolid: true, texStyle: 'plant', base: '#6b942b', accent: '#93bd48' });
+addBlock({ key: 'dark_oak_sapling', nameVi: 'Chồi Sồi Sẫm', category: 'decor_brew', hardness: 0.1, tool: 'none', sound: 'grass', transparent: true, nonSolid: true, texStyle: 'plant', base: '#35661f', accent: '#508a34' });
+addBlock({ key: 'lily_pad', nameVi: 'Lá Bèo', category: 'decor_brew', hardness: 0.1, tool: 'none', sound: 'grass', transparent: true, nonSolid: true, texStyle: 'flat', base: '#3e8c27', accent: '#5eb342' });
+addBlock({ key: 'sea_pickle', nameVi: 'Dưa Chuột Biển', category: 'decor_brew', hardness: 0.1, tool: 'none', sound: 'grass', transparent: true, nonSolid: true, emissive: true, texStyle: 'plant', base: '#58782d', accent: '#b7f582' });
+addBlock({ key: 'bee_nest', nameVi: 'Tổ Ong Tự Nhiên', category: 'decor_brew', hardness: 0.6, tool: 'axe', sound: 'wood', texStyle: 'station', base: '#d9a536', accent: '#f5c531', trim: '#784812' });
+addBlock({ key: 'turtle_egg', nameVi: 'Trứng Rùa Biển', category: 'decor_brew', hardness: 0.5, tool: 'none', sound: 'glass', transparent: true, nonSolid: true, texStyle: 'flat', base: '#e6e3d3', accent: '#5ea89b' });
+addBlock({ key: 'trapped_chest', nameVi: 'Rương Bẫy', category: 'redstone', hardness: 2.0, tool: 'axe', sound: 'wood', texStyle: 'station', base: '#a87431', accent: '#dc2626', trim: '#472c10' });
+addBlock({ key: 'crimson_roots', nameVi: 'Rễ Nấm Đỏ', category: 'nether116', hardness: 0.1, tool: 'none', sound: 'grass', transparent: true, nonSolid: true, texStyle: 'plant', base: '#9e192b', accent: '#d93246' });
+addBlock({ key: 'warped_roots', nameVi: 'Rễ Nấm Xanh', category: 'nether116', hardness: 0.1, tool: 'none', sound: 'grass', transparent: true, nonSolid: true, texStyle: 'plant', base: '#158a7b', accent: '#2dd4bf' });
+addBlock({ key: 'weeping_vines', nameVi: 'Dây Leo Khóc (1.16)', category: 'nether116', hardness: 0.1, tool: 'none', sound: 'grass', transparent: true, nonSolid: true, texStyle: 'plant', base: '#87111e', accent: '#c41e30' });
+addBlock({ key: 'twisting_vines', nameVi: 'Dây Leo Xoắn (1.16)', category: 'nether116', hardness: 0.1, tool: 'none', sound: 'grass', transparent: true, nonSolid: true, texStyle: 'plant', base: '#127a6c', accent: '#26b8a4' });
+addBlock({ key: 'nether_sprouts', nameVi: 'Chồi Nether', category: 'nether116', hardness: 0.1, tool: 'none', sound: 'grass', transparent: true, nonSolid: true, texStyle: 'plant', base: '#168779', accent: '#36ccb8' });
+addBlock({ key: 'mossy_stone_brick_wall', nameVi: 'Tường Gạch Đá Rêu', category: 'building', texStyle: 'bricks', base: '#767d70', accent: '#4d7c2e' });
+addBlock({ key: 'nether_brick_wall', nameVi: 'Tường Gạch Nether', category: 'nether116', sound: 'nether', texStyle: 'bricks', base: '#361b20', accent: '#1e0c10' });
+addBlock({ key: 'blackstone_stairs', nameVi: 'Cầu Thang Đá Đen Thô', category: 'nether116', texStyle: 'stone', base: '#2a2730', accent: '#18151c' });
+addBlock({ key: 'blackstone_slab', nameVi: 'Phiến Đá Đen Thô', category: 'nether116', texStyle: 'stone', base: '#2a2730', accent: '#18151c' });
+
 // =========================================================================
 // 4. ALL 16 COLORS: WOOL (remaining 10), STAINED GLASS (16), TERRACOTTA (16), CONCRETE (16), CONCRETE POWDER (16), CARPET (6 key)
 // =========================================================================
@@ -526,6 +565,45 @@ export const EXT_ITEMS: ItemDef[] = [
   { id: 'potion_harming', nameVi: 'Thuốc Sát Thương', maxStack: 1, category: 'decor_brew', iconShape: 'potion', iconColor: '#7f1d1d', iconAccent: '#f87171' },
   { id: 'splash_potion_healing', nameVi: 'Thuốc Ném Hồi Máu', maxStack: 1, category: 'decor_brew', healRestore: 8, iconShape: 'potion', iconColor: '#f43f5e', iconAccent: '#ffe4e6' },
   { id: 'lingering_potion_healing', nameVi: 'Thuốc Đọng Hồi Máu', maxStack: 1, category: 'decor_brew', healRestore: 10, iconShape: 'potion', iconColor: '#ec4899', iconAccent: '#fce7f3' },
+
+  // Additional Important Missing Minecraft 1.16.5 Items
+  { id: 'filled_map', nameVi: 'Bản Đồ Đã Vẽ', maxStack: 64, category: 'tools', iconShape: 'paper', iconColor: '#d9c698', iconAccent: '#4f9e34' },
+  { id: 'lead', nameVi: 'Dây Dắt (Lead)', maxStack: 64, category: 'tools', iconShape: 'string', iconColor: '#a67b4b', iconAccent: '#d4b183' },
+  { id: 'carrot_on_a_stick', nameVi: 'Cần Câu Cà Rốt', maxStack: 1, category: 'tools', iconShape: 'rod', iconColor: '#8d6438', iconAccent: '#ea580c' },
+  { id: 'snowball', nameVi: 'Bóng Tuyết', maxStack: 16, category: 'tools', iconShape: 'pearl', iconColor: '#f1f5f9', iconAccent: '#ffffff' },
+  { id: 'experience_bottle', nameVi: 'Chai Kinh Nghiệm', maxStack: 64, category: 'decor_brew', iconShape: 'potion', iconColor: '#a3e635', iconAccent: '#fef08a' },
+  { id: 'sweet_berries', nameVi: 'Quả Mọng Ngọt', maxStack: 64, category: 'armor_food', foodRestore: 2, iconShape: 'apple', iconColor: '#b91c1c', iconAccent: '#fca5a5' },
+  { id: 'rotten_flesh', nameVi: 'Thịt Thối', maxStack: 64, category: 'armor_food', foodRestore: 4, iconShape: 'food', iconColor: '#7c4a2d', iconAccent: '#4d7c2e' },
+  { id: 'poisonous_potato', nameVi: 'Khoai Tây Độc', maxStack: 64, category: 'armor_food', foodRestore: 2, iconShape: 'food', iconColor: '#9ca341', iconAccent: '#65a30d' },
+  { id: 'tropical_fish', nameVi: 'Cá Nhiệt Đới', maxStack: 64, category: 'armor_food', foodRestore: 1, iconShape: 'food', iconColor: '#f97316', iconAccent: '#ffffff' },
+  { id: 'suspicious_stew', nameVi: 'Súp Đáng Ngờ', maxStack: 1, category: 'armor_food', foodRestore: 6, healRestore: 3, potionEffect: { id: 'regeneration', amplifier: 0, durationSec: 12 }, iconShape: 'bowl', iconColor: '#8d6438', iconAccent: '#84cc16' },
+  { id: 'cod_bucket', nameVi: 'Xô Cá Tuyết', maxStack: 1, category: 'tools', iconShape: 'bucket_water', iconColor: '#c4c9d0', iconAccent: '#d6c69c' },
+  { id: 'salmon_bucket', nameVi: 'Xô Cá Hồi', maxStack: 1, category: 'tools', iconShape: 'bucket_water', iconColor: '#c4c9d0', iconAccent: '#dc4c4c' },
+  { id: 'pufferfish_bucket', nameVi: 'Xô Cá Nóc', maxStack: 1, category: 'tools', iconShape: 'bucket_water', iconColor: '#c4c9d0', iconAccent: '#facc15' },
+  { id: 'tropical_fish_bucket', nameVi: 'Xô Cá Nhiệt Đới', maxStack: 1, category: 'tools', iconShape: 'bucket_water', iconColor: '#c4c9d0', iconAccent: '#f97316' },
+  { id: 'rabbit_hide', nameVi: 'Da Thỏ', maxStack: 64, category: 'ores', iconShape: 'paper', iconColor: '#c9a678', iconAccent: '#e8cfa8' },
+  { id: 'leather_horse_armor', nameVi: 'Giáp Ngựa Da', maxStack: 1, category: 'armor_food', iconShape: 'chestplate', iconColor: '#9c5a32', iconAccent: '#c98253' },
+  { id: 'piglin_banner_pattern', nameVi: 'Mẫu Cờ Piglin (1.16)', maxStack: 1, category: 'nether116', iconShape: 'paper', iconColor: '#e5d4a1', iconAccent: '#eab308' },
+  { id: 'written_book', nameVi: 'Sách Đã Viết', maxStack: 16, category: 'decor_brew', iconShape: 'book', iconColor: '#7c2d12', iconAccent: '#c084fc' },
+  { id: 'furnace_minecart', nameVi: 'Xe Mỏ Lò Nung', maxStack: 1, category: 'redstone', iconShape: 'boat', iconColor: '#9ca3af', iconAccent: '#52525b' },
+  { id: 'spruce_boat', nameVi: 'Thuyền Vân Sam', maxStack: 1, category: 'tools', iconShape: 'boat', iconColor: '#785634', iconAccent: '#4a331d' },
+  { id: 'birch_boat', nameVi: 'Thuyền Bạch Dương', maxStack: 1, category: 'tools', iconShape: 'boat', iconColor: '#d9cc9e', iconAccent: '#a39368' },
+  { id: 'jungle_boat', nameVi: 'Thuyền Rừng Rậm', maxStack: 1, category: 'tools', iconShape: 'boat', iconColor: '#a87b56', iconAccent: '#875f3e' },
+  { id: 'acacia_boat', nameVi: 'Thuyền Gỗ Keo', maxStack: 1, category: 'tools', iconShape: 'boat', iconColor: '#b86234', iconAccent: '#944a22' },
+  { id: 'dark_oak_boat', nameVi: 'Thuyền Sồi Sẫm', maxStack: 1, category: 'tools', iconShape: 'boat', iconColor: '#4a311a', iconAccent: '#362210' },
+  { id: 'blue_orchid', nameVi: 'Hoa Phong Lan Xanh', maxStack: 64, category: 'decor_brew', iconShape: 'rod', iconColor: '#38bdf8', iconAccent: '#22c55e' },
+  { id: 'allium', nameVi: 'Hoa Hành Tím', maxStack: 64, category: 'decor_brew', iconShape: 'rod', iconColor: '#d946ef', iconAccent: '#22c55e' },
+  { id: 'oxeye_daisy', nameVi: 'Hoa Cúc Trắng', maxStack: 64, category: 'decor_brew', iconShape: 'rod', iconColor: '#f8fafc', iconAccent: '#facc15' },
+  { id: 'sunflower', nameVi: 'Hoa Hướng Dương', maxStack: 64, category: 'decor_brew', iconShape: 'rod', iconColor: '#facc15', iconAccent: '#78350f' },
+  { id: 'rose_bush', nameVi: 'Bụi Hoa Hồng', maxStack: 64, category: 'decor_brew', iconShape: 'rod', iconColor: '#e11d48', iconAccent: '#15803d' },
+  { id: 'wither_rose', nameVi: 'Hoa Hồng Wither', maxStack: 64, category: 'nether116', iconShape: 'rod', iconColor: '#27272a', iconAccent: '#52525b' },
+  { id: 'lily_of_the_valley', nameVi: 'Hoa Linh Lan', maxStack: 64, category: 'decor_brew', iconShape: 'rod', iconColor: '#f8fafc', iconAccent: '#4ade80' },
+  { id: 'music_disc_13', nameVi: 'Đĩa Nhạc 13', maxStack: 1, category: 'decor_brew', iconShape: 'disc', iconColor: '#27272a', iconAccent: '#facc15' },
+  { id: 'music_disc_blocks', nameVi: 'Đĩa Nhạc Blocks', maxStack: 1, category: 'decor_brew', iconShape: 'disc', iconColor: '#27272a', iconAccent: '#fb923c' },
+  { id: 'music_disc_chirp', nameVi: 'Đĩa Nhạc Chirp', maxStack: 1, category: 'decor_brew', iconShape: 'disc', iconColor: '#27272a', iconAccent: '#ef4444' },
+  { id: 'music_disc_stal', nameVi: 'Đĩa Nhạc Stal', maxStack: 1, category: 'decor_brew', iconShape: 'disc', iconColor: '#27272a', iconAccent: '#18181b' },
+  { id: 'music_disc_ward', nameVi: 'Đĩa Nhạc Ward', maxStack: 1, category: 'decor_brew', iconShape: 'disc', iconColor: '#27272a', iconAccent: '#10b981' },
+  { id: 'music_disc_wait', nameVi: 'Đĩa Nhạc Wait', maxStack: 1, category: 'decor_brew', iconShape: 'disc', iconColor: '#27272a', iconAccent: '#60a5fa' },
 ];
 
 // =========================================================================
@@ -788,6 +866,40 @@ export const EXT_CRAFTING_RECIPES: CraftingRecipe[] = [
   { id: 'potion_harming', nameVi: 'Thuốc Sát Thương', shapeless: ['potion_healing', 'fermented_spider_eye'], output: { itemId: 'potion_harming', count: 1 } },
   { id: 'splash_potion_healing', nameVi: 'Thuốc Ném Hồi Máu', shapeless: ['potion_healing', 'gunpowder'], output: { itemId: 'splash_potion_healing', count: 1 } },
   { id: 'lingering_potion_healing', nameVi: 'Thuốc Đọng Hồi Máu', shapeless: ['splash_potion_healing', 'dragon_breath'], output: { itemId: 'lingering_potion_healing', count: 1 } },
+
+  // Recipes for Newly Added Important Minecraft 1.16.5 Items & Blocks
+  { id: 'packed_ice', nameVi: 'Băng Nén', pattern: [['ice', 'ice', 'ice'], ['ice', 'ice', 'ice'], ['ice', 'ice', 'ice']], output: { itemId: 'packed_ice', count: 1 } },
+  { id: 'blue_ice', nameVi: 'Băng Xanh', pattern: [['packed_ice', 'packed_ice', 'packed_ice'], ['packed_ice', 'packed_ice', 'packed_ice'], ['packed_ice', 'packed_ice', 'packed_ice']], output: { itemId: 'blue_ice', count: 1 } },
+  { id: 'iron_bars', nameVi: 'Song Sắt', pattern: [['iron_ingot', 'iron_ingot', 'iron_ingot'], ['iron_ingot', 'iron_ingot', 'iron_ingot']], output: { itemId: 'iron_bars', count: 16 } },
+  { id: 'conduit', nameVi: 'Lõi Dẫn Biển (Conduit)', pattern: [['nautilus_shell', 'nautilus_shell', 'nautilus_shell'], ['nautilus_shell', 'heart_of_the_sea', 'nautilus_shell'], ['nautilus_shell', 'nautilus_shell', 'nautilus_shell']], output: { itemId: 'conduit', count: 1 } },
+  { id: 'coarse_dirt', nameVi: 'Đất Thô', pattern: [['dirt', 'gravel'], ['gravel', 'dirt']], output: { itemId: 'coarse_dirt', count: 4 } },
+  { id: 'polished_andesite', nameVi: 'Andesite Mài Bóng', pattern: [['andesite', 'andesite'], ['andesite', 'andesite']], output: { itemId: 'polished_andesite', count: 4 } },
+  { id: 'polished_granite', nameVi: 'Granite Mài Bóng', pattern: [['granite', 'granite'], ['granite', 'granite']], output: { itemId: 'polished_granite', count: 4 } },
+  { id: 'polished_diorite', nameVi: 'Diorite Mài Bóng', pattern: [['diorite', 'diorite'], ['diorite', 'diorite']], output: { itemId: 'polished_diorite', count: 4 } },
+  { id: 'trapped_chest', nameVi: 'Rương Bẫy', shapeless: ['chest', 'tripwire_hook'], output: { itemId: 'trapped_chest', count: 1 } },
+  { id: 'lead', nameVi: 'Dây Dắt (Lead)', pattern: [['string', 'string', null], ['string', 'slime_ball', null], [null, null, 'string']], output: { itemId: 'lead', count: 2 } },
+  { id: 'carrot_on_a_stick', nameVi: 'Cần Câu Cà Rốt', shapeless: ['fishing_rod', 'carrot'], output: { itemId: 'carrot_on_a_stick', count: 1 } },
+  { id: 'leather_from_rabbit', nameVi: 'Da Thuộc (Da Thỏ)', pattern: [['rabbit_hide', 'rabbit_hide'], ['rabbit_hide', 'rabbit_hide']], output: { itemId: 'leather', count: 1 } },
+  { id: 'leather_horse_armor', nameVi: 'Giáp Ngựa Da', pattern: [['leather', null, 'leather'], ['leather', 'leather', 'leather'], ['leather', null, 'leather']], output: { itemId: 'leather_horse_armor', count: 1 } },
+  { id: 'suspicious_stew', nameVi: 'Súp Đáng Ngờ', shapeless: ['red_mushroom', 'brown_mushroom', 'bowl', 'oxeye_daisy'], output: { itemId: 'suspicious_stew', count: 1 } },
+  { id: 'furnace_minecart', nameVi: 'Xe Mỏ Lò Nung', shapeless: ['minecart', 'furnace'], output: { itemId: 'furnace_minecart', count: 1 } },
+  { id: 'spruce_boat', nameVi: 'Thuyền Vân Sam', pattern: [['spruce_planks', null, 'spruce_planks'], ['spruce_planks', 'spruce_planks', 'spruce_planks']], output: { itemId: 'spruce_boat', count: 1 } },
+  { id: 'birch_boat', nameVi: 'Thuyền Bạch Dương', pattern: [['birch_planks', null, 'birch_planks'], ['birch_planks', 'birch_planks', 'birch_planks']], output: { itemId: 'birch_boat', count: 1 } },
+  { id: 'jungle_boat', nameVi: 'Thuyền Rừng Rậm', pattern: [['jungle_planks', null, 'jungle_planks'], ['jungle_planks', 'jungle_planks', 'jungle_planks']], output: { itemId: 'jungle_boat', count: 1 } },
+  { id: 'acacia_boat', nameVi: 'Thuyền Gỗ Keo', pattern: [['acacia_planks', null, 'acacia_planks'], ['acacia_planks', 'acacia_planks', 'acacia_planks']], output: { itemId: 'acacia_boat', count: 1 } },
+  { id: 'dark_oak_boat', nameVi: 'Thuyền Sồi Sẫm', pattern: [['dark_oak_planks', null, 'dark_oak_planks'], ['dark_oak_planks', 'dark_oak_planks', 'dark_oak_planks']], output: { itemId: 'dark_oak_boat', count: 1 } },
+  { id: 'blackstone_stairs', nameVi: 'Cầu Thang Đá Đen Thô', pattern: [['blackstone', null, null], ['blackstone', 'blackstone', null], ['blackstone', 'blackstone', 'blackstone']], output: { itemId: 'blackstone_stairs', count: 4 } },
+  { id: 'blackstone_slab', nameVi: 'Phiến Đá Đen Thô', pattern: [['blackstone', 'blackstone', 'blackstone']], output: { itemId: 'blackstone_slab', count: 6 } },
+  { id: 'nether_brick_wall', nameVi: 'Tường Gạch Nether', pattern: [['nether_bricks', 'nether_bricks', 'nether_bricks'], ['nether_bricks', 'nether_bricks', 'nether_bricks']], output: { itemId: 'nether_brick_wall', count: 6 } },
+  { id: 'mossy_stone_brick_wall', nameVi: 'Tường Gạch Đá Rêu', pattern: [['mossy_stone_bricks', 'mossy_stone_bricks', 'mossy_stone_bricks'], ['mossy_stone_bricks', 'mossy_stone_bricks', 'mossy_stone_bricks']], output: { itemId: 'mossy_stone_brick_wall', count: 6 } },
+  { id: 'snow_block_craft', nameVi: 'Khối Tuyết', pattern: [['snowball', 'snowball'], ['snowball', 'snowball']], output: { itemId: 'snow_block', count: 1 } },
+  { id: 'black_dye_wither', nameVi: 'Thuốc Nhuộm Đen (Hoa)', shapeless: ['wither_rose'], output: { itemId: 'black_dye', count: 1 } },
+  { id: 'light_blue_dye_orchid', nameVi: 'Thuốc Nhuộm Xanh Nhạt (Hoa)', shapeless: ['blue_orchid'], output: { itemId: 'light_blue_dye', count: 1 } },
+  { id: 'magenta_dye_allium', nameVi: 'Thuốc Nhuộm Đỏ Tím (Hoa)', shapeless: ['allium'], output: { itemId: 'magenta_dye', count: 1 } },
+  { id: 'light_gray_dye_daisy', nameVi: 'Thuốc Nhuộm Xám Nhạt (Hoa)', shapeless: ['oxeye_daisy'], output: { itemId: 'light_gray_dye', count: 1 } },
+  { id: 'white_dye_lily', nameVi: 'Thuốc Nhuộm Trắng (Hoa)', shapeless: ['lily_of_the_valley'], output: { itemId: 'white_dye', count: 1 } },
+  { id: 'yellow_dye_sunflower', nameVi: 'Thuốc Nhuộm Vàng (Hướng Dương)', shapeless: ['sunflower'], output: { itemId: 'yellow_dye', count: 2 } },
+  { id: 'red_dye_rose_bush', nameVi: 'Thuốc Nhuộm Đỏ (Hoa Hồng)', shapeless: ['rose_bush'], output: { itemId: 'red_dye', count: 2 } },
 ];
 
 // =========================================================================

@@ -10,7 +10,7 @@ import {
 } from '../game/recipes';
 import { CompiledResourcePack } from '../game/resourcePack';
 import { ContainerType, FurnaceState, GameMode, ItemStack, PlayerSkinConfig } from '../game/types';
-import { McButton, McItemSlot } from './McSprites';
+import { McButton, McItemSlot, McSpriteSlice } from './McSprites';
 import { SkinPreview3D } from './SkinPreview3D';
 
 interface ContainerModalProps {
@@ -477,32 +477,32 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
           </div>
           <div className="flex items-center gap-1.5">
             {cursorArmorSlot !== undefined && (
-              <button
-                type="button"
+              <McButton
+                variant="primary"
+                widgetsUrl={pack.guiUrls.widgets}
                 onClick={handleQuickEquipCursorArmor}
-                className="mc-btn mc-btn-primary min-h-[34px] px-2.5 py-1 text-xs flex items-center gap-1"
+                className="min-h-[34px] h-[34px] px-2.5 py-1 text-xs"
               >
                 <Shield className="w-3.5 h-3.5" />
                 <span>Mặc giáp</span>
-              </button>
+              </McButton>
             )}
-            <button
-              type="button"
+            <McButton
+              variant={splitMode ? 'primary' : 'stone'}
+              widgetsUrl={pack.guiUrls.widgets}
               onClick={() => setSplitMode((v) => !v)}
-              className={`min-h-[34px] px-2.5 py-1 text-xs font-mc font-bold border-2 border-black cursor-pointer touch-manipulation ${
-                splitMode ? 'bg-[#3c8527] text-white' : 'bg-[#a8a8a8] text-[#222]'
-              }`}
+              className="min-h-[34px] h-[34px] px-2.5 py-1 text-xs"
             >
               {splitMode ? 'Tách 1' : 'Cầm hết'}
-            </button>
-            <button
-              type="button"
+            </McButton>
+            <McButton
+              widgetsUrl={pack.guiUrls.widgets}
               onClick={handleSafeClose}
               aria-label="Đóng"
-              className="mc-btn min-h-[34px] min-w-[34px] px-2 py-1 text-xs flex items-center justify-center"
+              className="min-h-[34px] min-w-[34px] h-[34px] px-2 py-1 text-xs"
             >
               <X className="w-4 h-4" />
-            </button>
+            </McButton>
           </div>
         </div>
 
@@ -628,7 +628,19 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                     ))}
                   </div>
                 </div>
-                <div className="text-lg font-bold text-[#444]">→</div>
+                {pack.guiUrls.containerCrafting ? (
+                  <McSpriteSlice
+                    src={pack.guiUrls.containerCrafting}
+                    sx={90}
+                    sy={35}
+                    sw={22}
+                    sh={15}
+                    width={33}
+                    height={22}
+                  />
+                ) : (
+                  <div className="text-lg font-bold text-[#444]">→</div>
+                )}
                 <McItemSlot
                   stack={
                     matchedRecipe
@@ -646,6 +658,16 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
             {/* Quick 2x2 Recipe Book */}
             <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-2 max-h-[192px] flex flex-col">
               <div className="flex items-center gap-1.5 mb-1.5 shrink-0">
+                {pack.guiUrls.recipeButton && (
+                  <span
+                    className="inline-block w-5 h-[18px] pixelated shrink-0"
+                    style={{
+                      backgroundImage: `url(${pack.guiUrls.recipeButton})`,
+                      backgroundSize: '100% 200%',
+                      backgroundPosition: '0% 0%',
+                    }}
+                  />
+                )}
                 <span className="text-xs font-mc font-bold text-[#222]">Công thức</span>
                 <input
                   type="text"
@@ -708,7 +730,19 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                   />
                 ))}
               </div>
-              <div className="text-2xl font-bold text-[#444]">→</div>
+              {pack.guiUrls.containerCrafting ? (
+                <McSpriteSlice
+                  src={pack.guiUrls.containerCrafting}
+                  sx={90}
+                  sy={35}
+                  sw={22}
+                  sh={15}
+                  width={44}
+                  height={30}
+                />
+              ) : (
+                <div className="text-2xl font-bold text-[#444]">→</div>
+              )}
               <McItemSlot
                 stack={
                   matchedRecipe
@@ -724,6 +758,16 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
 
             <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-2 max-h-[210px] flex flex-col">
               <div className="flex items-center gap-1.5 mb-1.5 shrink-0">
+                {pack.guiUrls.recipeButton && (
+                  <span
+                    className="inline-block w-5 h-[18px] pixelated shrink-0"
+                    style={{
+                      backgroundImage: `url(${pack.guiUrls.recipeButton})`,
+                      backgroundSize: '100% 200%',
+                      backgroundPosition: '0% 0%',
+                    }}
+                  />
+                )}
                 <span className="text-xs font-mc font-bold text-[#222]">
                   Công thức ({relevantRecipes.length})
                 </span>
@@ -777,10 +821,49 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                     interactSlot(furnace.input, (n) => setFurnaceSlot('input', n), true)
                   }
                 />
-                <div className="flex items-center gap-1 text-xs font-mono-num">
-                  <Flame
-                    className={`w-5 h-5 ${furnace.burnTime > 0 ? 'text-orange-600 fill-amber-400' : 'text-zinc-500'}`}
-                  />
+                <div className="flex items-center gap-1.5 text-xs font-mono-num">
+                  {pack.guiUrls.containerFurnace ? (
+                    <div className="relative w-[28px] h-[28px]">
+                      <McSpriteSlice
+                        src={pack.guiUrls.containerFurnace}
+                        sx={56}
+                        sy={36}
+                        sw={14}
+                        sh={14}
+                        width={28}
+                        height={28}
+                        className="block"
+                      />
+                      {furnace.burnTime > 0 && (
+                        <div
+                          className="absolute inset-x-0 bottom-0 overflow-hidden"
+                          style={{
+                            height: `${Math.min(
+                              100,
+                              Math.max(12, Math.round((furnace.burnTime / Math.max(1, furnace.burnMax || 10)) * 100)),
+                            )}%`,
+                          }}
+                        >
+                          <div className="absolute inset-x-0 bottom-0 h-[28px]">
+                            <McSpriteSlice
+                              src={pack.guiUrls.containerFurnace}
+                              sx={176}
+                              sy={0}
+                              sw={14}
+                              sh={14}
+                              width={28}
+                              height={28}
+                              className="block"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <Flame
+                      className={`w-5 h-5 ${furnace.burnTime > 0 ? 'text-orange-600 fill-amber-400' : 'text-zinc-500'}`}
+                    />
+                  )}
                   <span>{furnace.burnTime > 0 ? `${Math.ceil(furnace.burnTime)}s` : 'Tắt'}</span>
                 </div>
                 <McItemSlot
@@ -795,13 +878,43 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                 />
               </div>
 
-              <div className="flex flex-col items-center gap-1.5 min-w-[100px]">
-                <div className="w-24 h-3.5 bg-[#555] border border-black overflow-hidden">
-                  <div
-                    className="h-full bg-[#f59e0b]"
-                    style={{ width: `${Math.round(furnace.cookProgress * 100)}%` }}
-                  />
-                </div>
+              <div className="flex flex-col items-center gap-1.5 min-w-[72px]">
+                {pack.guiUrls.containerFurnace ? (
+                  <div className="relative w-[48px] h-[34px]">
+                    <McSpriteSlice
+                      src={pack.guiUrls.containerFurnace}
+                      sx={79}
+                      sy={34}
+                      sw={24}
+                      sh={17}
+                      width={48}
+                      height={34}
+                      className="block"
+                    />
+                    <div
+                      className="absolute left-0 top-0 bottom-0 overflow-hidden"
+                      style={{ width: `${Math.round(furnace.cookProgress * 100)}%` }}
+                    >
+                      <McSpriteSlice
+                        src={pack.guiUrls.containerFurnace}
+                        sx={176}
+                        sy={14}
+                        sw={24}
+                        sh={17}
+                        width={48}
+                        height={34}
+                        className="block"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-24 h-3.5 bg-[#555] border border-black overflow-hidden">
+                    <div
+                      className="h-full bg-[#f59e0b]"
+                      style={{ width: `${Math.round(furnace.cookProgress * 100)}%` }}
+                    />
+                  </div>
+                )}
                 <span className="text-xs font-mono-num text-[#333]">
                   {Math.round(furnace.cookProgress * 100)}%
                 </span>
@@ -824,9 +937,21 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
         {/* --- SMITHING TABLE --- */}
         {type === 'smithing' && (
           <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-4 mb-3">
-            <div className="flex items-center gap-2 justify-center mb-3 text-xs font-mc font-bold text-[#222]">
-              <Hammer className="w-4 h-4" />
-              Nâng cấp Netherite
+            <div className="flex items-center gap-2.5 justify-center mb-3 text-xs font-mc font-bold text-[#222]">
+              {pack.guiUrls.containerSmithing ? (
+                <McSpriteSlice
+                  src={pack.guiUrls.containerSmithing}
+                  sx={17}
+                  sy={7}
+                  sw={30}
+                  sh={30}
+                  width={34}
+                  height={34}
+                />
+              ) : (
+                <Hammer className="w-4 h-4" />
+              )}
+              <span>Nâng cấp Netherite</span>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <McItemSlot
@@ -836,7 +961,19 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                 placeholder="KC"
                 onClick={() => interactSlot(smithBase, setSmithBase)}
               />
-              <span className="text-xl font-bold">+</span>
+              {pack.guiUrls.containerSmithing ? (
+                <McSpriteSlice
+                  src={pack.guiUrls.containerSmithing}
+                  sx={53}
+                  sy={49}
+                  sw={13}
+                  sh={13}
+                  width={22}
+                  height={22}
+                />
+              ) : (
+                <span className="text-xl font-bold">+</span>
+              )}
               <McItemSlot
                 stack={smithAdd}
                 pack={pack}
@@ -844,7 +981,19 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                 placeholder="Neth"
                 onClick={() => interactSlot(smithAdd, setSmithAdd)}
               />
-              <span className="text-xl font-bold">→</span>
+              {pack.guiUrls.containerSmithing ? (
+                <McSpriteSlice
+                  src={pack.guiUrls.containerSmithing}
+                  sx={99}
+                  sy={48}
+                  sw={22}
+                  sh={15}
+                  width={40}
+                  height={27}
+                />
+              ) : (
+                <span className="text-xl font-bold">→</span>
+              )}
               <McItemSlot
                 stack={smithOutput}
                 pack={pack}
@@ -863,8 +1012,9 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
             {cursor && (
               <McButton
                 variant="crimson"
+                widgetsUrl={pack.guiUrls.widgets}
                 onClick={() => setCursor(null)}
-                className="min-h-[28px] px-2 py-0.5 text-xs"
+                className="min-h-[28px] h-[28px] px-2 py-0.5 text-xs"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Xóa

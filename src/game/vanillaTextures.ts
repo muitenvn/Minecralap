@@ -1187,11 +1187,11 @@ const OFFICIAL_MC116_MIRRORS = [
   'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.16.5/assets/minecraft/textures',
 ];
 
-const FAITHFUL_CACHE_ID = 'faithful_32x_hd_plus_v1';
-const FAITHFUL_CACHE_VERSION = '1.16.5-faithful32-hdplus-v1';
+const FAITHFUL_CACHE_ID = 'faithful_32x_hd_plus_v3';
+const FAITHFUL_CACHE_VERSION = '1.16.5-faithful32-hdplus-v3';
 
-const ORIGINAL_CACHE_ID = 'original_mc116_cache_v3';
-const ORIGINAL_CACHE_VERSION = '1.16.5-official-v3';
+const ORIGINAL_CACHE_ID = 'original_mc116_cache_v5';
+const ORIGINAL_CACHE_VERSION = '1.16.5-official-v5';
 
 // Map internal texture keys to exact official Minecraft Java Edition 1.16.5 block filenames
 function mapKeyToOfficialMc116Block(key: string): string {
@@ -1287,6 +1287,17 @@ function mapKeyToOfficialMc116Block(key: string): string {
     tnt_side: 'tnt_side',
     bamboo: 'bamboo_stalk',
     redstone_lamp: 'redstone_lamp_on',
+    podzol: 'podzol_side',
+    mycelium: 'mycelium_side',
+    farmland: 'farmland_moist',
+    grass_path: 'grass_path_side',
+    trapped_chest: 'barrel_side',
+    weeping_vines: 'weeping_vines_plant',
+    twisting_vines: 'twisting_vines_plant',
+    mossy_stone_brick_wall: 'mossy_stone_bricks',
+    nether_brick_wall: 'nether_bricks',
+    blackstone_stairs: 'blackstone',
+    blackstone_slab: 'blackstone',
   };
   if (exactMap[key]) return exactMap[key];
   if (key.endsWith('_carpet')) return key.replace('_carpet', '_wool');
@@ -1365,7 +1376,10 @@ function mapItemIdToOfficialMc116Path(itemId: string): string | null {
     poppy: 'block/poppy',
     dandelion: 'block/dandelion',
     blue_orchid: 'block/blue_orchid',
+    allium: 'block/allium',
     oxeye_daisy: 'block/oxeye_daisy',
+    cornflower: 'block/cornflower',
+    lily_of_the_valley: 'block/lily_of_the_valley',
     sunflower: 'block/sunflower_front',
     rose_bush: 'block/rose_bush_top',
     crimson_fungus: 'block/crimson_fungus',
@@ -1600,6 +1614,50 @@ function paintClassicOptionsBgCanvas(): HTMLCanvasElement {
   return c;
 }
 
+// Crisp offline fallback for Minecraft map/map_background.png parchment frame
+function paintFallbackMapBackgroundCanvas(): HTMLCanvasElement {
+  const s = 64;
+  const c = document.createElement('canvas');
+  c.width = s;
+  c.height = s;
+  const ctx = c.getContext('2d')!;
+  const img = ctx.createImageData(s, s);
+  const d = img.data;
+  for (let y = 0; y < s; y++) {
+    for (let x = 0; x < s; x++) {
+      const i = (y * s + x) * 4;
+      const edge = Math.min(x, y, s - 1 - x, s - 1 - y);
+      const n = (hash2d(x, y, 712) - 0.5) * 18;
+      let r = 217;
+      let g = 194;
+      let b = 152;
+      if (edge === 0) {
+        r = 104;
+        g = 78;
+        b = 50;
+      } else if (edge === 1) {
+        r = 154;
+        g = 123;
+        b = 82;
+      } else if (edge <= 3) {
+        r = 196;
+        g = 168;
+        b = 122;
+      } else if (edge === 4) {
+        r = 168;
+        g = 138;
+        b = 96;
+      }
+      d[i] = clamp255(r + n);
+      d[i + 1] = clamp255(g + n);
+      d[i + 2] = clamp255(b + n);
+      d[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return c;
+}
+
 async function fetchDefaultGuiBlob(name: 'widgets' | 'icons' | 'options_background'): Promise<Blob | null> {
   try {
     const res = await fetch(`./packs/mc116-nether-pack/assets/minecraft/textures/gui/${name}.png`, {
@@ -1625,14 +1683,17 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
   baseGuiBlobs?: Record<string, Blob>;
   forceRefresh?: boolean;
 }): Promise<CachedResourcePack> {
-  // 1. Instant return from persistent IndexedDB cache if already downloaded!
+  // 1. Instant return from persistent IndexedDB cache if already downloaded with full GUI + Map + Mob Entity assets!
   if (!opts.forceRefresh) {
     const existingCache = await loadResourcePackById(opts.cacheId);
     if (
       existingCache &&
       existingCache.version === opts.version &&
       Object.keys(existingCache.blockBlobs).length > 30 &&
-      Object.keys(existingCache.itemBlobs || {}).length > 40
+      Object.keys(existingCache.itemBlobs || {}).length > 50 &&
+      Object.keys(existingCache.entityBlobs || {}).length >= 8 &&
+      Boolean(existingCache.guiBlobs.map_background) &&
+      Boolean(existingCache.guiBlobs.container_inventory)
     ) {
       const promoted: CachedResourcePack = {
         ...existingCache,
@@ -1645,6 +1706,7 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
 
   const blockBlobs: Record<string, Blob> = {};
   const itemBlobs: Record<string, Blob> = {};
+  const entityBlobs: Record<string, Blob> = {};
   const guiBlobs: Record<string, Blob> = { ...(opts.baseGuiBlobs || {}) };
   let totalBytes = 0;
 
@@ -1732,7 +1794,13 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
     }
 
     // --- Map fetched item blobs + tint leather armor & enchanted golden apple ---
-    const leatherIds = ['leather_helmet', 'leather_chestplate', 'leather_leggings', 'leather_boots'];
+    const leatherIds = [
+      'leather_helmet',
+      'leather_chestplate',
+      'leather_leggings',
+      'leather_boots',
+      'leather_horse_armor',
+    ];
     const specialItems = new Map<string, Blob>();
     await Promise.all([
       ...leatherIds.map(async (lid) => {
@@ -1796,18 +1864,48 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
       totalBytes += comp.size;
     }
 
-    // --- Official GUI sprites ---
-    const [w, ic, bg] = await Promise.all([
-      fetchWithTimeout(`${mirror}/gui/widgets.png`, 2800),
-      fetchWithTimeout(`${mirror}/gui/icons.png`, 2800),
-      fetchWithTimeout(`${mirror}/gui/options_background.png`, 2800),
+    // --- Official Resource Pack Mob Entity Textures (8 Mobs + Sheep Wool) ---
+    const entityFetchMap: [string, string][] = [
+      ['pig', 'entity/pig/pig.png'],
+      ['sheep', 'entity/sheep/sheep.png'],
+      ['sheep_fur', 'entity/sheep/sheep_fur.png'],
+      ['zombie', 'entity/zombie/zombie.png'],
+      ['creeper', 'entity/creeper/creeper.png'],
+      ['piglin', 'entity/piglin/piglin.png'],
+      ['zombified_piglin', 'entity/piglin/zombified_piglin.png'],
+      ['strider', 'entity/strider/strider.png'],
+      ['ghast', 'entity/ghast/ghast.png'],
+    ];
+
+    // --- Official Resource Pack GUI, Container & Map sprites ---
+    const guiFetchMap: [string, string][] = [
+      ['widgets', 'gui/widgets.png'],
+      ['icons', 'gui/icons.png'],
+      ['options_background', 'gui/options_background.png'],
+      ['container_inventory', 'gui/container/inventory.png'],
+      ['container_crafting', 'gui/container/crafting_table.png'],
+      ['container_furnace', 'gui/container/furnace.png'],
+      ['container_smithing', 'gui/container/smithing.png'],
+      ['recipe_button', 'gui/recipe_button.png'],
+      ['map_background', 'map/map_background.png'],
+      ['map_icons', 'map/map_icons.png'],
+    ];
+    await Promise.all([
+      ...entityFetchMap.map(async ([eKey, relPath]) => {
+        const blob = await fetchWithTimeout(`${mirror}/${relPath}`, 3000);
+        if (blob) {
+          entityBlobs[eKey] = blob;
+          totalBytes += blob.size;
+        }
+      }),
+      ...guiFetchMap.map(async ([gKey, relPath]) => {
+        const blob = await fetchWithTimeout(`${mirror}/${relPath}`, 3000);
+        if (blob) guiBlobs[gKey] = blob;
+      }),
     ]);
-    if (w) guiBlobs.widgets = w;
-    if (ic) guiBlobs.icons = ic;
-    if (bg) guiBlobs.options_background = bg;
   }
 
-  // Ensure GUI fallbacks always exist
+  // Ensure GUI & Map fallbacks always exist
   if (!guiBlobs.widgets) {
     const w = await fetchDefaultGuiBlob('widgets');
     if (w) guiBlobs.widgets = w;
@@ -1819,10 +1917,14 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
   if (!guiBlobs.options_background) {
     guiBlobs.options_background = await canvasToBlob(paintClassicOptionsBgCanvas());
   }
+  if (!guiBlobs.map_background) {
+    guiBlobs.map_background = await canvasToBlob(paintFallbackMapBackgroundCanvas());
+  }
   for (const b of Object.values(guiBlobs)) totalBytes += b.size;
 
   const blockCount = Object.keys(blockBlobs).length;
   const itemCount = Object.keys(itemBlobs).length;
+  const entityCount = Object.keys(entityBlobs).length;
   const isOnlineReady = blockCount > 30;
 
   const cached: CachedResourcePack = {
@@ -1830,13 +1932,14 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
     name: isOnlineReady ? opts.onlineName : opts.offlineName,
     version: opts.version,
     sourceLabel: isOnlineReady
-      ? `${opts.onlineLabelPrefix} (${blockCount} block · ${itemCount} vật phẩm)`
+      ? `${opts.onlineLabelPrefix} (${blockCount} block · ${itemCount} vật phẩm · ${entityCount} mob)`
       : opts.offlineLabel,
     sourceType: opts.sourceType,
     downloadedAt: Date.now(),
     totalBytes,
     blockBlobs,
     itemBlobs,
+    entityBlobs,
     guiBlobs,
   };
 

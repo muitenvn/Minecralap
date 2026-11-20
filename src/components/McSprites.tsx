@@ -26,6 +26,10 @@ export const McButton: React.FC<McButtonProps> = ({
         ? 'mc-btn-crimson'
         : '';
 
+  const texturedStyle = widgetsUrl
+    ? ({ '--mc-widgets-url': `url(${widgetsUrl})` } as React.CSSProperties)
+    : undefined;
+
   return (
     <button
       {...rest}
@@ -35,16 +39,10 @@ export const McButton: React.FC<McButtonProps> = ({
         onClick?.(e);
       }}
       style={{
-        ...(variant === 'stone' && widgetsUrl && !disabled
-          ? {
-              backgroundImage: `linear-gradient(rgba(0,0,0,0.06), rgba(0,0,0,0.06)), url(${widgetsUrl})`,
-              backgroundSize: '128% 1280%',
-              backgroundPosition: '0% 28.4%',
-            }
-          : {}),
+        ...texturedStyle,
         ...style,
       }}
-      className={`mc-btn ${variantClass} min-h-[44px] px-4 py-2 text-sm sm:text-base whitespace-nowrap select-none touch-manipulation flex items-center justify-center gap-2 ${className}`}
+      className={`mc-btn ${widgetsUrl ? 'mc-btn-textured' : ''} ${variantClass} min-h-[44px] px-4 py-2 text-sm sm:text-base whitespace-nowrap select-none touch-manipulation flex items-center justify-center gap-2 ${className}`}
     >
       {children}
     </button>
@@ -72,14 +70,61 @@ export const McDirtBackdrop: React.FC<{
   </div>
 );
 
-// Renders a precise 9x9 sprite from Minecraft 1.16 icons.png (256x256)
+// Precision sprite slicer for any Minecraft GUI texture sheet (works identically for 16x, 32x, 64x+ packs)
+export const McSpriteSlice: React.FC<{
+  src?: string;
+  sx: number;
+  sy: number;
+  sw: number;
+  sh: number;
+  width: number;
+  height: number;
+  sheetW?: number;
+  sheetH?: number;
+  className?: string;
+  style?: React.CSSProperties;
+}> = ({
+  src,
+  sx,
+  sy,
+  sw,
+  sh,
+  width,
+  height,
+  sheetW = 256,
+  sheetH = 256,
+  className = '',
+  style,
+}) => {
+  if (!src) return null;
+  const scaleX = width / sw;
+  const scaleY = height / sh;
+  return (
+    <span
+      className={`inline-block pixelated shrink-0 ${className}`}
+      style={{
+        width,
+        height,
+        backgroundImage: `url(${src})`,
+        backgroundSize: `${sheetW * scaleX}px ${sheetH * scaleY}px`,
+        backgroundPosition: `-${sx * scaleX}px -${sy * scaleY}px`,
+        backgroundRepeat: 'no-repeat',
+        ...style,
+      }}
+    />
+  );
+};
+
+// Renders a precise 9x9 sprite (with optional container underlay) from Minecraft 1.16 icons.png
 export const McHudIcon: React.FC<{
   iconsUrl?: string;
   sx: number;
   sy: number;
+  bgSx?: number;
+  bgSy?: number;
   size?: number;
   fallbackColor: string;
-}> = ({ iconsUrl, sx, sy, size = 16, fallbackColor }) => {
+}> = ({ iconsUrl, sx, sy, bgSx, bgSy, size = 16, fallbackColor }) => {
   if (!iconsUrl) {
     return (
       <span
@@ -89,18 +134,30 @@ export const McHudIcon: React.FC<{
     );
   }
   const scale = size / 9;
+  const hasUnderlay = bgSx !== undefined && bgSy !== undefined && (bgSx !== sx || bgSy !== sy);
   return (
-    <span
-      className="inline-block pixelated shrink-0"
-      style={{
-        width: size,
-        height: size,
-        backgroundImage: `url(${iconsUrl})`,
-        backgroundSize: `${256 * scale}px ${256 * scale}px`,
-        backgroundPosition: `-${sx * scale}px -${sy * scale}px`,
-        backgroundRepeat: 'no-repeat',
-      }}
-    />
+    <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
+      {hasUnderlay && (
+        <span
+          className="absolute inset-0 pixelated"
+          style={{
+            backgroundImage: `url(${iconsUrl})`,
+            backgroundSize: `${256 * scale}px ${256 * scale}px`,
+            backgroundPosition: `-${bgSx! * scale}px -${bgSy! * scale}px`,
+            backgroundRepeat: 'no-repeat',
+          }}
+        />
+      )}
+      <span
+        className="absolute inset-0 pixelated"
+        style={{
+          backgroundImage: `url(${iconsUrl})`,
+          backgroundSize: `${256 * scale}px ${256 * scale}px`,
+          backgroundPosition: `-${sx * scale}px -${sy * scale}px`,
+          backgroundRepeat: 'no-repeat',
+        }}
+      />
+    </span>
   );
 };
 
@@ -108,6 +165,7 @@ interface McItemSlotProps {
   stack: ItemStack | null;
   pack: CompiledResourcePack | null;
   active?: boolean;
+  hotbarMode?: boolean;
   size?: number;
   placeholder?: string;
   onClick?: (e: React.MouseEvent) => void;
@@ -120,6 +178,7 @@ export const McItemSlot: React.FC<McItemSlotProps> = ({
   stack,
   pack,
   active = false,
+  hotbarMode = false,
   size = 44,
   placeholder,
   onClick,
@@ -137,6 +196,26 @@ export const McItemSlot: React.FC<McItemSlotProps> = ({
         .join(', ')
     : '';
 
+  const invTex = pack?.guiUrls.containerInventory;
+  const widgetsTex = pack?.guiUrls.widgets;
+
+  // Use real Minecraft recessed 18x18 slot sprite from gui/container/inventory.png when not in hotbarMode
+  const slotScale = size / 18;
+  const slotBgStyle: React.CSSProperties | undefined =
+    !hotbarMode && invTex
+      ? {
+          backgroundImage: `url(${invTex})`,
+          backgroundSize: `${256 * slotScale}px ${256 * slotScale}px`,
+          backgroundPosition: `-${7 * slotScale}px -${7 * slotScale}px`,
+          backgroundRepeat: 'no-repeat',
+          boxShadow: active ? '0 0 0 2px #ffffff, 0 0 0 3px #1e1e1e' : undefined,
+        }
+      : undefined;
+
+  // Real widgets.png active selector frame (24x24 around 20x20 hotbar slot)
+  const selectorSize = Math.round(size * 1.2);
+  const selectorScale = selectorSize / 24;
+
   return (
     <button
       type="button"
@@ -149,29 +228,54 @@ export const McItemSlot: React.FC<McItemSlotProps> = ({
         }
       }}
       title={title || (def ? `${def.nameVi}${enchantText}` : placeholder)}
-      style={{ width: size, height: size }}
-      className={`relative flex items-center justify-center select-none touch-manipulation shrink-0 cursor-pointer ${
-        active ? 'mc-slot-active' : 'mc-slot'
+      style={{ width: size, height: size, ...slotBgStyle }}
+      className={`relative flex items-center justify-center select-none touch-manipulation shrink-0 cursor-pointer pixelated ${
+        hotbarMode
+          ? active && !widgetsTex
+            ? 'mc-slot-active'
+            : 'bg-transparent hover:bg-white/10'
+          : invTex
+            ? 'hover:brightness-110'
+            : active
+              ? 'mc-slot-active'
+              : 'mc-slot'
       } ${hasEnchant ? 'mc-enchant-glint' : ''}`}
     >
+      {/* Real Resource Pack widgets.png Active Hotbar Selector Frame */}
+      {hotbarMode && active && widgetsTex && (
+        <span
+          className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pixelated"
+          style={{
+            width: selectorSize,
+            height: selectorSize,
+            backgroundImage: `url(${widgetsTex})`,
+            backgroundSize: `${256 * selectorScale}px ${256 * selectorScale}px`,
+            backgroundPosition: `0px -${22 * selectorScale}px`,
+            backgroundRepeat: 'no-repeat',
+          }}
+        />
+      )}
+
       {iconUrl ? (
         <img
           src={iconUrl}
           alt={def?.nameVi || stack?.itemId || ''}
           draggable={false}
-          className="w-[74%] h-[74%] object-contain pixelated pointer-events-none"
+          className="w-[74%] h-[74%] object-contain pixelated pointer-events-none relative z-[1]"
         />
       ) : placeholder ? (
-        <span className="text-[10px] font-mc text-[#555555] pointer-events-none">{placeholder}</span>
+        <span className="text-[10px] font-mc text-[#555555] pointer-events-none relative z-[1]">
+          {placeholder}
+        </span>
       ) : null}
 
       {stack && stack.count > 1 && (
-        <span className="absolute bottom-0.5 right-1 text-[11px] leading-none font-mono-num font-bold text-white mc-text-shadow-sm pointer-events-none">
+        <span className="absolute bottom-0.5 right-1 z-[2] text-[11px] leading-none font-mono-num font-bold text-white mc-text-shadow-sm pointer-events-none">
           {stack.count}
         </span>
       )}
       {hasEnchant && (
-        <span className="absolute top-0.5 left-1 text-[9px] leading-none font-bold text-purple-200 mc-text-shadow-sm pointer-events-none">
+        <span className="absolute top-0.5 left-1 z-[2] text-[9px] leading-none font-bold text-purple-200 mc-text-shadow-sm pointer-events-none">
           ✦
         </span>
       )}
