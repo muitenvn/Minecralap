@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, Layers, Pause, User } from 'lucide-react';
+import { Camera, Layers, Maximize2, Minimize2, Pause, User } from 'lucide-react';
 import { autocompleteCommand } from '../game/commands';
 import { CompiledResourcePack } from '../game/resourcePack';
 import { ChatMessage, HudSnapshot, TexturePreset, TitleBanner } from '../game/types';
@@ -16,6 +16,7 @@ interface HudOverlayProps {
   guiScale: 'auto' | 'small' | 'medium' | 'large';
   touchVisible: boolean;
   texturePreset: TexturePreset;
+  isFullscreen: boolean;
   onSelectSlot: (idx: number) => void;
   onSubmitChat: (text: string) => void;
   onCloseChat: () => void;
@@ -24,6 +25,7 @@ interface HudOverlayProps {
   onCycleCamera: () => void;
   onOpenSkin: () => void;
   onToggleTexturePreset: () => void;
+  onToggleFullscreen: () => void;
   onOpenPause: () => void;
 }
 
@@ -38,6 +40,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   guiScale,
   touchVisible,
   texturePreset,
+  isFullscreen,
   onSelectSlot,
   onSubmitChat,
   onCloseChat,
@@ -46,6 +49,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   onCycleCamera,
   onOpenSkin,
   onToggleTexturePreset,
+  onToggleFullscreen,
   onOpenPause,
 }) => {
   const [chatText, setChatText] = useState(chatInitial);
@@ -184,6 +188,19 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
             >
               <Layers className="w-3.5 h-3.5 text-amber-300" />
               <span>{texturePreset === 'original' ? 'Texture: Chính Gốc' : 'Texture: Hiện Tại'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              title={isFullscreen ? 'Thoát toàn màn hình (F11)' : 'Toàn màn hình (F11)'}
+              className="mc-btn min-h-[38px] px-2.5 py-1 text-xs flex items-center gap-1.5"
+            >
+              {isFullscreen ? (
+                <Minimize2 className="w-3.5 h-3.5 text-[#5eead4]" />
+              ) : (
+                <Maximize2 className="w-3.5 h-3.5 text-[#5eead4]" />
+              )}
+              <span className="hidden sm:inline">{isFullscreen ? 'Thu nhỏ' : 'Full màn hình'}</span>
             </button>
             <button
               type="button"

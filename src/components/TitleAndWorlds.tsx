@@ -2,6 +2,8 @@ import React, { useMemo, useRef, useState } from 'react';
 import {
   Download,
   FolderOpen,
+  Maximize2,
+  Minimize2,
   Package,
   Play,
   Plus,
@@ -30,6 +32,8 @@ interface TitleAndWorldsProps {
   pack: CompiledResourcePack;
   worlds: WorldSave[];
   screen: 'title' | 'worlds' | 'create_world';
+  isFullscreen: boolean;
+  onToggleFullscreen: () => void;
   onNavigate: (s: 'title' | 'worlds' | 'create_world' | 'resource_manager' | 'options') => void;
   onOpenSkin: () => void;
   onLaunchWorld: (w: WorldSave) => void;
@@ -40,6 +44,8 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
   pack,
   worlds,
   screen,
+  isFullscreen,
+  onToggleFullscreen,
   onNavigate,
   onOpenSkin,
   onLaunchWorld,
@@ -106,6 +112,22 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
   if (screen === 'title') {
     return (
       <div className="fixed inset-0 z-20 flex flex-col items-center justify-between px-4 py-7 sm:py-10 pointer-events-none">
+        <div className="fixed top-3 right-3 pointer-events-auto">
+          <button
+            type="button"
+            onClick={onToggleFullscreen}
+            title={isFullscreen ? 'Thoát toàn màn hình (F11)' : 'Toàn màn hình (F11)'}
+            className="mc-btn min-h-[38px] px-3 py-1.5 text-xs flex items-center gap-1.5"
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-4 h-4 text-[#5eead4]" />
+            ) : (
+              <Maximize2 className="w-4 h-4 text-[#5eead4]" />
+            )}
+            <span>{isFullscreen ? 'Thu nhỏ' : 'Full màn hình'}</span>
+          </button>
+        </div>
+
         <div className="mt-2 sm:mt-6">
           <McTitleLogo splashText={splash} />
         </div>

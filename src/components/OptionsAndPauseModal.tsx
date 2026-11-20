@@ -4,6 +4,8 @@ import {
   Download,
   Layers,
   LogOut,
+  Maximize2,
+  Minimize2,
   Package,
   Play,
   RotateCcw,
@@ -21,6 +23,8 @@ import { McButton, McDirtBackdrop } from './McSprites';
 interface PauseModalProps {
   worldName: string;
   pack: CompiledResourcePack;
+  isFullscreen: boolean;
+  onToggleFullscreen: () => void;
   onResume: () => void;
   onOpenSkin: () => void;
   onOpenOptions: () => void;
@@ -32,6 +36,8 @@ interface PauseModalProps {
 export const PauseModal: React.FC<PauseModalProps> = ({
   worldName,
   pack,
+  isFullscreen,
+  onToggleFullscreen,
   onResume,
   onOpenSkin,
   onOpenOptions,
@@ -76,6 +82,15 @@ export const PauseModal: React.FC<PauseModalProps> = ({
         </McButton>
       </div>
 
+      <McButton widgetsUrl={pack.guiUrls.widgets} onClick={onToggleFullscreen}>
+        {isFullscreen ? (
+          <Minimize2 className="w-4 h-4 text-[#5eead4]" />
+        ) : (
+          <Maximize2 className="w-4 h-4 text-[#5eead4]" />
+        )}
+        {isFullscreen ? 'Thoát Toàn Màn Hình' : 'Toàn Màn Hình (Full Screen)'}
+      </McButton>
+
       <McButton widgetsUrl={pack.guiUrls.widgets} onClick={onExportWorld}>
         <Download className="w-4 h-4" />
         Xuất Thế Giới (.mc116.json)
@@ -94,6 +109,8 @@ interface VideoOptionsModalProps {
   settings: VideoSettings;
   pack: CompiledResourcePack | null;
   inGame: boolean;
+  isFullscreen: boolean;
+  onToggleFullscreen: () => void;
   onChange: (next: VideoSettings) => void;
   onSwitchTexturePreset: (preset: TexturePreset) => Promise<void>;
   onClose: () => void;
@@ -103,6 +120,8 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
   settings,
   pack,
   inGame,
+  isFullscreen,
+  onToggleFullscreen,
   onChange,
   onSwitchTexturePreset,
   onClose,
@@ -300,6 +319,19 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
 
           <McButton widgetsUrl={pack?.guiUrls.widgets} onClick={cycleTouch}>
             Phím cảm ứng Mobile: {touchLabel}
+          </McButton>
+
+          <McButton
+            widgetsUrl={pack?.guiUrls.widgets}
+            onClick={onToggleFullscreen}
+            className="sm:col-span-2"
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-4 h-4 text-[#5eead4]" />
+            ) : (
+              <Maximize2 className="w-4 h-4 text-[#5eead4]" />
+            )}
+            Toàn màn hình (F11): {isFullscreen ? 'BẬT' : 'TẮT'}
           </McButton>
 
           <McButton

@@ -7,7 +7,9 @@ import {
   Bug,
   Camera,
   Hammer,
+  Maximize2,
   MessageSquare,
+  Minimize2,
   Pause,
   Pickaxe,
   User,
@@ -16,6 +18,7 @@ import {
 interface MobileTouchControlsProps {
   flying: boolean;
   sneaking: boolean;
+  isFullscreen: boolean;
   onMove: (x: number, z: number) => void;
   onLookDelta: (dx: number, dy: number) => void;
   onJump: (active: boolean) => void;
@@ -26,12 +29,14 @@ interface MobileTouchControlsProps {
   onToggleF3: () => void;
   onCycleCamera: () => void;
   onOpenSkin: () => void;
+  onToggleFullscreen: () => void;
   onPause: () => void;
 }
 
 export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
   flying,
   sneaking,
+  isFullscreen,
   onMove,
   onLookDelta,
   onJump,
@@ -42,6 +47,7 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
   onToggleF3,
   onCycleCamera,
   onOpenSkin,
+  onToggleFullscreen,
   onPause,
 }) => {
   const [dirState, setDirState] = useState({ up: false, down: false, left: false, right: false });
@@ -150,6 +156,15 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
           className="min-w-[44px] min-h-[42px] px-2.5 bg-[#120f1a]/80 border-2 border-white/25 text-white flex items-center justify-center gap-1 text-xs font-mono-num cursor-pointer active:bg-white/25"
         >
           <Bug className="w-4 h-4" />
+        </button>
+
+        <button
+          type="button"
+          onClick={onToggleFullscreen}
+          aria-label={isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
+          className="min-w-[44px] min-h-[42px] px-2.5 bg-[#120f1a]/80 border-2 border-white/25 text-[#5eead4] flex items-center justify-center gap-1 text-xs font-mc cursor-pointer active:bg-white/25"
+        >
+          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
         </button>
 
         <button

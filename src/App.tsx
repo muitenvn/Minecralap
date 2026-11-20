@@ -104,12 +104,67 @@ export default function App() {
   inGameModalRef.current = inGameModal;
 
   const [hasTouchCapable, setHasTouchCapable] = useState(() => isTouchDevice());
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     const onResize = () => setHasTouchCapable(isTouchDevice());
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  useEffect(() => {
+    const syncFullscreen = () => {
+      const doc = document as Document & { webkitFullscreenElement?: Element | null };
+      setIsFullscreen(Boolean(doc.fullscreenElement || doc.webkitFullscreenElement));
+    };
+    syncFullscreen();
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    document.addEventListener('webkitfullscreenchange', syncFullscreen);
+    return () => {
+      document.removeEventListener('fullscreenchange', syncFullscreen);
+      document.removeEventListener('webkitfullscreenchange', syncFullscreen);
+    };
+  }, []);
+
+  const handleToggleFullscreen = useCallback(async () => {
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element | null;
+      webkitExitFullscreen?: () => Promise<void> | void;
+    };
+    const root = document.documentElement as HTMLElement & {
+      webkitRequestFullscreen?: () => Promise<void> | void;
+    };
+
+    try {
+      const currentlyFull = Boolean(doc.fullscreenElement || doc.webkitFullscreenElement);
+      if (currentlyFull) {
+        if (doc.exitFullscreen) {
+          await doc.exitFullscreen();
+        } else if (doc.webkitExitFullscreen) {
+          await doc.webkitExitFullscreen();
+        }
+      } else {
+        if (root.requestFullscreen) {
+          await root.requestFullscreen();
+        } else if (root.webkitRequestFullscreen) {
+          await root.webkitRequestFullscreen();
+        }
+      }
+    } catch {
+      // Ignore browser-restricted fullscreen rejections
+    }
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'F11') {
+        e.preventDefault();
+        void handleToggleFullscreen();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleToggleFullscreen]);
 
   const touchVisible =
     settings.touchMode === 'on' || (settings.touchMode === 'auto' && hasTouchCapable);
@@ -439,6 +494,8 @@ export default function App() {
               setScreen(next);
             }}
             onOpenSkin={handleOpenSkinModal}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={handleToggleFullscreen}
             onLaunchWorld={handleLaunchWorld}
             onRefreshWorlds={refreshWorlds}
           />
@@ -450,6 +507,8 @@ export default function App() {
           settings={settings}
           pack={compiledPack}
           inGame={false}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={handleToggleFullscreen}
           onChange={handleSettingsChange}
           onSwitchTexturePreset={handleSwitchTexturePreset}
           onClose={() => setScreen(returnScreen)}
@@ -470,6 +529,7 @@ export default function App() {
             guiScale={settings.guiScale}
             touchVisible={touchVisible}
             texturePreset={settings.texturePreset}
+            isFullscreen={isFullscreen}
             onSelectSlot={(idx) => engineRef.current?.selectHotbarSlot(idx)}
             onSubmitChat={(text) => engineRef.current?.runCommand(text)}
             onCloseChat={() => {
@@ -488,6 +548,7 @@ export default function App() {
                 settings.texturePreset === 'current' ? 'original' : 'current',
               )
             }
+            onToggleFullscreen={handleToggleFullscreen}
             onOpenPause={() => {
               setPaused(true);
               engineRef.current?.setPaused(true);
@@ -504,6 +565,7 @@ export default function App() {
               <MobileTouchControls
                 flying={hud.flying}
                 sneaking={hud.sneaking}
+                isFullscreen={isFullscreen}
                 onMove={(x, z) => engineRef.current?.setTouchMovement(x, z)}
                 onLookDelta={(dx, dy) => engineRef.current?.addTouchLookDelta(dx, dy)}
                 onJump={(active) => engineRef.current?.setTouchJump(active)}
@@ -518,6 +580,7 @@ export default function App() {
                 onToggleF3={() => setShowF3((prev) => !prev)}
                 onCycleCamera={() => engineRef.current?.cycleCameraMode()}
                 onOpenSkin={handleOpenSkinModal}
+                onToggleFullscreen={handleToggleFullscreen}
                 onPause={() => {
                   setPaused(true);
                   engineRef.current?.setPaused(true);
@@ -553,6 +616,8 @@ export default function App() {
               <PauseModal
                 worldName={activeWorldName}
                 pack={compiledPack}
+                isFullscreen={isFullscreen}
+                onToggleFullscreen={handleToggleFullscreen}
                 onResume={handleResumeGame}
                 onOpenSkin={handleOpenSkinModal}
                 onOpenOptions={() => setInGameModal('options')}
@@ -568,6 +633,8 @@ export default function App() {
               settings={settings}
               pack={compiledPack}
               inGame
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={handleToggleFullscreen}
               onChange={handleSettingsChange}
               onSwitchTexturePreset={handleSwitchTexturePreset}
               onClose={() => setInGameModal('none')}
