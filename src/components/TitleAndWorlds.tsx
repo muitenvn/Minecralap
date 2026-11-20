@@ -397,28 +397,28 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
         <div className="max-w-[680px] mx-auto space-y-4 text-sm text-zinc-200">
           <div className="bg-black/60 border border-white/15 p-4 space-y-2">
             <h2 className="font-mc text-base text-[#fde68a] font-bold">
-              Bước 1 · Xuất bản build tĩnh (Zero Server)
+              Bước 1 · Tự động xuất bản bằng GitHub Actions (Zero Config)
             </h2>
             <p className="text-zinc-300">
-              Dự án đã cấu hình sẵn đường dẫn tương đối (<code className="text-[#5eead4]">base: './'</code>). Khi chạy lệnh <code className="text-[#5eead4]">npm run build</code>, toàn bộ ứng dụng và thư mục gói tài nguyên <code className="text-[#5eead4]">dist/packs/mc116-nether-pack/</code> (75 tệp ảnh .png Block + UI + manifest.json) được đóng gói hoàn chỉnh trong thư mục <code className="text-amber-300">dist/</code>.
+              Dự án đã tích hợp sẵn tệp <code className="text-[#5eead4]">.github/workflows/deploy-pages.yml</code> và cấu hình <code className="text-[#5eead4]">base: './'</code>. Chỉ cần đẩy mã nguồn lên nhánh <code className="text-amber-300">main</code> rồi bật <strong>Settings → Pages → Source: GitHub Actions</strong>, hệ thống sẽ tự động build toàn bộ web và 75 tệp tài nguyên 1.16 (.png + manifest.json) lên GitHub Pages.
             </p>
           </div>
 
           <div className="bg-black/60 border border-white/15 p-4 space-y-2">
             <h2 className="font-mc text-base text-[#fde68a] font-bold">
-              Bước 2 · Đưa lên GitHub Pages
+              Bước 2 · Tự động tải tài nguyên & vào game ngay khi mở web
             </h2>
             <p className="text-zinc-300">
-              Tạo kho GitHub mới, tải nội dung thư mục <code className="text-amber-300">dist/</code> lên nhánh <code className="text-[#5eead4]">gh-pages</code> (hoặc bật GitHub Actions Pages). Vào <strong>Settings → Pages</strong> và chọn nhánh xuất bản.
+              Khi mở đường dẫn <code className="text-[#5eead4]">https://&lt;tên-github&gt;.github.io/&lt;tên-kho&gt;/</code> trên PC hoặc điện thoại, trang web sẽ tự động tải gói tài nguyên Block &amp; UI 1.16 vào IndexedDB, tạo hoặc mở lại thế giới mới nhất và đưa người chơi vào thẳng thế giới 3D mà không cần thao tác cài đặt.
             </p>
           </div>
 
           <div className="bg-black/60 border border-white/15 p-4 space-y-2">
             <h2 className="font-mc text-base text-[#fde68a] font-bold">
-              Bước 3 · Chơi trên PC & Điện thoại + Chia sẻ Thế giới
+              Bước 3 · Đổi Gói Tài Nguyên &amp; Xuất/Nhập Thế Giới
             </h2>
             <p className="text-zinc-300">
-              Mở địa chỉ <code className="text-[#5eead4]">https://&lt;tên-github&gt;.github.io/&lt;tên-kho&gt;/</code> trên PC hoặc điện thoại. Lần đầu mở, người chơi bấm tải gói tài nguyên 1.16 về IndexedDB, hoặc dán thêm link GitHub Raw / tải lên file <code className="text-amber-300">.zip</code> Resource Pack 1.16. Bạn cũng có thể xuất tệp thế giới <code className="text-amber-300">.mc116.json</code> để lưu lên GitHub và nhập lại trên thiết bị khác.
+              Bất cứ lúc nào trong game, nhấn <strong>Esc / Menu</strong> để mở Cài đặt đồ họa, đổi Resource Pack từ link GitHub Raw hoặc tệp <code className="text-amber-300">.zip</code>, hoặc xuất/nhập tệp thế giới <code className="text-amber-300">.mc116.json</code> để chơi tiếp trên thiết bị khác.
             </p>
           </div>
         </div>

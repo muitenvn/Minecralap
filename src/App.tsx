@@ -17,14 +17,18 @@ import { TitleAndWorlds } from './components/TitleAndWorlds';
 import { NetherCraftEngine } from './game/engine';
 import {
   CompiledResourcePack,
+  DownloadProgress,
   compileResourcePack,
+  downloadDefaultGithubPack,
 } from './game/resourcePack';
 import {
+  createNewWorldRecord,
   exportWorldToFile,
   listWorlds,
   loadActiveResourcePack,
   loadVideoSettings,
   saveVideoSettings,
+  saveWorld,
 } from './game/storage';
 import {
   CachedResourcePack,
@@ -62,6 +66,8 @@ export default function App() {
   const compiledPackRef = useRef<CompiledResourcePack | null>(null);
 
   const [screen, setScreen] = useState<AppScreen>('boot');
+  const [bootStatus, setBootStatus] = useState('Đang khởi động NetherCraft 1.16...');
+  const [bootProgress, setBootProgress] = useState<DownloadProgress | null>(null);
   const [returnScreen, setReturnScreen] = useState<AppScreen>('title');
   const [compiledPack, setCompiledPack] = useState<CompiledResourcePack | null>(null);
   const [settings, setSettings] = useState<VideoSettings>(() => loadVideoSettings());
@@ -115,6 +121,27 @@ export default function App() {
     compiledPackRef.current = nextCompiled;
     setCompiledPack(nextCompiled);
     engineRef.current?.setResourcePack(nextCompiled);
+  }, []);
+
+  const handleLaunchWorld = useCallback((world: WorldSave, requestLock = true) => {
+    setActiveWorldName(world.name);
+    setChatMessages([
+      {
+        id: `welcome_${Date.now()}`,
+        text: `Đã vào thế giới "${world.name}" (Biên giới ±${world.worldBorderSize.toLocaleString('vi-VN')} khối). Gõ /help để xem 26 lệnh 1.16.`,
+        tone: 'gold',
+        timestamp: Date.now(),
+      },
+    ]);
+    setContainerType('none');
+    setPaused(false);
+    setInGameModal('none');
+    setChatOpen(false);
+    setScreen('playing');
+    engineRef.current?.loadWorld(world);
+    if (requestLock && !isTouchDevice()) {
+      setTimeout(() => engineRef.current?.requestPointerLock(), 80);
+    }
   }, []);
 
   // Mount isolated 3D WebGL engine once
@@ -195,23 +222,46 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Boot sequence: check IndexedDB for mandatory 1.16 resource pack + worlds
+  // Zero-click automatic boot: auto-download 1.16 Resource Pack if needed, then auto-launch directly into world
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const [cachedPack, savedWorlds] = await Promise.all([
+        setBootStatus('Đang kiểm tra gói tài nguyên 1.16...');
+        let [cachedPack, savedWorlds] = await Promise.all([
           loadActiveResourcePack(),
           listWorlds(),
         ]);
         if (!alive) return;
-        setWorlds(savedWorlds);
-        if (cachedPack) {
-          await applyCompiledPack(cachedPack);
-          if (alive) setScreen('title');
-        } else {
-          setScreen('gate');
+
+        if (!cachedPack) {
+          setBootStatus('Đang tự động tải gói tài nguyên Block & UI 1.16...');
+          cachedPack = await downloadDefaultGithubPack((p) => {
+            if (alive) setBootProgress({ ...p });
+          });
+          if (!alive) return;
         }
+
+        setBootStatus('Đang biên dịch Texture Atlas 16×16 & giao diện 1.16...');
+        await applyCompiledPack(cachedPack);
+        if (!alive) return;
+
+        let targetWorld = savedWorlds[0];
+        if (!targetWorld) {
+          setBootStatus('Đang khởi tạo thế giới NetherCraft 1.16...');
+          targetWorld = createNewWorldRecord({
+            name: 'Thế Giới Nether 1.16',
+            gameMode: 'survival',
+            cheatsEnabled: true,
+          });
+          await saveWorld(targetWorld);
+          savedWorlds = [targetWorld];
+        }
+        if (!alive) return;
+
+        setWorlds(savedWorlds);
+        // Launch straight into playable 3D world (without forcing pointer lock outside user gesture)
+        handleLaunchWorld(targetWorld, false);
       } catch {
         if (alive) setScreen('gate');
       }
@@ -220,33 +270,12 @@ export default function App() {
     return () => {
       alive = false;
     };
-  }, [applyCompiledPack]);
+  }, [applyCompiledPack, handleLaunchWorld]);
 
   const handleSettingsChange = useCallback((next: VideoSettings) => {
     setSettings(next);
     saveVideoSettings(next);
     engineRef.current?.updateSettings(next);
-  }, []);
-
-  const handleLaunchWorld = useCallback((world: WorldSave) => {
-    setActiveWorldName(world.name);
-    setChatMessages([
-      {
-        id: `welcome_${Date.now()}`,
-        text: `Đã vào thế giới "${world.name}" (Biên giới ±${world.worldBorderSize.toLocaleString('vi-VN')} khối). Gõ /help để xem 26 lệnh 1.16.`,
-        tone: 'gold',
-        timestamp: Date.now(),
-      },
-    ]);
-    setContainerType('none');
-    setPaused(false);
-    setInGameModal('none');
-    setChatOpen(false);
-    setScreen('playing');
-    engineRef.current?.loadWorld(world);
-    if (!isTouchDevice()) {
-      setTimeout(() => engineRef.current?.requestPointerLock(), 80);
-    }
   }, []);
 
   const handleSaveAndQuit = useCallback(async () => {
@@ -297,14 +326,38 @@ export default function App() {
       {/* Permanent Isolated WebGL Canvas Mount */}
       <div ref={canvasMountRef} className="fixed inset-0 z-0" />
 
-      {/* Boot Splash */}
+      {/* Automatic Boot & Resource Pack Download Splash */}
       {screen === 'boot' && (
-        <div className="fixed inset-0 z-40 bg-[#141019] flex flex-col items-center justify-center gap-3 text-white">
-          <div className="font-mc text-2xl font-bold text-[#fde68a] mc-text-shadow">
+        <div className="fixed inset-0 z-40 bg-[#141019]/92 flex flex-col items-center justify-center px-6 gap-4 text-white">
+          <div className="font-mc text-2xl sm:text-3xl font-bold text-[#fde68a] mc-text-shadow tracking-wider">
             NETHERCRAFT 1.16.5
           </div>
-          <div className="text-xs font-mono-num text-zinc-400">
-            Đang kiểm tra gói tài nguyên IndexedDB...
+          <div className="w-full max-w-[380px] space-y-2">
+            <div className="flex items-center justify-between text-xs font-mono-num text-zinc-200">
+              <span className="truncate">{bootStatus}</span>
+              {bootProgress && bootProgress.totalFiles > 0 && (
+                <span className="shrink-0 ml-2 text-[#5eead4]">
+                  {Math.min(100, Math.round((bootProgress.loadedFiles / bootProgress.totalFiles) * 100))}%
+                </span>
+              )}
+            </div>
+            <div className="w-full h-3.5 bg-[#1f1f24] border-2 border-black overflow-hidden">
+              <div
+                className="h-full bg-[#4ade80] transition-transform duration-100 origin-left"
+                style={{
+                  transform: `scaleX(${
+                    bootProgress && bootProgress.totalFiles > 0
+                      ? Math.max(0.08, bootProgress.loadedFiles / bootProgress.totalFiles)
+                      : 0.35
+                  })`,
+                }}
+              />
+            </div>
+            {bootProgress?.currentFile && (
+              <div className="text-[11px] font-mono-num text-zinc-400 text-center truncate">
+                {bootProgress.currentFile} ({bootProgress.loadedFiles}/{bootProgress.totalFiles})
+              </div>
+            )}
           </div>
         </div>
       )}
