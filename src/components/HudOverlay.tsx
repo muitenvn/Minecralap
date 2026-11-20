@@ -145,9 +145,9 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
             <button
               type="button"
               onClick={onRequestLock}
-              className="mc-btn mc-btn-primary min-h-[38px] px-3.5 py-1.5 text-xs sm:text-sm"
+              className="mc-btn mc-btn-primary min-h-[38px] px-4 py-1.5 text-xs sm:text-sm"
             >
-              Nhấn vào game để khóa chuột · WASD · E Túi đồ · F5 Góc nhìn
+              Vào Chơi (Khóa Chuột)
             </button>
           </div>
 

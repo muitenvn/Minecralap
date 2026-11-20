@@ -244,11 +244,8 @@ export const SkinManagerModal: React.FC<SkinManagerModalProps> = ({
             </div>
             <div className="min-w-0">
               <h2 className="font-mc text-base sm:text-lg font-bold text-[#fde68a] mc-text-shadow truncate">
-                Kho Skin &amp; Tùy Chỉnh Model 3D
+                Kho Skin &amp; Model 3D
               </h2>
-              <p className="text-[11px] sm:text-xs text-zinc-300 truncate">
-                Chọn Steve / Alex, nhập skin của bạn, nạp Model 3D (.glb) trên mạng hoặc sửa code trực tiếp
-              </p>
             </div>
           </div>
           <McButton onClick={onClose} className="min-h-[38px] px-3 py-1 text-xs shrink-0">
@@ -270,11 +267,7 @@ export const SkinManagerModal: React.FC<SkinManagerModalProps> = ({
 
             <SkinPreview3D skin={draft} walking={walkingPreview} height={265} interactive />
 
-            <div className="text-[11px] text-center text-zinc-400 mb-2">
-              Kéo chuột / vuốt để xoay nhân vật 360° · Nhấn <strong className="text-[#5eead4]">F5</strong> trong game để xem góc nhìn thứ 3
-            </div>
-
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5 mt-2">
               <button
                 type="button"
                 onClick={() => handleArmToggle('classic')}
@@ -594,17 +587,12 @@ export const SkinManagerModal: React.FC<SkinManagerModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-3 border-t-2 border-black bg-[#14101d] flex items-center justify-between gap-3">
-          <div className="text-xs text-zinc-400 hidden sm:block">
-            Skin và Model 3D được lưu tự động và hiển thị ở cả góc nhìn thứ 1 (tay) lẫn góc nhìn thứ 3 (F5).
-          </div>
-          <div className="flex items-center gap-2 ml-auto">
-            <McButton onClick={onClose}>Hủy</McButton>
-            <McButton variant="primary" onClick={handleSaveAndClose}>
-              <Check className="w-4 h-4" />
-              Lưu &amp; Dùng Skin Này
-            </McButton>
-          </div>
+        <div className="px-4 py-3 border-t-2 border-black bg-[#14101d] flex items-center justify-end gap-2">
+          <McButton onClick={onClose}>Hủy</McButton>
+          <McButton variant="primary" onClick={handleSaveAndClose}>
+            <Check className="w-4 h-4" />
+            Lưu &amp; Dùng Skin Này
+          </McButton>
         </div>
       </div>
     </div>

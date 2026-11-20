@@ -2,7 +2,6 @@ import React, { useMemo, useRef, useState } from 'react';
 import {
   Download,
   FolderOpen,
-  Github,
   Package,
   Play,
   Plus,
@@ -30,8 +29,8 @@ const SPLASHES = [
 interface TitleAndWorldsProps {
   pack: CompiledResourcePack;
   worlds: WorldSave[];
-  screen: 'title' | 'worlds' | 'create_world' | 'github_guide';
-  onNavigate: (s: 'title' | 'worlds' | 'create_world' | 'github_guide' | 'resource_manager' | 'options') => void;
+  screen: 'title' | 'worlds' | 'create_world';
+  onNavigate: (s: 'title' | 'worlds' | 'create_world' | 'resource_manager' | 'options') => void;
   onOpenSkin: () => void;
   onLaunchWorld: (w: WorldSave) => void;
   onRefreshWorlds: () => Promise<void>;
@@ -140,33 +139,19 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
             2 Dạng Texture &amp; Resource Pack 1.16
           </McButton>
 
-          <div className="grid grid-cols-2 gap-2.5">
-            <McButton
-              widgetsUrl={pack.guiUrls.widgets}
-              onClick={() => onNavigate('options')}
-              className="h-11"
-            >
-              <Settings className="w-4 h-4" />
-              Cài Đặt
-            </McButton>
-            <McButton
-              widgetsUrl={pack.guiUrls.widgets}
-              onClick={() => onNavigate('github_guide')}
-              className="h-11"
-            >
-              <Github className="w-4 h-4" />
-              GitHub Pages
-            </McButton>
-          </div>
+          <McButton
+            widgetsUrl={pack.guiUrls.widgets}
+            onClick={() => onNavigate('options')}
+            className="w-full h-11"
+          >
+            <Settings className="w-4 h-4" />
+            Cài Đặt
+          </McButton>
         </div>
 
-        <div className="w-full flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-200/90 mc-text-shadow-sm px-1">
-          <span className="font-mono-num">
-            NetherCraft 1.16.5 · {pack.meta.name}
-          </span>
-          <span className="hidden sm:inline">
-            WASD Di chuyển · Chuột Trái Đập · Chuột Phải Đặt · E Túi đồ · T Lệnh · F3 Gỡ lỗi
-          </span>
+        <div className="w-full flex items-center justify-between gap-2 text-xs text-zinc-200/90 mc-text-shadow-sm px-1">
+          <span className="font-mono-num">NetherCraft 1.16.5</span>
+          <span className="font-mono-num">{pack.meta.name}</span>
         </div>
       </div>
     );
@@ -314,19 +299,18 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
   }
 
   // --- 3. CREATE NEW WORLD SCREEN ---
-  if (screen === 'create_world') {
-    const cycleMode = () => {
-      const order: GameMode[] = ['survival', 'creative', 'adventure', 'spectator'];
-      setNewMode(order[(order.indexOf(newMode) + 1) % order.length]);
-    };
-    const modeLabel: Record<GameMode, string> = {
-      survival: 'Sinh tồn (Survival)',
-      creative: 'Sáng tạo (Creative)',
-      adventure: 'Phiêu lưu (Adventure)',
-      spectator: 'Khán giả (Spectator)',
-    };
+  const cycleMode = () => {
+    const order: GameMode[] = ['survival', 'creative', 'adventure', 'spectator'];
+    setNewMode(order[(order.indexOf(newMode) + 1) % order.length]);
+  };
+  const modeLabel: Record<GameMode, string> = {
+    survival: 'Sinh tồn (Survival)',
+    creative: 'Sáng tạo (Creative)',
+    adventure: 'Phiêu lưu (Adventure)',
+    spectator: 'Khán giả (Spectator)',
+  };
 
-    return (
+  return (
       <McDirtBackdrop bgUrl={pack.guiUrls.optionsBackground}>
         <div className="px-4 py-4 border-b-2 border-black bg-black/50 text-center">
           <h1 className="font-mc text-xl font-bold text-white mc-text-shadow">
@@ -365,13 +349,8 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
                 Chế độ: {modeLabel[newMode]}
               </McButton>
               <McButton onClick={() => setCheats((c) => !c)}>
-                Cho phép Lệnh (26 lệnh): {cheats ? 'BẬT' : 'TẮT'}
+                Cho phép Lệnh: {cheats ? 'BẬT' : 'TẮT'}
               </McButton>
-            </div>
-
-            <div className="bg-black/55 border border-white/15 p-3.5 text-xs text-zinc-300 space-y-1">
-              <div>• Kích thước chuẩn 1.16: Biên giới ±29.999.984 khối · Chiều cao Y = 0..255 (Nether mái Bedrock Y = 127).</div>
-              <div>• Tàn tích Cổng Nether có sẵn gần điểm sinh (11, ~68, 10) — dùng Bật Lửa (ô số 7) để kích hoạt ngay!</div>
             </div>
           </div>
         </div>
@@ -389,52 +368,4 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
         </div>
       </McDirtBackdrop>
     );
-  }
-
-  // --- 4. GITHUB PAGES DEPLOY GUIDE ---
-  return (
-    <McDirtBackdrop bgUrl={pack.guiUrls.optionsBackground}>
-      <div className="px-4 py-4 border-b-2 border-black bg-black/50 flex items-center justify-between">
-        <h1 className="font-mc text-lg sm:text-xl font-bold text-white mc-text-shadow flex items-center gap-2">
-          <Github className="w-5 h-5" />
-          Triển Khai 100% Tĩnh Trên GitHub Pages
-        </h1>
-        <McButton onClick={() => onNavigate('title')}>
-          <ArrowLeft className="w-4 h-4" />
-          Quay lại
-        </McButton>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 py-6">
-        <div className="max-w-[680px] mx-auto space-y-4 text-sm text-zinc-200">
-          <div className="bg-black/60 border border-white/15 p-4 space-y-2">
-            <h2 className="font-mc text-base text-[#fde68a] font-bold">
-              Bước 1 · Tự động xuất bản bằng GitHub Actions (Zero Config)
-            </h2>
-            <p className="text-zinc-300">
-              Dự án đã tích hợp sẵn tệp <code className="text-[#5eead4]">.github/workflows/deploy-pages.yml</code> và cấu hình <code className="text-[#5eead4]">base: './'</code>. Chỉ cần đẩy mã nguồn lên nhánh <code className="text-amber-300">main</code> rồi bật <strong>Settings → Pages → Source: GitHub Actions</strong>, hệ thống sẽ tự động build toàn bộ web và 75 tệp tài nguyên 1.16 (.png + manifest.json) lên GitHub Pages.
-            </p>
-          </div>
-
-          <div className="bg-black/60 border border-white/15 p-4 space-y-2">
-            <h2 className="font-mc text-base text-[#fde68a] font-bold">
-              Bước 2 · Tự động tải tài nguyên & vào game ngay khi mở web
-            </h2>
-            <p className="text-zinc-300">
-              Khi mở đường dẫn <code className="text-[#5eead4]">https://&lt;tên-github&gt;.github.io/&lt;tên-kho&gt;/</code> trên PC hoặc điện thoại, trang web sẽ tự động tải gói tài nguyên Block &amp; UI 1.16 vào IndexedDB, tạo hoặc mở lại thế giới mới nhất và đưa người chơi vào thẳng thế giới 3D mà không cần thao tác cài đặt.
-            </p>
-          </div>
-
-          <div className="bg-black/60 border border-white/15 p-4 space-y-2">
-            <h2 className="font-mc text-base text-[#fde68a] font-bold">
-              Bước 3 · Đổi Gói Tài Nguyên &amp; Xuất/Nhập Thế Giới
-            </h2>
-            <p className="text-zinc-300">
-              Bất cứ lúc nào trong game, nhấn <strong>Esc / Menu</strong> để mở Cài đặt đồ họa, đổi Resource Pack từ link GitHub Raw hoặc tệp <code className="text-amber-300">.zip</code>, hoặc xuất/nhập tệp thế giới <code className="text-amber-300">.mc116.json</code> để chơi tiếp trên thiết bị khác.
-            </p>
-          </div>
-        </div>
-      </div>
-    </McDirtBackdrop>
-  );
 };

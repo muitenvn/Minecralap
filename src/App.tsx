@@ -51,7 +51,6 @@ type AppScreen =
   | 'title'
   | 'worlds'
   | 'create_world'
-  | 'github_guide'
   | 'resource_manager'
   | 'options'
   | 'playing';
@@ -132,14 +131,7 @@ export default function App() {
 
   const handleLaunchWorld = useCallback((world: WorldSave, requestLock = true) => {
     setActiveWorldName(world.name);
-    setChatMessages([
-      {
-        id: `welcome_${Date.now()}`,
-        text: `Đã vào thế giới "${world.name}" (Biên giới ±${world.worldBorderSize.toLocaleString('vi-VN')} khối). Gõ /help để xem 26 lệnh 1.16.`,
-        tone: 'gold',
-        timestamp: Date.now(),
-      },
-    ]);
+    setChatMessages([]);
     setContainerType('none');
     setPaused(false);
     setInGameModal('none');
@@ -431,12 +423,11 @@ export default function App() {
         />
       )}
 
-      {/* Title Screen, Worlds, Create World, GitHub Guide */}
+      {/* Title Screen, Worlds, Create World */}
       {compiledPack &&
         (screen === 'title' ||
           screen === 'worlds' ||
-          screen === 'create_world' ||
-          screen === 'github_guide') && (
+          screen === 'create_world') && (
           <TitleAndWorlds
             pack={compiledPack}
             worlds={worlds}

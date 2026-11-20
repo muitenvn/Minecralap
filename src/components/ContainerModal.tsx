@@ -719,9 +719,6 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                 />
               </div>
             </div>
-            <div className="mt-3 pt-2 border-t border-[#8b8b8b] text-xs text-center text-[#333]">
-              Nung <strong>Mảnh Vỡ Cổ Đại (Ancient Debris)</strong> → <strong>Mảnh Netherite</strong> · Quặng Sắt/Vàng → Thỏi · Thịt Sống → Thịt Chín · Cát → Kính
-            </div>
           </div>
         )}
 
