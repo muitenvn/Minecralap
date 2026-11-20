@@ -7,11 +7,11 @@
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
     --mc-panel: #c6c6c6;
     --mc-slot: #8b8b8b;
-    --mc-obsidian: #121016;
-    --mc-basalt: #1d1a24;
+    --mc-obsidian: #100d15;
+    --mc-basalt: #1b1724;
     --mc-crimson: #c83e4d;
     --mc-warped: #2dd4bf;
-    --mc-gold: #eab308;
+    --mc-gold: #f5c542;
   }
 
   html,
@@ -32,7 +32,7 @@
 
 .font-mc {
   font-family: var(--font-display);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.025em;
 }
 
 .font-mono-num {
@@ -41,11 +41,11 @@
 }
 
 .mc-text-shadow {
-  text-shadow: 2px 2px 0px #222222;
+  text-shadow: 2px 2px 0px #1b1921, 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
 .mc-text-shadow-sm {
-  text-shadow: 1px 1px 0px #1e1e1e;
+  text-shadow: 1px 1px 0px #18161d;
 }
 
 .pixelated {
@@ -53,98 +53,139 @@
   image-rendering: crisp-edges;
 }
 
-/* Classic Minecraft 1.16 Stone Button Bevel */
+/* Polished Nether 1.16 Obsidian/Basalt Dark Panel */
+.mc-dark-panel {
+  background: linear-gradient(180deg, #1f1a2a 0%, #15111e 100%);
+  border: 2px solid #09070d;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.55),
+    0 20px 55px rgba(0, 0, 0, 0.78);
+}
+
+/* Refined Minecraft 1.16 Stone Button Bevel */
 .mc-btn {
   position: relative;
-  border: 2px solid #000000;
-  background-color: #727272;
+  border: 2px solid #0b0a0f;
+  background: linear-gradient(180deg, #86868e 0%, #6d6d75 55%, #5c5c64 100%);
   background-size: 100% 100%;
-  box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.34), inset -2px -3px 0px rgba(0, 0, 0, 0.45);
-  color: #f4f4f4;
-  text-shadow: 2px 2px 0px #2a2a2a;
+  box-shadow:
+    inset 2px 2px 0px rgba(255, 255, 255, 0.36),
+    inset -2px -3px 0px rgba(0, 0, 0, 0.5),
+    0 3px 0 rgba(0, 0, 0, 0.45);
+  color: #f8fafc;
+  text-shadow: 2px 2px 0px #222228;
   font-family: var(--font-display);
   font-weight: 700;
-  transition: transform 90ms ease, filter 90ms ease;
+  transition: transform 80ms ease, filter 110ms ease, border-color 110ms ease;
   cursor: pointer;
 }
 
 .mc-btn:hover:not(:disabled) {
-  background-color: #7b85a8;
-  box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.5), inset -2px -3px 0px rgba(25, 32, 65, 0.55);
-  color: #ffffa0;
+  background: linear-gradient(180deg, #687bb5 0%, #526296 55%, #445280 100%);
+  border-color: #cbd5e1;
+  box-shadow:
+    inset 2px 2px 0px rgba(255, 255, 255, 0.5),
+    inset -2px -3px 0px rgba(17, 24, 54, 0.6),
+    0 3px 0 rgba(0, 0, 0, 0.5);
+  color: #fef08a;
 }
 
 .mc-btn:active:not(:disabled) {
-  transform: translateY(1px);
-  box-shadow: inset 2px 2px 0px rgba(0, 0, 0, 0.4), inset -2px -2px 0px rgba(255, 255, 255, 0.2);
+  transform: translateY(2px);
+  box-shadow:
+    inset 2px 2px 0px rgba(0, 0, 0, 0.45),
+    inset -2px -2px 0px rgba(255, 255, 255, 0.18);
 }
 
 .mc-btn:disabled {
-  background-color: #3f3f3f;
-  color: #8f8f8f;
-  text-shadow: 1px 1px 0px #1b1b1b;
-  box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.08), inset -2px -2px 0px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(180deg, #3e3e44 0%, #323238 100%);
+  color: #8b8b94;
+  text-shadow: 1px 1px 0px #18181b;
+  box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.08), inset -2px -2px 0px rgba(0, 0, 0, 0.45);
   cursor: not-allowed;
 }
 
 .mc-btn-primary {
-  background-color: #4f7a38;
-  box-shadow: inset 2px 2px 0px rgba(176, 232, 136, 0.42), inset -2px -3px 0px rgba(24, 48, 16, 0.6);
+  background: linear-gradient(180deg, #5da041 0%, #488031 55%, #3a6926 100%);
+  box-shadow:
+    inset 2px 2px 0px rgba(190, 242, 152, 0.48),
+    inset -2px -3px 0px rgba(19, 44, 12, 0.65),
+    0 3px 0 rgba(0, 0, 0, 0.5);
 }
 
 .mc-btn-primary:hover:not(:disabled) {
-  background-color: #5f9143;
-  color: #ffffb5;
+  background: linear-gradient(180deg, #6bb54c 0%, #529139 55%, #43782d 100%);
+  border-color: #d9f99d;
+  color: #fef9c3;
 }
 
 .mc-btn-crimson {
-  background-color: #8f2d3b;
-  box-shadow: inset 2px 2px 0px rgba(245, 130, 145, 0.35), inset -2px -3px 0px rgba(48, 12, 18, 0.65);
+  background: linear-gradient(180deg, #b33849 0%, #8f2938 55%, #731f2b 100%);
+  box-shadow:
+    inset 2px 2px 0px rgba(254, 165, 178, 0.36),
+    inset -2px -3px 0px rgba(48, 10, 16, 0.7),
+    0 3px 0 rgba(0, 0, 0, 0.5);
 }
 
 .mc-btn-crimson:hover:not(:disabled) {
-  background-color: #a93747;
-  color: #ffffb5;
+  background: linear-gradient(180deg, #c94154 0%, #a33041 55%, #852533 100%);
+  border-color: #fecdd3;
+  color: #fef08a;
 }
 
-/* Classic Minecraft 1.16 Inventory Window (#C6C6C6) */
-.mc-window {
-  background-color: #c6c6c6;
-  border: 3px solid #000000;
+/* Authentic Minecraft 1.16 Hotbar Bezel */
+.mc-hotbar-shell {
+  background: linear-gradient(180deg, rgba(24, 22, 30, 0.92) 0%, rgba(15, 13, 20, 0.96) 100%);
+  border: 2px solid #09080c;
   box-shadow:
-    inset 3px 3px 0px #ffffff,
-    inset -3px -3px 0px #555555,
-    0 16px 40px rgba(0, 0, 0, 0.65);
-  color: #373737;
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 8px 22px rgba(0, 0, 0, 0.65);
+}
+
+/* Classic Minecraft 1.16 Inventory Window (#C6C6C6) with crisp beveled rim */
+.mc-window {
+  background: linear-gradient(180deg, #cfcfcf 0%, #c2c2c2 100%);
+  border: 3px solid #121216;
+  box-shadow:
+    inset 3px 3px 0px #f5f5f5,
+    inset -3px -3px 0px #5e5e66,
+    0 22px 55px rgba(0, 0, 0, 0.78);
+  color: #2c2c32;
 }
 
 /* Classic Minecraft 1.16 Recessed Item Slot (#8B8B8B) */
 .mc-slot {
-  background-color: #8b8b8b;
-  box-shadow: inset 2px 2px 0px #373737, inset -2px -2px 0px #ffffff;
+  background-color: #8b8b8e;
+  box-shadow: inset 2px 2px 0px #37373c, inset -2px -2px 0px #e8e8ec;
+  transition: background-color 70ms ease;
 }
 
 .mc-slot:hover {
-  background-color: #a5a5a5;
+  background-color: #a4a4a8;
 }
 
 .mc-slot-active {
-  background-color: #9e9e9e;
-  box-shadow: inset 2px 2px 0px #373737, inset -2px -2px 0px #ffffff, 0 0 0 2px #ffffa0;
+  background-color: #9e9ea6;
+  box-shadow:
+    inset 2px 2px 0px #2b2b30,
+    inset -2px -2px 0px #ffffff,
+    0 0 0 2px #fde047,
+    0 0 10px rgba(253, 224, 71, 0.35);
 }
 
-/* Splash text pulse (authentic Minecraft title screen yellow splash) */
+/* Splash text pulse */
 @keyframes mcSplashBounce {
   0%, 100% {
-    transform: rotate(-16deg) scale(1);
+    transform: rotate(-14deg) scale(1);
   }
   50% {
-    transform: rotate(-16deg) scale(1.07);
+    transform: rotate(-14deg) scale(1.06);
   }
 }
 
 .mc-splash {
-  animation: mcSplashBounce 0.9s ease-in-out infinite;
+  animation: mcSplashBounce 0.95s ease-in-out infinite;
   text-shadow: 2px 2px 0px #3f3f00;
 }
 
@@ -167,21 +208,21 @@
 
 /* Enchanted glint shimmer */
 .mc-enchant-glint {
-  box-shadow: inset 0 0 8px rgba(192, 132, 252, 0.75);
+  box-shadow: inset 0 0 8px rgba(192, 132, 252, 0.78);
 }
 
-/* Custom thin dark scrollbar inside world lists / recipes */
+/* Custom thin dark scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.35);
 }
 ::-webkit-scrollbar-thumb {
-  background: #6b6b6b;
-  border: 1px solid #1a1a1a;
+  background: #676472;
+  border: 1px solid #16141c;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #8b8b8b;
+  background: #878396;
 }

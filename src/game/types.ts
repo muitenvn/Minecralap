@@ -50,6 +50,50 @@ export interface GameRules {
   naturalRegeneration: boolean;
 }
 
+export type TexturePreset = 'current' | 'original';
+export type CameraMode = 'first' | 'third_back' | 'third_front';
+export type SkinArmModel = 'classic' | 'slim';
+
+export interface PlayerModelCode {
+  scale: number;
+  headScale: number;
+  armWidth: number; // 4 for classic Steve, 3 for slim Alex
+  limbLength: number;
+  showOverlays: boolean;
+  showCape: boolean;
+  capeColor: string;
+  swingSpeed: number;
+  externalGlbUrl: string;
+  externalScale: number;
+  externalYOffset: number;
+  externalRotY: number;
+}
+
+export const DEFAULT_MODEL_CODE: PlayerModelCode = {
+  scale: 1.0,
+  headScale: 1.0,
+  armWidth: 4,
+  limbLength: 1.0,
+  showOverlays: true,
+  showCape: false,
+  capeColor: '#991b1b',
+  swingSpeed: 1.0,
+  externalGlbUrl: '',
+  externalScale: 1.0,
+  externalYOffset: 0,
+  externalRotY: Math.PI,
+};
+
+export interface PlayerSkinConfig {
+  id: string;
+  name: string;
+  source: 'builtin-steve' | 'builtin-alex' | 'builtin-netherite' | 'upload' | 'url' | 'username';
+  armModel: SkinArmModel;
+  skinDataUrl: string; // 64x64 PNG data URL
+  sourceRef?: string; // username or URL
+  modelCode: PlayerModelCode;
+}
+
 export interface VideoSettings {
   renderDistance: number; // 2..8 chunks
   fov: number; // 50..110
@@ -65,6 +109,7 @@ export interface VideoSettings {
   volume: number; // 0..1
   muted: boolean;
   touchMode: 'auto' | 'on' | 'off';
+  texturePreset: TexturePreset;
 }
 
 export const DEFAULT_GAMERULES: GameRules = {
@@ -93,6 +138,7 @@ export const DEFAULT_VIDEO_SETTINGS: VideoSettings = {
   volume: 0.75,
   muted: false,
   touchMode: 'auto',
+  texturePreset: 'current',
 };
 
 export interface FurnaceState {
@@ -190,6 +236,7 @@ export interface HudSnapshot {
   xp: number;
   level: number;
   selectedSlot: number;
+  cameraMode: CameraMode;
   flying: boolean;
   sprinting: boolean;
   sneaking: boolean;
@@ -233,7 +280,7 @@ export interface CachedResourcePack {
   name: string;
   version: string;
   sourceLabel: string;
-  sourceType: 'github-default' | 'github-raw' | 'zip-upload';
+  sourceType: 'github-default' | 'original-classic' | 'github-raw' | 'zip-upload';
   sourceUrl?: string;
   downloadedAt: number;
   totalBytes: number;

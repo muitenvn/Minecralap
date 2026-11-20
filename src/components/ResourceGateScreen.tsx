@@ -8,12 +8,14 @@ import {
   importZipResourcePack,
 } from '../game/resourcePack';
 import { clearResourcePackCache, loadActiveResourcePack } from '../game/storage';
-import { CachedResourcePack } from '../game/types';
+import { CachedResourcePack, TexturePreset } from '../game/types';
 import { McButton, McTitleLogo } from './McSprites';
 
 interface ResourceGateScreenProps {
   compiledPack: CompiledResourcePack | null;
   mode: 'gate' | 'manager';
+  texturePreset: TexturePreset;
+  onSelectPreset: (preset: TexturePreset) => Promise<void>;
   onPackReady: (cached: CachedResourcePack) => Promise<void>;
   onProceedToTitle: () => void;
   onBack?: () => void;
@@ -28,6 +30,8 @@ function formatKB(bytes: number): string {
 export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
   compiledPack,
   mode,
+  texturePreset,
+  onSelectPreset,
   onPackReady,
   onProceedToTitle,
   onBack,
@@ -49,9 +53,27 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
       const cached = await downloadDefaultGithubPack((p) => setProgress({ ...p }));
       setProgress((prev) => (prev ? { ...prev, phase: 'compiling', currentFile: 'Texture Atlas 16×16 & GUI' } : null));
       await onPackReady(cached);
-      setNotice('Đã tải thành công gói tài nguyên Block + UI 1.16 vào IndexedDB!');
+      setNotice('Đã nạp thành công Dạng 1: Texture Hiện Tại (NetherCraft 1.16)!');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Lỗi tải gói tài nguyên 1.16.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleSwitchPreset = async (preset: TexturePreset) => {
+    setError(null);
+    setNotice(null);
+    setDownloading(true);
+    try {
+      await onSelectPreset(preset);
+      setNotice(
+        preset === 'original'
+          ? 'Đã chuyển sang Dạng 2: Texture Minecraft 1.16 Chính Gốc (Classic Vanilla)!'
+          : 'Đã chuyển sang Dạng 1: Texture Hiện Tại (NetherCraft 1.16)!',
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Không thể chuyển bộ texture.');
     } finally {
       setDownloading(false);
     }
@@ -108,20 +130,20 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
       : 0;
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center p-3 sm:p-6 bg-black/55 overflow-y-auto">
-      <div className="w-full max-w-[680px] my-auto flex flex-col items-center gap-5">
-        {mode === 'gate' && <McTitleLogo splashText="Phiên bản 1.16 · GitHub Ready!" />}
+    <div className="fixed inset-0 z-30 flex items-center justify-center p-3 sm:p-6 bg-black/65 overflow-y-auto">
+      <div className="w-full max-w-[720px] my-auto flex flex-col items-center gap-5">
+        {mode === 'gate' && <McTitleLogo splashText="Phiên bản 1.16 · 2 Dạng Texture!" />}
 
-        <div className="w-full bg-[#18151f]/95 border-2 border-black shadow-[inset_2px_2px_0_rgba(255,255,255,0.12),0_20px_50px_rgba(0,0,0,0.8)] p-4 sm:p-6">
+        <div className="mc-dark-panel w-full p-4 sm:p-6">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3 mb-4">
             <div>
               <h2 className="font-mc text-lg sm:text-xl font-bold text-[#fde68a] mc-text-shadow">
                 {mode === 'gate'
-                  ? 'Tải Gói Tài Nguyên 1.16 Để Bắt Đầu'
-                  : 'Quản Lý Gói Tài Nguyên (Block & Giao Diện UI 1.16)'}
+                  ? 'Chọn Gói Texture & Tài Nguyên 1.16'
+                  : 'Quản Lý 2 Dạng Texture & Resource Pack 1.16'}
               </h2>
               <p className="text-xs sm:text-sm text-zinc-300 mt-0.5">
-                Trò chơi yêu cầu tải bộ ảnh khối (.png 16×16) và giao diện UI chuẩn 1.16 về bộ nhớ trình duyệt (IndexedDB).
+                Chuyển nhanh giữa 2 dạng Texture có sẵn hoặc nạp Resource Pack 1.16 từ GitHub / tệp .ZIP.
               </p>
             </div>
             {mode === 'manager' && onBack && (
@@ -144,7 +166,7 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
               }`}
             >
               <Download className="w-4 h-4 shrink-0" />
-              <span className="truncate">Gói GitHub 1.16</span>
+              <span className="truncate">2 Dạng Texture</span>
             </button>
             <button
               type="button"
@@ -172,27 +194,62 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
             </button>
           </div>
 
-          {/* Tab contents */}
+          {/* Tab contents: 2 Built-in Texture Presets */}
           {sourceTab === 'default' && (
-            <div className="bg-[#110f16] border border-white/10 p-3.5 mb-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              <div
+                className={`p-3.5 border-2 flex flex-col justify-between gap-3 ${
+                  texturePreset === 'current'
+                    ? 'bg-[#1a292b] border-[#2dd4bf]'
+                    : 'bg-[#110f16] border-white/10'
+                }`}
+              >
                 <div>
-                  <div className="text-sm font-semibold text-white">
-                    Nether Update 1.16.5 Resource Pack (Tích hợp sẵn trên GitHub Pages)
+                  <div className="text-sm font-mc font-bold text-[#fde68a]">
+                    1. Texture Hiện Tại (NetherCraft 1.16)
                   </div>
-                  <div className="text-xs text-zinc-400 mt-1">
-                    Bao gồm 72 tệp ảnh khối .png (Overworld + 5 quần xã Nether + Ancient Debris) và 3 tệp giao diện UI (widgets.png, icons.png, options_background.png).
+                  <div className="text-xs text-zinc-300 mt-1">
+                    Bộ texture 16×16 chuẩn của app hiện tại (72 khối Overworld + Nether 1.16 + 3 tệp UI tải từ gói GitHub Pages).
                   </div>
                 </div>
                 <McButton
-                  variant="primary"
+                  variant={texturePreset === 'current' ? 'primary' : 'stone'}
                   disabled={downloading}
-                  onClick={handleDownloadDefault}
-                  className="shrink-0"
+                  onClick={() =>
+                    compiledPack ? handleSwitchPreset('current') : handleDownloadDefault()
+                  }
+                  className="w-full text-xs"
                   widgetsUrl={compiledPack?.guiUrls.widgets}
                 >
                   {downloading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                  {compiledPack ? 'Tải lại gói 1.16' : 'Tải tài nguyên 1.16'}
+                  {texturePreset === 'current' && compiledPack ? 'Đang dùng · Nạp lại' : 'Dùng Texture Hiện Tại'}
+                </McButton>
+              </div>
+
+              <div
+                className={`p-3.5 border-2 flex flex-col justify-between gap-3 ${
+                  texturePreset === 'original'
+                    ? 'bg-[#1a292b] border-[#2dd4bf]'
+                    : 'bg-[#110f16] border-white/10'
+                }`}
+              >
+                <div>
+                  <div className="text-sm font-mc font-bold text-[#5eead4]">
+                    2. Texture Chính Gốc (Minecraft 1.16 Classic)
+                  </div>
+                  <div className="text-xs text-zinc-300 mt-1">
+                    Bộ texture Minecraft 1.16 chính gốc với sọc đá, vữa đá cuội, cỏ viền rũ, quặng cổ điển, Ancient Debris xoắn ốc &amp; nền đất cổ điển.
+                  </div>
+                </div>
+                <McButton
+                  variant={texturePreset === 'original' ? 'primary' : 'stone'}
+                  disabled={downloading}
+                  onClick={() => handleSwitchPreset('original')}
+                  className="w-full text-xs"
+                  widgetsUrl={compiledPack?.guiUrls.widgets}
+                >
+                  {downloading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  {texturePreset === 'original' && compiledPack ? 'Đang dùng · Nạp lại' : 'Dùng Texture Chính Gốc'}
                 </McButton>
               </div>
             </div>

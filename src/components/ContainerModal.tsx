@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Flame, Hammer, Search, Trash2, X } from 'lucide-react';
+import { Flame, Hammer, Search, Trash2, User, X } from 'lucide-react';
 import { soundEngine } from '../game/audio';
 import { CreativeCategory, ITEM_DEFS } from '../game/blocks';
 import {
@@ -9,8 +9,9 @@ import {
   matchSmithing,
 } from '../game/recipes';
 import { CompiledResourcePack } from '../game/resourcePack';
-import { ContainerType, FurnaceState, GameMode, ItemStack } from '../game/types';
+import { ContainerType, FurnaceState, GameMode, ItemStack, PlayerSkinConfig } from '../game/types';
 import { McButton, McItemSlot } from './McSprites';
+import { SkinPreview3D } from './SkinPreview3D';
 
 interface ContainerModalProps {
   type: Exclude<ContainerType, 'none'>;
@@ -19,6 +20,8 @@ interface ContainerModalProps {
   armor: (ItemStack | null)[];
   furnace: FurnaceState;
   pack: CompiledResourcePack;
+  playerSkin: PlayerSkinConfig;
+  onOpenSkin: () => void;
   onUpdateInventory: (
     inventory: (ItemStack | null)[],
     armor?: (ItemStack | null)[],
@@ -89,6 +92,8 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
   armor,
   furnace,
   pack,
+  playerSkin,
+  onOpenSkin,
   onUpdateInventory,
   onClose,
 }) => {
@@ -487,12 +492,19 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                     />
                   ))}
                 </div>
-                <div className="bg-[#18181b] border-2 border-black w-20 h-[176px] flex flex-col items-center justify-center text-center p-2">
-                  <div className="w-8 h-8 bg-[#c99674] border border-black mb-1" />
-                  <div className="w-9 h-12 bg-[#2a7886] border border-black mb-1" />
-                  <div className="text-[10px] font-mono-num text-zinc-300 mt-1">
+                <div className="bg-[#120f1a] border-2 border-black w-[114px] flex flex-col items-center justify-between p-1.5">
+                  <SkinPreview3D skin={playerSkin} armor={armor} walking={false} height={138} interactive />
+                  <div className="text-[10px] font-mono-num text-zinc-300">
                     Giáp: {totalDefense}/20
                   </div>
+                  <button
+                    type="button"
+                    onClick={onOpenSkin}
+                    className="mt-1 w-full py-1 bg-[#252035] hover:bg-[#322b47] border border-white/20 text-[10px] font-mc text-[#fde68a] flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <User className="w-3 h-3" />
+                    Đổi Skin
+                  </button>
                 </div>
               </div>
 

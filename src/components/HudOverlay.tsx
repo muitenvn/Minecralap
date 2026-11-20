@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Camera, Layers, Pause, User } from 'lucide-react';
 import { autocompleteCommand } from '../game/commands';
 import { CompiledResourcePack } from '../game/resourcePack';
-import { ChatMessage, HudSnapshot, TitleBanner } from '../game/types';
+import { ChatMessage, HudSnapshot, TexturePreset, TitleBanner } from '../game/types';
 import { McHudIcon, McItemSlot } from './McSprites';
 
 interface HudOverlayProps {
@@ -14,11 +15,16 @@ interface HudOverlayProps {
   titleBanner: TitleBanner | null;
   guiScale: 'auto' | 'small' | 'medium' | 'large';
   touchVisible: boolean;
+  texturePreset: TexturePreset;
   onSelectSlot: (idx: number) => void;
   onSubmitChat: (text: string) => void;
   onCloseChat: () => void;
   onRequestLock: () => void;
   onOpenInventory: () => void;
+  onCycleCamera: () => void;
+  onOpenSkin: () => void;
+  onToggleTexturePreset: () => void;
+  onOpenPause: () => void;
 }
 
 export const HudOverlay: React.FC<HudOverlayProps> = ({
@@ -31,11 +37,16 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   titleBanner,
   guiScale,
   touchVisible,
+  texturePreset,
   onSelectSlot,
   onSubmitChat,
   onCloseChat,
   onRequestLock,
   onOpenInventory,
+  onCycleCamera,
+  onOpenSkin,
+  onToggleTexturePreset,
+  onOpenPause,
 }) => {
   const [chatText, setChatText] = useState(chatInitial);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -127,16 +138,63 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
         </div>
       )}
 
-      {/* Click-to-lock hint on PC when unlocked */}
+      {/* Clean Top Bar on PC when mouse unlocked (Click to play + Skin / F5 Camera / Texture / Menu) */}
       {!touchVisible && !hud.pointerLocked && !hud.dead && !chatOpen && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-auto">
-          <button
-            type="button"
-            onClick={onRequestLock}
-            className="bg-black/75 border border-white/25 px-4 py-1.5 text-xs sm:text-sm font-mc text-amber-200 hover:text-white cursor-pointer"
-          >
-            Nhấn vào màn hình để khóa chuột · Esc Tạm dừng · E Túi đồ · T Lệnh
-          </button>
+        <div className="absolute top-3 inset-x-3 flex items-center justify-between gap-2 pointer-events-none">
+          <div className="pointer-events-auto">
+            <button
+              type="button"
+              onClick={onRequestLock}
+              className="mc-btn mc-btn-primary min-h-[38px] px-3.5 py-1.5 text-xs sm:text-sm"
+            >
+              Nhấn vào game để khóa chuột · WASD · E Túi đồ · F5 Góc nhìn
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 pointer-events-auto">
+            <button
+              type="button"
+              onClick={onCycleCamera}
+              title="Đổi góc nhìn thứ 1 / thứ 3 (F5)"
+              className="mc-btn min-h-[38px] px-2.5 py-1 text-xs flex items-center gap-1.5"
+            >
+              <Camera className="w-3.5 h-3.5 text-[#5eead4]" />
+              <span>
+                {hud.cameraMode === 'first'
+                  ? 'Góc 1 (F5)'
+                  : hud.cameraMode === 'third_back'
+                    ? 'Góc 3 Sau'
+                    : 'Góc 3 Trước'}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={onOpenSkin}
+              title="Đổi Skin Steve / Alex / Skin của bạn & Model 3D"
+              className="mc-btn min-h-[38px] px-2.5 py-1 text-xs flex items-center gap-1.5"
+            >
+              <User className="w-3.5 h-3.5 text-[#fde68a]" />
+              <span>Skin &amp; Model</span>
+            </button>
+            <button
+              type="button"
+              onClick={onToggleTexturePreset}
+              title="Chuyển giữa Texture Hiện Tại và Texture Chính Gốc 1.16"
+              className="mc-btn min-h-[38px] px-2.5 py-1 text-xs hidden md:flex items-center gap-1.5"
+            >
+              <Layers className="w-3.5 h-3.5 text-amber-300" />
+              <span>{texturePreset === 'original' ? 'Texture: Chính Gốc' : 'Texture: Hiện Tại'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={onOpenPause}
+              title="Mở Menu Tạm Dừng (Esc)"
+              className="mc-btn min-h-[38px] px-2.5 py-1 text-xs flex items-center gap-1"
+            >
+              <Pause className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Menu</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -375,7 +433,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
         )}
 
         {/* 9-Slot Minecraft Hotbar + Mobile Inventory Button */}
-        <div className="flex items-center bg-[#18181b]/90 border-2 border-black p-0.5 gap-0.5 shadow-lg">
+        <div className="mc-hotbar-shell flex items-center p-1 gap-0.5">
           {Array.from({ length: 9 }).map((_, idx) => (
             <McItemSlot
               key={idx}

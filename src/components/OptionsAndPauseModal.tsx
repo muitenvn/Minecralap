@@ -2,17 +2,19 @@ import React from 'react';
 import {
   ArrowLeft,
   Download,
+  Layers,
   LogOut,
   Package,
   Play,
   RotateCcw,
   Settings,
   Skull,
+  User,
   Volume2,
   VolumeX,
 } from 'lucide-react';
 import { CompiledResourcePack } from '../game/resourcePack';
-import { DEFAULT_VIDEO_SETTINGS, VideoSettings } from '../game/types';
+import { DEFAULT_VIDEO_SETTINGS, TexturePreset, VideoSettings } from '../game/types';
 import { McButton, McDirtBackdrop } from './McSprites';
 
 // --- 1. PAUSE MODAL (Esc in-game) ---
@@ -20,6 +22,7 @@ interface PauseModalProps {
   worldName: string;
   pack: CompiledResourcePack;
   onResume: () => void;
+  onOpenSkin: () => void;
   onOpenOptions: () => void;
   onOpenResourcePack: () => void;
   onExportWorld: () => void;
@@ -30,19 +33,20 @@ export const PauseModal: React.FC<PauseModalProps> = ({
   worldName,
   pack,
   onResume,
+  onOpenSkin,
   onOpenOptions,
   onOpenResourcePack,
   onExportWorld,
   onSaveAndQuit,
 }) => (
-  <div className="fixed inset-0 z-30 bg-black/65 flex items-center justify-center p-4">
-    <div className="w-full max-w-[400px] flex flex-col gap-3">
-      <div className="text-center mb-2">
-        <h2 className="font-mc text-2xl font-bold text-white mc-text-shadow">
+  <div className="fixed inset-0 z-30 bg-black/70 flex items-center justify-center p-4">
+    <div className="mc-dark-panel w-full max-w-[420px] p-5 flex flex-col gap-3">
+      <div className="text-center mb-1">
+        <h2 className="font-mc text-2xl font-bold text-[#fde68a] mc-text-shadow">
           Trò Chơi Tạm Dừng
         </h2>
         <p className="text-xs text-zinc-300 font-mono-num mt-1">
-          Thế giới: {worldName} (Đã tự lưu vào IndexedDB)
+          Thế giới: {worldName} · Đã tự lưu IndexedDB
         </p>
       </div>
 
@@ -56,6 +60,11 @@ export const PauseModal: React.FC<PauseModalProps> = ({
         Tiếp Tục Chơi
       </McButton>
 
+      <McButton widgetsUrl={pack.guiUrls.widgets} onClick={onOpenSkin} className="w-full h-11">
+        <User className="w-4 h-4 text-[#fde68a]" />
+        Skin &amp; Model 3D (Steve / Alex / Tùy chỉnh)
+      </McButton>
+
       <div className="grid grid-cols-2 gap-3">
         <McButton widgetsUrl={pack.guiUrls.widgets} onClick={onOpenOptions}>
           <Settings className="w-4 h-4" />
@@ -63,7 +72,7 @@ export const PauseModal: React.FC<PauseModalProps> = ({
         </McButton>
         <McButton widgetsUrl={pack.guiUrls.widgets} onClick={onOpenResourcePack}>
           <Package className="w-4 h-4" />
-          Tài Nguyên
+          2 Dạng Texture
         </McButton>
       </div>
 
@@ -74,7 +83,7 @@ export const PauseModal: React.FC<PauseModalProps> = ({
 
       <McButton variant="crimson" onClick={onSaveAndQuit} className="mt-1">
         <LogOut className="w-4 h-4" />
-        Lưu & Về Menu Chính
+        Lưu &amp; Về Menu Chính
       </McButton>
     </div>
   </div>
@@ -86,6 +95,7 @@ interface VideoOptionsModalProps {
   pack: CompiledResourcePack | null;
   inGame: boolean;
   onChange: (next: VideoSettings) => void;
+  onSwitchTexturePreset: (preset: TexturePreset) => Promise<void>;
   onClose: () => void;
 }
 
@@ -94,6 +104,7 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
   pack,
   inGame,
   onChange,
+  onSwitchTexturePreset,
   onClose,
 }) => {
   const update = <K extends keyof VideoSettings>(key: K, value: VideoSettings[K]) => {
@@ -289,6 +300,21 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
 
           <McButton widgetsUrl={pack?.guiUrls.widgets} onClick={cycleTouch}>
             Phím cảm ứng Mobile: {touchLabel}
+          </McButton>
+
+          <McButton
+            variant="primary"
+            widgetsUrl={pack?.guiUrls.widgets}
+            onClick={() =>
+              onSwitchTexturePreset(settings.texturePreset === 'current' ? 'original' : 'current')
+            }
+            className="sm:col-span-2"
+          >
+            <Layers className="w-4 h-4" />
+            Dạng Texture:{' '}
+            {settings.texturePreset === 'original'
+              ? '2. Chính Gốc (Minecraft 1.16 Classic)'
+              : '1. Hiện Tại (NetherCraft 1.16)'}
           </McButton>
         </div>
       </div>

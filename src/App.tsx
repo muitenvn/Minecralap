@@ -13,8 +13,10 @@ import {
   VideoOptionsModal,
 } from './components/OptionsAndPauseModal';
 import { ResourceGateScreen } from './components/ResourceGateScreen';
+import { SkinManagerModal } from './components/SkinManagerModal';
 import { TitleAndWorlds } from './components/TitleAndWorlds';
 import { NetherCraftEngine } from './game/engine';
+import { loadSavedSkinConfig, saveSkinConfig } from './game/playerSkin';
 import {
   CompiledResourcePack,
   DownloadProgress,
@@ -35,10 +37,13 @@ import {
   ChatMessage,
   ContainerType,
   HudSnapshot,
+  PlayerSkinConfig,
+  TexturePreset,
   TitleBanner,
   VideoSettings,
   WorldSave,
 } from './game/types';
+import { buildOriginalMinecraftPack } from './game/vanillaTextures';
 
 type AppScreen =
   | 'boot'
@@ -71,6 +76,8 @@ export default function App() {
   const [returnScreen, setReturnScreen] = useState<AppScreen>('title');
   const [compiledPack, setCompiledPack] = useState<CompiledResourcePack | null>(null);
   const [settings, setSettings] = useState<VideoSettings>(() => loadVideoSettings());
+  const [playerSkin, setPlayerSkin] = useState<PlayerSkinConfig>(() => loadSavedSkinConfig());
+  const [skinModalOpen, setSkinModalOpen] = useState(false);
   const [worlds, setWorlds] = useState<WorldSave[]>([]);
   const [activeWorldName, setActiveWorldName] = useState('');
 
@@ -278,6 +285,46 @@ export default function App() {
     engineRef.current?.updateSettings(next);
   }, []);
 
+  const handleApplySkin = useCallback((nextSkin: PlayerSkinConfig) => {
+    setPlayerSkin(nextSkin);
+    saveSkinConfig(nextSkin);
+    engineRef.current?.setPlayerSkin(nextSkin);
+  }, []);
+
+  const handleOpenSkinModal = useCallback(() => {
+    if (screenRef.current === 'playing') {
+      engineRef.current?.setPaused(true);
+    }
+    setSkinModalOpen(true);
+  }, []);
+
+  const handleCloseSkinModal = useCallback(() => {
+    setSkinModalOpen(false);
+    if (screenRef.current === 'playing' && !pausedRef.current && containerRef.current === 'none') {
+      engineRef.current?.setPaused(false);
+    }
+  }, []);
+
+  const handleSwitchTexturePreset = useCallback(
+    async (preset: TexturePreset) => {
+      const existing = await loadActiveResourcePack();
+      let nextCached: CachedResourcePack;
+      if (preset === 'original') {
+        nextCached = await buildOriginalMinecraftPack(existing?.guiBlobs);
+      } else {
+        nextCached = await downloadDefaultGithubPack();
+      }
+      await applyCompiledPack(nextCached);
+      setSettings((prev) => {
+        const next = { ...prev, texturePreset: preset };
+        saveVideoSettings(next);
+        engineRef.current?.updateSettings(next);
+        return next;
+      });
+    },
+    [applyCompiledPack],
+  );
+
   const handleSaveAndQuit = useCallback(async () => {
     engineRef.current?.enterPanoramaMode();
     setPaused(false);
@@ -367,6 +414,8 @@ export default function App() {
         <ResourceGateScreen
           compiledPack={compiledPack}
           mode={screen === 'gate' ? 'gate' : 'manager'}
+          texturePreset={settings.texturePreset}
+          onSelectPreset={handleSwitchTexturePreset}
           onPackReady={applyCompiledPack}
           onProceedToTitle={() => {
             if (compiledPack) {
@@ -398,6 +447,7 @@ export default function App() {
               }
               setScreen(next);
             }}
+            onOpenSkin={handleOpenSkinModal}
             onLaunchWorld={handleLaunchWorld}
             onRefreshWorlds={refreshWorlds}
           />
@@ -410,6 +460,7 @@ export default function App() {
           pack={compiledPack}
           inGame={false}
           onChange={handleSettingsChange}
+          onSwitchTexturePreset={handleSwitchTexturePreset}
           onClose={() => setScreen(returnScreen)}
         />
       )}
@@ -427,6 +478,7 @@ export default function App() {
             titleBanner={titleBanner}
             guiScale={settings.guiScale}
             touchVisible={touchVisible}
+            texturePreset={settings.texturePreset}
             onSelectSlot={(idx) => engineRef.current?.selectHotbarSlot(idx)}
             onSubmitChat={(text) => engineRef.current?.runCommand(text)}
             onCloseChat={() => {
@@ -438,31 +490,49 @@ export default function App() {
               setContainerType('inventory');
               engineRef.current?.setPaused(true);
             }}
+            onCycleCamera={() => engineRef.current?.cycleCameraMode()}
+            onOpenSkin={handleOpenSkinModal}
+            onToggleTexturePreset={() =>
+              void handleSwitchTexturePreset(
+                settings.texturePreset === 'current' ? 'original' : 'current',
+              )
+            }
+            onOpenPause={() => {
+              setPaused(true);
+              engineRef.current?.setPaused(true);
+            }}
           />
 
           {/* Mobile Multi-Touch Controls */}
-          {touchVisible && !paused && !chatOpen && containerType === 'none' && !hud.dead && (
-            <MobileTouchControls
-              flying={hud.flying}
-              sneaking={hud.sneaking}
-              onMove={(x, z) => engineRef.current?.setTouchMovement(x, z)}
-              onLookDelta={(dx, dy) => engineRef.current?.addTouchLookDelta(dx, dy)}
-              onJump={(active) => engineRef.current?.setTouchJump(active)}
-              onSneakToggle={() => engineRef.current?.setTouchSneak(!hud.sneaking)}
-              onBreak={(active) => engineRef.current?.setTouchBreak(active)}
-              onUse={() => engineRef.current?.triggerTouchUseOrPlace()}
-              onOpenChat={() => {
-                setChatInitial('/');
-                setChatOpen(true);
-                engineRef.current?.setPaused(true);
-              }}
-              onToggleF3={() => setShowF3((prev) => !prev)}
-              onPause={() => {
-                setPaused(true);
-                engineRef.current?.setPaused(true);
-              }}
-            />
-          )}
+          {touchVisible &&
+            !paused &&
+            !chatOpen &&
+            !skinModalOpen &&
+            containerType === 'none' &&
+            !hud.dead && (
+              <MobileTouchControls
+                flying={hud.flying}
+                sneaking={hud.sneaking}
+                onMove={(x, z) => engineRef.current?.setTouchMovement(x, z)}
+                onLookDelta={(dx, dy) => engineRef.current?.addTouchLookDelta(dx, dy)}
+                onJump={(active) => engineRef.current?.setTouchJump(active)}
+                onSneakToggle={() => engineRef.current?.setTouchSneak(!hud.sneaking)}
+                onBreak={(active) => engineRef.current?.setTouchBreak(active)}
+                onUse={() => engineRef.current?.triggerTouchUseOrPlace()}
+                onOpenChat={() => {
+                  setChatInitial('/');
+                  setChatOpen(true);
+                  engineRef.current?.setPaused(true);
+                }}
+                onToggleF3={() => setShowF3((prev) => !prev)}
+                onCycleCamera={() => engineRef.current?.cycleCameraMode()}
+                onOpenSkin={handleOpenSkinModal}
+                onPause={() => {
+                  setPaused(true);
+                  engineRef.current?.setPaused(true);
+                }}
+              />
+            )}
 
           {/* Inventory / Crafting Table / Furnace / 1.16 Smithing Table */}
           {containerType !== 'none' && !hud.dead && (
@@ -473,6 +543,8 @@ export default function App() {
               armor={hud.armor}
               furnace={hud.furnace}
               pack={compiledPack}
+              playerSkin={playerSkin}
+              onOpenSkin={handleOpenSkinModal}
               onUpdateInventory={(inv, arm, furn) =>
                 engineRef.current?.applyInventoryUpdate(inv, arm, furn)
               }
@@ -481,17 +553,23 @@ export default function App() {
           )}
 
           {/* Pause Menu */}
-          {paused && inGameModal === 'none' && containerType === 'none' && !chatOpen && !hud.dead && (
-            <PauseModal
-              worldName={activeWorldName}
-              pack={compiledPack}
-              onResume={handleResumeGame}
-              onOpenOptions={() => setInGameModal('options')}
-              onOpenResourcePack={() => setInGameModal('resources')}
-              onExportWorld={handleExportCurrentWorld}
-              onSaveAndQuit={handleSaveAndQuit}
-            />
-          )}
+          {paused &&
+            inGameModal === 'none' &&
+            !skinModalOpen &&
+            containerType === 'none' &&
+            !chatOpen &&
+            !hud.dead && (
+              <PauseModal
+                worldName={activeWorldName}
+                pack={compiledPack}
+                onResume={handleResumeGame}
+                onOpenSkin={handleOpenSkinModal}
+                onOpenOptions={() => setInGameModal('options')}
+                onOpenResourcePack={() => setInGameModal('resources')}
+                onExportWorld={handleExportCurrentWorld}
+                onSaveAndQuit={handleSaveAndQuit}
+              />
+            )}
 
           {/* In-Game Video Settings */}
           {paused && inGameModal === 'options' && (
@@ -500,6 +578,7 @@ export default function App() {
               pack={compiledPack}
               inGame
               onChange={handleSettingsChange}
+              onSwitchTexturePreset={handleSwitchTexturePreset}
               onClose={() => setInGameModal('none')}
             />
           )}
@@ -509,6 +588,8 @@ export default function App() {
             <ResourceGateScreen
               compiledPack={compiledPack}
               mode="manager"
+              texturePreset={settings.texturePreset}
+              onSelectPreset={handleSwitchTexturePreset}
               onPackReady={applyCompiledPack}
               onProceedToTitle={() => setInGameModal('none')}
               onBack={() => setInGameModal('none')}
@@ -528,6 +609,15 @@ export default function App() {
             />
           )}
         </>
+      )}
+
+      {/* Global Skin & 3D Model Studio Modal */}
+      {skinModalOpen && (
+        <SkinManagerModal
+          currentSkin={playerSkin}
+          onApplySkin={handleApplySkin}
+          onClose={handleCloseSkinModal}
+        />
       )}
     </div>
   );

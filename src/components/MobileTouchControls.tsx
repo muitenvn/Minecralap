@@ -5,10 +5,12 @@ import {
   ArrowRight,
   ArrowUp,
   Bug,
+  Camera,
   Hammer,
   MessageSquare,
   Pause,
   Pickaxe,
+  User,
 } from 'lucide-react';
 
 interface MobileTouchControlsProps {
@@ -22,6 +24,8 @@ interface MobileTouchControlsProps {
   onUse: () => void;
   onOpenChat: () => void;
   onToggleF3: () => void;
+  onCycleCamera: () => void;
+  onOpenSkin: () => void;
   onPause: () => void;
 }
 
@@ -36,6 +40,8 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
   onUse,
   onOpenChat,
   onToggleF3,
+  onCycleCamera,
+  onOpenSkin,
   onPause,
 }) => {
   const [dirState, setDirState] = useState({ up: false, down: false, left: false, right: false });
@@ -90,8 +96,8 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
   const dpadBtnClass = (active: boolean) =>
     `w-[50px] h-[50px] flex items-center justify-center border-2 border-black select-none touch-none transition-colors ${
       active
-        ? 'bg-[#2dd4bf]/75 text-black'
-        : 'bg-black/50 text-white active:bg-white/30'
+        ? 'bg-[#2dd4bf]/80 text-black'
+        : 'bg-[#120f1a]/65 text-white active:bg-white/30'
     }`;
 
   return (
@@ -105,36 +111,54 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
         onPointerCancel={handleLookUp}
       />
 
-      {/* Top compact Minecraft Touch Bar (Chat, F3, Pause) */}
-      <div className="absolute top-2.5 left-1/2 -translate-x-1/2 flex items-center gap-2 pointer-events-auto">
+      {/* Top compact Minecraft Touch Bar */}
+      <div className="absolute top-2.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 pointer-events-auto">
         <button
           type="button"
           onClick={onOpenChat}
           aria-label="Mở Chat và Lệnh"
-          className="min-w-[44px] min-h-[44px] px-3 bg-black/65 border-2 border-white/25 text-white flex items-center justify-center gap-1.5 text-xs font-mc cursor-pointer active:bg-white/25"
+          className="min-w-[44px] min-h-[42px] px-2.5 bg-[#120f1a]/80 border-2 border-white/25 text-white flex items-center justify-center gap-1 text-xs font-mc cursor-pointer active:bg-white/25"
         >
           <MessageSquare className="w-4 h-4" />
-          <span>Lệnh</span>
+          <span className="hidden xs:inline">Lệnh</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onCycleCamera}
+          aria-label="Đổi góc nhìn F5"
+          className="min-w-[44px] min-h-[42px] px-2.5 bg-[#120f1a]/80 border-2 border-white/25 text-[#5eead4] flex items-center justify-center gap-1 text-xs font-mc cursor-pointer active:bg-white/25"
+        >
+          <Camera className="w-4 h-4" />
+          <span>F5</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onOpenSkin}
+          aria-label="Đổi Skin và Model"
+          className="min-w-[44px] min-h-[42px] px-2.5 bg-[#120f1a]/80 border-2 border-white/25 text-[#fde68a] flex items-center justify-center gap-1 text-xs font-mc cursor-pointer active:bg-white/25"
+        >
+          <User className="w-4 h-4" />
+          <span>Skin</span>
         </button>
 
         <button
           type="button"
           onClick={onToggleF3}
           aria-label="Bật tắt F3"
-          className="min-w-[44px] min-h-[44px] px-3 bg-black/65 border-2 border-white/25 text-white flex items-center justify-center gap-1 text-xs font-mono-num cursor-pointer active:bg-white/25"
+          className="min-w-[44px] min-h-[42px] px-2.5 bg-[#120f1a]/80 border-2 border-white/25 text-white flex items-center justify-center gap-1 text-xs font-mono-num cursor-pointer active:bg-white/25"
         >
           <Bug className="w-4 h-4" />
-          <span>F3</span>
         </button>
 
         <button
           type="button"
           onClick={onPause}
           aria-label="Tạm dừng"
-          className="min-w-[44px] min-h-[44px] px-3 bg-black/65 border-2 border-white/25 text-white flex items-center justify-center gap-1 text-xs font-mc cursor-pointer active:bg-white/25"
+          className="min-w-[44px] min-h-[42px] px-2.5 bg-[#120f1a]/80 border-2 border-white/25 text-white flex items-center justify-center gap-1 text-xs font-mc cursor-pointer active:bg-white/25"
         >
           <Pause className="w-4 h-4" />
-          <span>Menu</span>
         </button>
       </div>
 

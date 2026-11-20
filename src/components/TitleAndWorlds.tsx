@@ -9,6 +9,7 @@ import {
   Settings,
   Trash2,
   Upload,
+  User,
   ArrowLeft,
 } from 'lucide-react';
 import { CompiledResourcePack } from '../game/resourcePack';
@@ -20,8 +21,8 @@ const SPLASHES = [
   'Nether Update 1.16.5!',
   'Chạy 100% trên GitHub Pages!',
   'Biên giới ±29.999.984 khối!',
-  'Ancient Debris ở tầng Y=8–22!',
-  'Đổi Thỏi Vàng với Piglin!',
+  'Đổi Skin Steve / Alex & F5 3D!',
+  '2 Dạng Texture Hiện Tại & Chính Gốc!',
   'Chơi mượt trên PC & Điện thoại!',
   'Hỗ trợ 26 lệnh chạy thật!',
 ];
@@ -31,6 +32,7 @@ interface TitleAndWorldsProps {
   worlds: WorldSave[];
   screen: 'title' | 'worlds' | 'create_world' | 'github_guide';
   onNavigate: (s: 'title' | 'worlds' | 'create_world' | 'github_guide' | 'resource_manager' | 'options') => void;
+  onOpenSkin: () => void;
   onLaunchWorld: (w: WorldSave) => void;
   onRefreshWorlds: () => Promise<void>;
 }
@@ -40,6 +42,7 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
   worlds,
   screen,
   onNavigate,
+  onOpenSkin,
   onLaunchWorld,
   onRefreshWorlds,
 }) => {
@@ -108,7 +111,7 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
           <McTitleLogo splashText={splash} />
         </div>
 
-        <div className="w-full max-w-[400px] flex flex-col gap-3 pointer-events-auto">
+        <div className="mc-dark-panel w-full max-w-[420px] p-4 flex flex-col gap-2.5 pointer-events-auto">
           <McButton
             variant="primary"
             widgetsUrl={pack.guiUrls.widgets}
@@ -121,14 +124,23 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
 
           <McButton
             widgetsUrl={pack.guiUrls.widgets}
+            onClick={onOpenSkin}
+            className="w-full h-11"
+          >
+            <User className="w-4 h-4 text-[#fde68a]" />
+            Skin &amp; Model 3D (Steve / Alex / Tùy chỉnh)
+          </McButton>
+
+          <McButton
+            widgetsUrl={pack.guiUrls.widgets}
             onClick={() => onNavigate('resource_manager')}
             className="w-full h-11"
           >
-            <Package className="w-4 h-4" />
-            Gói Tài Nguyên 1.16
+            <Package className="w-4 h-4 text-[#5eead4]" />
+            2 Dạng Texture &amp; Resource Pack 1.16
           </McButton>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5">
             <McButton
               widgetsUrl={pack.guiUrls.widgets}
               onClick={() => onNavigate('options')}

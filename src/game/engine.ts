@@ -19,11 +19,20 @@ import {
   MobType,
   updateMobAI,
 } from './mobs';
+import {
+  animatePlayerRig,
+  buildFirstPersonSkinArm,
+  buildMinecraftPlayerRig,
+  loadSavedSkinConfig,
+  PlayerRig,
+  updateRigArmorVisuals,
+} from './playerSkin';
 import { SMELTING_RECIPES } from './recipes';
 import { CompiledResourcePack } from './resourcePack';
 import { saveWorld } from './storage';
 import {
   ActiveEffect,
+  CameraMode,
   CHUNK_SIZE,
   ContainerType,
   DimensionId,
@@ -32,6 +41,7 @@ import {
   GameMode,
   HudSnapshot,
   ItemStack,
+  PlayerSkinConfig,
   SUBCHUNK_COUNT,
   TargetBlockInfo,
   VideoSettings,
@@ -166,9 +176,14 @@ export class NetherCraftEngine {
   private breakCooldown = 0;
   private placeCooldown = 0;
 
-  // First-person held hand/tool
+  // First-person held hand/tool + 3D Player Model Rig + F5 Camera Mode
   private handGroup: THREE.Group;
+  private handDispose: (() => void) | null = null;
   private handSwing = 0;
+  private playerSkinConfig: PlayerSkinConfig = loadSavedSkinConfig();
+  private playerRig: PlayerRig | null = null;
+  private cameraMode: CameraMode = 'first';
+  private walkAnimPhase = 0;
 
   // Pooled break particles
   private particles: BreakParticle[] = [];
@@ -326,10 +341,17 @@ export class NetherCraftEngine {
     this.crackMesh.visible = false;
     this.scene.add(this.crackMesh);
 
-    // First-person held hand/item attached to camera
-    this.handGroup = this.buildFirstPersonHand();
+    // First-person held hand/item attached to camera + 3D Player Skin Rig
+    const builtArm = buildFirstPersonSkinArm(this.playerSkinConfig);
+    this.handGroup = builtArm.group;
+    this.handDispose = builtArm.dispose;
+    this.handGroup.visible = false;
     this.camera.add(this.handGroup);
     this.scene.add(this.camera);
+
+    this.playerRig = buildMinecraftPlayerRig(this.playerSkinConfig);
+    this.playerRig.root.visible = false;
+    this.scene.add(this.playerRig.root);
 
     // Sun & Moon billboards
     this.sunMesh = new THREE.Mesh(
@@ -386,67 +408,86 @@ export class NetherCraftEngine {
     this.tick();
   }
 
-  private buildFirstPersonHand(): THREE.Group {
-    const g = new THREE.Group();
-    const arm = new THREE.Mesh(
-      new THREE.BoxGeometry(0.18, 0.52, 0.18),
-      new THREE.MeshStandardMaterial({ color: 0xc99674, roughness: 0.78 }),
-    );
-    arm.position.set(0.36, -0.34, -0.52);
-    arm.rotation.set(0.35, -0.25, 0.15);
-    const sleeve = new THREE.Mesh(
-      new THREE.BoxGeometry(0.2, 0.22, 0.2),
-      new THREE.MeshStandardMaterial({ color: 0x2a7886, roughness: 0.85 }),
-    );
-    sleeve.position.set(0, -0.18, 0);
-    arm.add(sleeve);
+  public setPlayerSkin(config: PlayerSkinConfig): void {
+    this.playerSkinConfig = config;
+    // Rebuild 1st-person skin arm
+    this.camera.remove(this.handGroup);
+    this.handDispose?.();
+    const builtArm = buildFirstPersonSkinArm(config);
+    this.handGroup = builtArm.group;
+    this.handDispose = builtArm.dispose;
+    this.handGroup.visible = this.mode === 'playing' && this.cameraMode === 'first';
+    this.camera.add(this.handGroup);
 
-    const held = new THREE.Mesh(
-      new THREE.BoxGeometry(0.22, 0.22, 0.22),
-      new THREE.MeshStandardMaterial({ color: 0x4c464f, roughness: 0.3, metalness: 0.65 }),
-    );
-    held.name = 'heldItemMesh';
-    held.position.set(-0.05, 0.24, -0.1);
-    arm.add(held);
+    // Rebuild 3D Player Model Rig
+    if (this.playerRig) {
+      this.scene.remove(this.playerRig.root);
+      this.playerRig.dispose();
+    }
+    this.playerRig = buildMinecraftPlayerRig(config);
+    this.playerRig.root.visible = this.mode === 'playing' && this.cameraMode !== 'first';
+    this.scene.add(this.playerRig.root);
 
-    g.add(arm);
-    g.visible = false;
-    return g;
+    if (this.world) {
+      updateRigArmorVisuals(this.playerRig, this.world.player.armor);
+      this.updateFirstPersonHeldVisual();
+    }
+  }
+
+  public cycleCameraMode(): void {
+    const order: CameraMode[] = ['first', 'third_back', 'third_front'];
+    this.cameraMode = order[(order.indexOf(this.cameraMode) + 1) % order.length];
+    const label =
+      this.cameraMode === 'first'
+        ? 'Góc nhìn thứ 1'
+        : this.cameraMode === 'third_back'
+          ? 'Góc nhìn thứ 3 (Sau lưng)'
+          : 'Góc nhìn thứ 3 (Trước mặt)';
+    this.heldItemToast = `Camera: ${label}`;
+    this.heldItemToastAt = performance.now();
+    this.emitHud();
   }
 
   private updateFirstPersonHeldVisual(): void {
-    const held = this.handGroup.getObjectByName('heldItemMesh') as THREE.Mesh | undefined;
-    if (!held || !this.world) return;
+    if (!this.world) return;
     const stack = this.world.player.inventory[this.world.player.selectedSlot];
-    if (!stack) {
-      held.visible = false;
-      return;
-    }
-    held.visible = true;
-    const def = ITEM_DEFS[stack.itemId];
-    const mat = held.material as THREE.MeshStandardMaterial;
-    if (def?.toolKind && def.toolKind !== 'none') {
-      held.scale.set(0.38, 1.45, 0.38);
-      mat.color.set(def.iconColor || '#d4d8dc');
-      mat.metalness = def.toolTier && def.toolTier >= 3 ? 0.72 : 0.15;
-      mat.roughness = def.toolTier && def.toolTier >= 3 ? 0.22 : 0.75;
-    } else if (def?.blockId) {
-      held.scale.set(1.0, 1.0, 1.0);
-      const bdef = BLOCK_DEFS[def.blockId];
-      const colMap: Record<string, number> = {
-        obsidian: 0x261a3b, crying_obsidian: 0x5b21b6, netherrack: 0x7c2d2d,
-        crimson_nylium: 0x9f1239, warped_nylium: 0x0f766e, blackstone: 0x2e2a36,
-        ancient_debris: 0x6b4b3e, shroomlight: 0xf59e0b, grass_block: 0x5ca63e,
-        oak_planks: 0xa2824e, cobblestone: 0x747474,
-      };
-      mat.color.setHex(colMap[bdef.key] ?? 0x8b8b8b);
-      mat.metalness = 0.05;
-      mat.roughness = 0.85;
-    } else {
-      held.scale.set(0.65, 0.65, 0.65);
-      mat.color.set(def?.iconColor || '#e5e7eb');
-      mat.metalness = 0.35;
-      mat.roughness = 0.45;
+    const meshes: THREE.Mesh[] = [];
+    const fpHeld = this.handGroup.getObjectByName('heldItemMesh') as THREE.Mesh | undefined;
+    if (fpHeld) meshes.push(fpHeld);
+    const tpHeld = this.playerRig?.heldSlotGroup.getObjectByName('playerHeldMesh') as THREE.Mesh | undefined;
+    if (tpHeld) meshes.push(tpHeld);
+
+    for (const held of meshes) {
+      if (!stack) {
+        held.visible = false;
+        continue;
+      }
+      held.visible = true;
+      const def = ITEM_DEFS[stack.itemId];
+      const mat = held.material as THREE.MeshStandardMaterial;
+      if (def?.toolKind && def.toolKind !== 'none') {
+        held.scale.set(0.38, 1.45, 0.38);
+        mat.color.set(def.iconColor || '#d4d8dc');
+        mat.metalness = def.toolTier && def.toolTier >= 3 ? 0.72 : 0.15;
+        mat.roughness = def.toolTier && def.toolTier >= 3 ? 0.22 : 0.75;
+      } else if (def?.blockId) {
+        held.scale.set(1.0, 1.0, 1.0);
+        const bdef = BLOCK_DEFS[def.blockId];
+        const colMap: Record<string, number> = {
+          obsidian: 0x261a3b, crying_obsidian: 0x5b21b6, netherrack: 0x7c2d2d,
+          crimson_nylium: 0x9f1239, warped_nylium: 0x0f766e, blackstone: 0x2e2a36,
+          ancient_debris: 0x6b4b3e, shroomlight: 0xf59e0b, grass_block: 0x5ca63e,
+          oak_planks: 0xa2824e, cobblestone: 0x747474,
+        };
+        mat.color.setHex(colMap[bdef.key] ?? 0x8b8b8b);
+        mat.metalness = 0.05;
+        mat.roughness = 0.85;
+      } else {
+        held.scale.set(0.65, 0.65, 0.65);
+        mat.color.set(def?.iconColor || '#e5e7eb');
+        mat.metalness = 0.35;
+        mat.roughness = 0.45;
+      }
     }
   }
 
@@ -631,6 +672,7 @@ export class NetherCraftEngine {
     this.generator = null;
     this.panoramaGroup.visible = true;
     this.handGroup.visible = false;
+    if (this.playerRig) this.playerRig.root.visible = false;
     this.highlightBox.visible = false;
     this.crackMesh.visible = false;
     this.rainPoints.visible = false;
@@ -648,7 +690,11 @@ export class NetherCraftEngine {
     this.mode = 'playing';
     this.paused = false;
     this.panoramaGroup.visible = false;
-    this.handGroup.visible = true;
+    this.handGroup.visible = this.cameraMode === 'first';
+    if (this.playerRig) {
+      this.playerRig.root.visible = this.cameraMode !== 'first';
+      updateRigArmorVisuals(this.playerRig, this.world.player.armor);
+    }
 
     this.px = this.world.player.x;
     this.py = this.world.player.y;
@@ -765,7 +811,10 @@ export class NetherCraftEngine {
   ): void {
     if (!this.world) return;
     this.world.player.inventory = inventory;
-    if (armor) this.world.player.armor = armor;
+    if (armor) {
+      this.world.player.armor = armor;
+      if (this.playerRig) updateRigArmorVisuals(this.playerRig, armor);
+    }
     if (furnace) this.world.furnace = furnace;
     this.updateFirstPersonHeldVisual();
     this.emitHud();
@@ -2377,22 +2426,76 @@ export class NetherCraftEngine {
         this.updateWorldSystems(dt);
       }
 
-      // Position camera relative to floating origin
+      // Position camera relative to floating origin (supports F5 1st / 3rd-Back / 3rd-Front!)
       const bobY = this.settings.viewBobbing && !this.flying ? Math.sin(this.bobPhase * 2) * 0.045 : 0;
       const bobX = this.settings.viewBobbing && !this.flying ? Math.cos(this.bobPhase) * 0.03 : 0;
       const shakeX = this.cameraShake > 0 ? (Math.random() - 0.5) * this.cameraShake * 0.35 : 0;
       const shakeY = this.cameraShake > 0 ? (Math.random() - 0.5) * this.cameraShake * 0.35 : 0;
 
-      const sneakDrop = (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || this.touchSneak) && !this.flying ? -0.18 : 0;
-      this.camera.position.set(
-        this.px - this.originCX * CHUNK_SIZE + bobX + shakeX,
-        this.py + 1.62 + sneakDrop + bobY + shakeY,
-        this.pz - this.originCZ * CHUNK_SIZE,
-      );
-      this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
+      const isSneaking = (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || this.touchSneak) && !this.flying;
+      const sneakDrop = isSneaking ? -0.18 : 0;
+      const relX = this.px - this.originCX * CHUNK_SIZE;
+      const relZ = this.pz - this.originCZ * CHUNK_SIZE;
+      const eyeY = this.py + 1.62 + sneakDrop;
 
-      // First-person hand swing decay
+      // Update 3D Player Skin Rig transform & animation
+      const horizSpeed = Math.hypot(this.vx, this.vz);
+      if (horizSpeed > 0.25) {
+        this.walkAnimPhase += dt * horizSpeed * 2.1;
+      }
       if (this.handSwing > 0) this.handSwing = Math.max(0, this.handSwing - dt * 5.2);
+
+      if (this.playerRig) {
+        this.playerRig.root.visible = this.cameraMode !== 'first';
+        this.playerRig.root.position.set(relX, this.py, relZ);
+        // Model faces +Z in local space; player looks down (-sin(yaw), -cos(yaw)) -> rotate Y by yaw + PI
+        this.playerRig.root.rotation.y = this.yaw + Math.PI;
+        animatePlayerRig(this.playerRig, now * 0.001, {
+          walkPhase: this.walkAnimPhase,
+          moveSpeed: horizSpeed,
+          headPitch: this.pitch,
+          sneaking: isSneaking,
+          handSwing: this.handSwing,
+          flying: this.flying,
+        });
+      }
+
+      if (this.cameraMode === 'first') {
+        this.handGroup.visible = true;
+        this.camera.position.set(relX + bobX + shakeX, eyeY + bobY + shakeY, relZ);
+        this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
+      } else {
+        this.handGroup.visible = false;
+        const dirSign = this.cameraMode === 'third_back' ? 1 : -1;
+        const cosP = Math.cos(this.pitch);
+        const backX = Math.sin(this.yaw) * cosP * dirSign;
+        const backY = -Math.sin(this.pitch) * dirSign;
+        const backZ = Math.cos(this.yaw) * cosP * dirSign;
+
+        // Collision-safe boom distance (max 3.8 blocks) so camera never clips into terrain
+        let dist = 3.8;
+        for (let step = 0.5; step <= 3.8; step += 0.25) {
+          const cx = this.px + backX * step;
+          const cy = eyeY + backY * step;
+          const cz = this.pz + backZ * step;
+          if (isBlockSolid(this.getWorldBlock(Math.floor(cx), Math.floor(cy), Math.floor(cz)))) {
+            dist = Math.max(0.65, step - 0.35);
+            break;
+          }
+        }
+        this.camera.position.set(
+          relX + backX * dist + shakeX,
+          eyeY + backY * dist + shakeY + 0.15,
+          relZ + backZ * dist,
+        );
+        if (this.cameraMode === 'third_back') {
+          this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
+        } else {
+          this.camera.lookAt(relX, eyeY - 0.12, relZ);
+        }
+      }
+
+      // First-person hand swing
       const swingAmt = Math.sin(this.handSwing * Math.PI);
       this.handGroup.position.set(bobX * 0.6, bobY * 0.6 - swingAmt * 0.14, -swingAmt * 0.18);
       this.handGroup.rotation.set(-swingAmt * 0.65, swingAmt * 0.25, 0);
@@ -2440,6 +2543,7 @@ export class NetherCraftEngine {
       xp: this.world.player.xp,
       level: this.world.player.level,
       selectedSlot: this.world.player.selectedSlot,
+      cameraMode: this.cameraMode,
       flying: this.flying,
       sprinting: this.keys.has('ControlLeft'),
       sneaking: this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || this.touchSneak,
@@ -2484,6 +2588,11 @@ export class NetherCraftEngine {
     if (e.code === 'F3') {
       e.preventDefault();
       this.callbacks.onToggleF3();
+      return;
+    }
+    if (e.code === 'F5') {
+      e.preventDefault();
+      this.cycleCameraMode();
       return;
     }
     if (e.code === 'Escape') {
@@ -2604,6 +2713,12 @@ export class NetherCraftEngine {
     this.renderer.domElement.removeEventListener('contextmenu', this.onContextMenuBound);
 
     this.clearWorldScene();
+    this.handDispose?.();
+    if (this.playerRig) {
+      this.scene.remove(this.playerRig.root);
+      this.playerRig.dispose();
+      this.playerRig = null;
+    }
     this.opaqueMat.dispose();
     this.transMat.dispose();
     this.particleGeo.dispose();
