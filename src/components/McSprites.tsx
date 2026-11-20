@@ -44,7 +44,7 @@ export const McButton: React.FC<McButtonProps> = ({
           : {}),
         ...style,
       }}
-      className={`mc-btn ${variantClass} min-h-[44px] px-4 py-2 text-sm sm:text-base whitespace-nowrap select-none flex items-center justify-center gap-2 ${className}`}
+      className={`mc-btn ${variantClass} min-h-[44px] px-4 py-2 text-sm sm:text-base whitespace-nowrap select-none touch-manipulation flex items-center justify-center gap-2 ${className}`}
     >
       {children}
     </button>
@@ -111,6 +111,7 @@ interface McItemSlotProps {
   size?: number;
   placeholder?: string;
   onClick?: (e: React.MouseEvent) => void;
+  onPointerDown?: (e: React.PointerEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
   title?: string;
 }
@@ -122,6 +123,7 @@ export const McItemSlot: React.FC<McItemSlotProps> = ({
   size = 44,
   placeholder,
   onClick,
+  onPointerDown,
   onContextMenu,
   title,
 }) => {
@@ -139,6 +141,7 @@ export const McItemSlot: React.FC<McItemSlotProps> = ({
     <button
       type="button"
       onClick={onClick}
+      onPointerDown={onPointerDown}
       onContextMenu={(e) => {
         if (onContextMenu) {
           e.preventDefault();
@@ -147,7 +150,7 @@ export const McItemSlot: React.FC<McItemSlotProps> = ({
       }}
       title={title || (def ? `${def.nameVi}${enchantText}` : placeholder)}
       style={{ width: size, height: size }}
-      className={`relative flex items-center justify-center select-none shrink-0 cursor-pointer ${
+      className={`relative flex items-center justify-center select-none touch-manipulation shrink-0 cursor-pointer ${
         active ? 'mc-slot-active' : 'mc-slot'
       } ${hasEnchant ? 'mc-enchant-glint' : ''}`}
     >

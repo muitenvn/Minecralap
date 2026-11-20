@@ -176,12 +176,13 @@ export default function App() {
 
   const applyCompiledPack = useCallback(async (cached: CachedResourcePack) => {
     const nextCompiled = await compileResourcePack(cached);
-    if (compiledPackRef.current) {
-      compiledPackRef.current.dispose();
-    }
+    const prevPack = compiledPackRef.current;
     compiledPackRef.current = nextCompiled;
-    setCompiledPack(nextCompiled);
     engineRef.current?.setResourcePack(nextCompiled);
+    setCompiledPack(nextCompiled);
+    if (prevPack) {
+      setTimeout(() => prevPack.dispose(), 250);
+    }
   }, []);
 
   const handleLaunchWorld = useCallback((world: WorldSave, requestLock = true) => {
@@ -299,6 +300,15 @@ export default function App() {
         setBootStatus('Đang biên dịch Texture Atlas 16×16 & giao diện 1.16...');
         await applyCompiledPack(cachedPack);
         if (!alive) return;
+
+        const detectedPreset: TexturePreset =
+          cachedPack.sourceType === 'original-classic' ? 'original' : 'current';
+        setSettings((prev) => {
+          if (prev.texturePreset === detectedPreset) return prev;
+          const synced = { ...prev, texturePreset: detectedPreset };
+          saveVideoSettings(synced);
+          return synced;
+        });
 
         let targetWorld = savedWorlds[0];
         if (!targetWorld) {
@@ -579,6 +589,10 @@ export default function App() {
                 }}
                 onToggleF3={() => setShowF3((prev) => !prev)}
                 onCycleCamera={() => engineRef.current?.cycleCameraMode()}
+                onOpenInventory={() => {
+                  setContainerType('inventory');
+                  engineRef.current?.setPaused(true);
+                }}
                 onOpenSkin={handleOpenSkinModal}
                 onToggleFullscreen={handleToggleFullscreen}
                 onPause={() => {

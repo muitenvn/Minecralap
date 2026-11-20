@@ -130,7 +130,7 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
       : 0;
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center p-3 sm:p-6 bg-black/65 overflow-y-auto">
+    <div className="fixed inset-0 z-30 flex items-start sm:items-center justify-center p-3 sm:p-6 bg-black/65 overflow-y-auto">
       <div className="w-full max-w-[720px] my-auto flex flex-col items-center gap-5">
         {mode === 'gate' && <McTitleLogo splashText="Phiên bản 1.16 · 2 Dạng Texture!" />}
 

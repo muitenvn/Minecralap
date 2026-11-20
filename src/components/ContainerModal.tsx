@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Flame, Hammer, Search, Trash2, User, X } from 'lucide-react';
 import { soundEngine } from '../game/audio';
 import { CreativeCategory, ITEM_DEFS } from '../game/blocks';
@@ -101,6 +101,10 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
   const gridSize: 2 | 3 = type === 'crafting' ? 3 : 2;
 
   const [cursor, setCursor] = useState<ItemStack | null>(null);
+  const [splitMode, setSplitMode] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 1024,
+  );
   const [craftGrid, setCraftGrid] = useState<(ItemStack | null)[]>(() =>
     Array.from({ length: gridSize * gridSize }, () => null),
   );
@@ -110,6 +114,15 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
   // Creative filters
   const [creativeTab, setCreativeTab] = useState<'all' | CreativeCategory>('nether116');
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Responsive slot size so 9 columns never overflow narrow phones (320px–390px)
+  const invSlotSize = Math.max(30, Math.min(44, Math.floor((viewportWidth - 52 - 32) / 9)));
 
   // Reset local grids if container type changes
   useEffect(() => {
@@ -129,28 +142,32 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
     onClose();
   };
 
+  const safeCloseRef = useRef(handleSafeClose);
+  safeCloseRef.current = handleSafeClose;
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' || (e.code === 'KeyE' && document.activeElement?.tagName !== 'INPUT')) {
         e.preventDefault();
-        handleSafeClose();
+        safeCloseRef.current();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  });
+  }, []);
 
-  // Generic slot interaction (left click swap/merge, right click split/place 1)
+  // Generic slot interaction (left click swap/merge, right click or mobile splitMode = split/place 1)
   const interactSlot = (
     current: ItemStack | null,
     setter: (next: ItemStack | null) => void,
     rightClick = false,
     filter?: (stack: ItemStack) => boolean,
   ) => {
+    const useSplit = rightClick || splitMode;
     const cur = cloneStack(current);
     const hand = cloneStack(cursor);
 
-    if (rightClick) {
+    if (useSplit) {
       if (!hand && cur) {
         // Pick up half
         const take = Math.ceil(cur.count / 2);
@@ -394,33 +411,44 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-30 bg-black/65 flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
+      className="fixed inset-0 z-30 bg-black/65 flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) handleSafeClose();
       }}
     >
-      <div className="mc-window w-full max-w-[780px] p-3 sm:p-4 my-auto text-[#3f3f3f]">
+      <div className="mc-window w-full max-w-[780px] p-2.5 sm:p-4 my-auto text-[#3f3f3f]">
         {/* Header */}
-        <div className="flex items-center justify-between gap-2 pb-2 mb-3 border-b-2 border-[#8b8b8b]">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 mb-3 border-b-2 border-[#8b8b8b]">
           <div className="flex items-center gap-2 min-w-0">
-            <h2 className="font-mc font-bold text-base sm:text-lg text-[#262626] truncate">
+            <h2 className="font-mc font-bold text-sm sm:text-lg text-[#262626] truncate">
               {titleMap[type]}
             </h2>
             {cursor && (
-              <span className="text-xs font-mono-num bg-[#8b8b8b] text-white px-2 py-0.5 truncate">
+              <span className="text-[11px] sm:text-xs font-mono-num bg-[#52525b] text-white px-2 py-0.5 truncate max-w-[180px] sm:max-w-none">
                 Đang cầm: {ITEM_DEFS[cursor.itemId]?.nameVi || cursor.itemId} ×{cursor.count}
               </span>
             )}
           </div>
-          <button
-            type="button"
-            onClick={handleSafeClose}
-            aria-label="Đóng"
-            className="mc-btn min-h-[38px] min-w-[38px] px-2.5 py-1 text-xs"
-          >
-            <X className="w-4 h-4" />
-            <span className="hidden sm:inline">Đóng (E)</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setSplitMode((v) => !v)}
+              className={`min-h-[36px] px-2.5 py-1 text-xs font-mc font-bold border-2 border-black cursor-pointer touch-manipulation ${
+                splitMode ? 'bg-[#0f766e] text-white' : 'bg-[#a8a8a8] text-[#222]'
+              }`}
+            >
+              {splitMode ? 'Chạm: Đặt 1 / Chia đôi' : 'Chạm: Cầm hết'}
+            </button>
+            <button
+              type="button"
+              onClick={handleSafeClose}
+              aria-label="Đóng"
+              className="mc-btn min-h-[36px] min-w-[36px] px-2.5 py-1 text-xs"
+            >
+              <X className="w-4 h-4" />
+              <span className="hidden sm:inline">Đóng</span>
+            </button>
+          </div>
         </div>
 
         {/* --- CREATIVE CATALOG --- */}
@@ -769,9 +797,7 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
         {/* --- PLAYER MAIN INVENTORY (27 SLOTS) --- */}
         <div className="mb-3">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-mc font-bold text-[#333]">
-              Túi đồ chính (Chuột trái: cầm/đổi · Chuột phải: chia nửa/đặt 1)
-            </span>
+            <span className="text-xs font-mc font-bold text-[#333]">Túi đồ chính</span>
             {cursor && (
               <McButton
                 variant="crimson"
@@ -791,7 +817,7 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                   key={slotIdx}
                   stack={inventory[slotIdx]}
                   pack={pack}
-                  size={42}
+                  size={invSlotSize}
                   onClick={() =>
                     interactSlot(inventory[slotIdx], (n) => setInvSlot(slotIdx, n))
                   }
@@ -813,7 +839,7 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                 key={idx}
                 stack={inventory[idx]}
                 pack={pack}
-                size={42}
+                size={invSlotSize}
                 onClick={() => interactSlot(inventory[idx], (n) => setInvSlot(idx, n))}
                 onContextMenu={() =>
                   interactSlot(inventory[idx], (n) => setInvSlot(idx, n), true)

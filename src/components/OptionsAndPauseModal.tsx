@@ -126,6 +126,8 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
   onSwitchTexturePreset,
   onClose,
 }) => {
+  const [switchingPack, setSwitchingPack] = React.useState(false);
+
   const update = <K extends keyof VideoSettings>(key: K, value: VideoSettings[K]) => {
     onChange({ ...settings, [key]: value });
   };
@@ -336,17 +338,26 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
 
           <McButton
             variant="primary"
+            disabled={switchingPack}
             widgetsUrl={pack?.guiUrls.widgets}
-            onClick={() =>
-              onSwitchTexturePreset(settings.texturePreset === 'current' ? 'original' : 'current')
-            }
+            onClick={async () => {
+              setSwitchingPack(true);
+              try {
+                await onSwitchTexturePreset(
+                  settings.texturePreset === 'current' ? 'original' : 'current',
+                );
+              } finally {
+                setSwitchingPack(false);
+              }
+            }}
             className="sm:col-span-2"
           >
             <Layers className="w-4 h-4" />
-            Dạng Texture:{' '}
-            {settings.texturePreset === 'original'
-              ? '2. Chính Gốc (Minecraft 1.16 Classic)'
-              : '1. Hiện Tại (NetherCraft 1.16)'}
+            {switchingPack
+              ? 'Đang chuyển bộ Texture 1.16...'
+              : settings.texturePreset === 'original'
+                ? 'Dạng Texture: 2. Chính Gốc (Minecraft 1.16 Classic)'
+                : 'Dạng Texture: 1. Hiện Tại (NetherCraft 1.16)'}
           </McButton>
         </div>
       </div>
@@ -366,7 +377,7 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
   );
 
   if (inGame) {
-    return <div className="fixed inset-0 z-35 bg-[#120f17]/92">{content}</div>;
+    return <div className="fixed inset-0 z-[35] bg-[#120f17]/92">{content}</div>;
   }
 
   return <McDirtBackdrop bgUrl={pack?.guiUrls.optionsBackground}>{content}</McDirtBackdrop>;
@@ -390,7 +401,7 @@ export const DeathModal: React.FC<DeathModalProps> = ({
   onRespawn,
   onQuitToTitle,
 }) => (
-  <div className="fixed inset-0 z-35 bg-[#5c0d0d]/78 flex items-center justify-center p-4">
+  <div className="fixed inset-0 z-[35] bg-[#5c0d0d]/78 flex items-center justify-center p-4">
     <div className="w-full max-w-[400px] text-center flex flex-col items-center gap-4">
       <Skull className="w-14 h-14 text-red-200 drop-shadow-[0_4px_0_rgba(0,0,0,0.8)]" />
       <h1 className="font-mc text-4xl font-bold text-white mc-text-shadow">Bạn Đã Chết!</h1>

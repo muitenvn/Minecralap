@@ -629,6 +629,7 @@ export class NetherCraftEngine {
 
   public setResourcePack(pack: CompiledResourcePack): void {
     this.pack = pack;
+    pack.atlasTexture.needsUpdate = true;
     this.opaqueMat.map = pack.atlasTexture;
     this.opaqueMat.needsUpdate = true;
     this.transMat.map = pack.atlasTexture;
@@ -638,6 +639,10 @@ export class NetherCraftEngine {
       for (let s = 0; s < SUBCHUNK_COUNT; s++) {
         if (entry.col.sections[s]) entry.col.dirtySections[s] = true;
       }
+    }
+    this.updateFirstPersonHeldVisual();
+    if (this.world) {
+      this.streamChunksAroundPlayer(true);
     }
   }
 
@@ -733,6 +738,9 @@ export class NetherCraftEngine {
       this.mouseLeft = false;
       this.mouseRight = false;
       this.touchBreak = false;
+      this.touchMoveX = 0;
+      this.touchMoveZ = 0;
+      this.touchJump = false;
       this.exitPointerLock();
       this.saveCurrentWorld();
     }
@@ -2596,7 +2604,7 @@ export class NetherCraftEngine {
       return;
     }
     if (e.code === 'Escape') {
-      if (!this.paused) this.callbacks.onPauseRequest();
+      if (this.mode === 'playing') this.callbacks.onPauseRequest();
       return;
     }
     if (this.paused || !this.world || this.world.player.hp <= 0) return;

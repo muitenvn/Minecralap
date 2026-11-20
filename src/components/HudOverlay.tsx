@@ -54,7 +54,16 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
 }) => {
   const [chatText, setChatText] = useState(chatInitial);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 1024,
+  );
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   useEffect(() => {
     if (chatOpen) {
@@ -97,8 +106,11 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   const now = performance.now();
   const showToast = hud.heldItemToast && now - hud.heldItemToastAt < 2400;
   const showBanner = titleBanner && Date.now() < titleBanner.expiresAt;
-  const slotSize =
-    guiScale === 'small' ? 36 : guiScale === 'large' ? 48 : touchVisible ? 38 : 44;
+  const baseSlotSize =
+    guiScale === 'small' ? 36 : guiScale === 'large' ? 48 : touchVisible ? 40 : 44;
+  const hotbarCount = touchVisible ? 10 : 9;
+  const maxFitSlot = Math.floor((viewportWidth - 24 - (hotbarCount - 1) * 2) / hotbarCount);
+  const slotSize = Math.max(28, Math.min(baseSlotSize, maxFitSlot));
 
   const isSurvival = hud.gameMode === 'survival' || hud.gameMode === 'adventure';
   const compassDirs = ['Nam (+Z)', 'Tây (-X)', 'Bắc (-Z)', 'Đông (+X)'];
@@ -106,7 +118,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   const dirLabel = compassDirs[Math.floor(((deg + 45) % 360) / 90)];
 
   return (
-    <div className="fixed inset-0 z-10 pointer-events-none select-none overflow-hidden">
+    <div className="fixed inset-0 z-[25] pointer-events-none select-none overflow-hidden">
       {/* Red Damage Flash Vignette */}
       {hud.damageFlash > 0.02 && (
         <div
@@ -450,7 +462,10 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
         )}
 
         {/* 9-Slot Minecraft Hotbar + Mobile Inventory Button */}
-        <div className="mc-hotbar-shell flex items-center p-1 gap-0.5">
+        <div
+          className="mc-hotbar-shell flex items-center p-1 gap-0.5 pointer-events-auto"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
           {Array.from({ length: 9 }).map((_, idx) => (
             <McItemSlot
               key={idx}
@@ -458,16 +473,25 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               pack={pack}
               active={hud.selectedSlot === idx}
               size={slotSize}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                onSelectSlot(idx);
+              }}
               onClick={() => onSelectSlot(idx)}
             />
           ))}
           {touchVisible && (
             <button
               type="button"
-              onClick={onOpenInventory}
-              title="Mở Túi Đồ"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenInventory();
+              }}
+              title="Mở Túi Đồ & Chế Tạo"
+              aria-label="Mở Túi Đồ và Chế Tạo"
               style={{ width: slotSize, height: slotSize }}
-              className="mc-slot flex items-center justify-center font-mc font-bold text-white mc-text-shadow-sm cursor-pointer"
+              className="mc-slot flex items-center justify-center font-mc font-bold text-[#fde68a] mc-text-shadow-sm cursor-pointer active:bg-white/30 touch-manipulation"
             >
               ···
             </button>

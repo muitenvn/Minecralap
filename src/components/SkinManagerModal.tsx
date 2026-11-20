@@ -230,7 +230,7 @@ export const SkinManagerModal: React.FC<SkinManagerModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-40 bg-black/75 flex items-center justify-center p-2 sm:p-5 overflow-y-auto"
+      className="fixed inset-0 z-40 bg-black/75 flex items-start sm:items-center justify-center p-2 sm:p-5 overflow-y-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

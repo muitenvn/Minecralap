@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Backpack,
   Bug,
   Camera,
   Hammer,
@@ -28,6 +29,7 @@ interface MobileTouchControlsProps {
   onOpenChat: () => void;
   onToggleF3: () => void;
   onCycleCamera: () => void;
+  onOpenInventory: () => void;
   onOpenSkin: () => void;
   onToggleFullscreen: () => void;
   onPause: () => void;
@@ -46,6 +48,7 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
   onOpenChat,
   onToggleF3,
   onCycleCamera,
+  onOpenInventory,
   onOpenSkin,
   onToggleFullscreen,
   onPause,
@@ -107,75 +110,90 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
     }`;
 
   return (
-    <div className="fixed inset-0 z-15 pointer-events-none select-none">
-      {/* Full-screen transparent look drag surface behind buttons */}
+    <>
+      {/* Full-screen transparent look drag surface at z-10 (BELOW HUD hotbar z-[25] & touch buttons z-20) */}
       <div
-        className="absolute inset-0 pointer-events-auto touch-none"
+        className="fixed inset-0 z-10 pointer-events-auto touch-none select-none"
         onPointerDown={handleLookDown}
         onPointerMove={handleLookMove}
         onPointerUp={handleLookUp}
         onPointerCancel={handleLookUp}
       />
 
-      {/* Top compact Minecraft Touch Bar */}
-      <div className="absolute top-2.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 pointer-events-auto">
-        <button
-          type="button"
-          onClick={onOpenChat}
-          aria-label="Mở Chat và Lệnh"
-          className="min-w-[44px] min-h-[42px] px-2.5 bg-[#120f1a]/80 border-2 border-white/25 text-white flex items-center justify-center gap-1 text-xs font-mc cursor-pointer active:bg-white/25"
+      {/* Interactive Mobile Controls at z-20 */}
+      <div className="fixed inset-0 z-20 pointer-events-none select-none">
+        {/* Top compact Minecraft Touch Bar */}
+        <div
+          className="absolute top-2 left-1/2 -translate-x-1/2 max-w-[96vw] flex flex-wrap items-center justify-center gap-1 pointer-events-auto"
+          onPointerDown={(e) => e.stopPropagation()}
         >
-          <MessageSquare className="w-4 h-4" />
-          <span className="hidden xs:inline">Lệnh</span>
-        </button>
+          <button
+            type="button"
+            onClick={onOpenInventory}
+            aria-label="Mở Túi Đồ và Chế Tạo"
+            className="min-w-[40px] min-h-[38px] px-2 bg-[#120f1a]/85 border-2 border-amber-400/60 text-[#fde68a] flex items-center justify-center gap-1 text-xs font-mc cursor-pointer active:bg-white/25 touch-manipulation"
+          >
+            <Backpack className="w-4 h-4" />
+            <span>Túi đồ</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={onCycleCamera}
-          aria-label="Đổi góc nhìn F5"
-          className="min-w-[44px] min-h-[42px] px-2.5 bg-[#120f1a]/80 border-2 border-white/25 text-[#5eead4] flex items-center justify-center gap-1 text-xs font-mc cursor-pointer active:bg-white/25"
-        >
-          <Camera className="w-4 h-4" />
-          <span>F5</span>
-        </button>
+          <button
+            type="button"
+            onClick={onOpenChat}
+            aria-label="Mở Chat và Lệnh"
+            className="min-w-[40px] min-h-[38px] px-2 bg-[#120f1a]/85 border-2 border-white/25 text-white flex items-center justify-center gap-1 text-xs font-mc cursor-pointer active:bg-white/25 touch-manipulation"
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span className="hidden sm:inline">Lệnh</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={onOpenSkin}
-          aria-label="Đổi Skin và Model"
-          className="min-w-[44px] min-h-[42px] px-2.5 bg-[#120f1a]/80 border-2 border-white/25 text-[#fde68a] flex items-center justify-center gap-1 text-xs font-mc cursor-pointer active:bg-white/25"
-        >
-          <User className="w-4 h-4" />
-          <span>Skin</span>
-        </button>
+          <button
+            type="button"
+            onClick={onCycleCamera}
+            aria-label="Đổi góc nhìn F5"
+            className="min-w-[40px] min-h-[38px] px-2 bg-[#120f1a]/85 border-2 border-white/25 text-[#5eead4] flex items-center justify-center gap-1 text-xs font-mc cursor-pointer active:bg-white/25 touch-manipulation"
+          >
+            <Camera className="w-4 h-4" />
+            <span>F5</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={onToggleF3}
-          aria-label="Bật tắt F3"
-          className="min-w-[44px] min-h-[42px] px-2.5 bg-[#120f1a]/80 border-2 border-white/25 text-white flex items-center justify-center gap-1 text-xs font-mono-num cursor-pointer active:bg-white/25"
-        >
-          <Bug className="w-4 h-4" />
-        </button>
+          <button
+            type="button"
+            onClick={onOpenSkin}
+            aria-label="Đổi Skin và Model"
+            className="min-w-[40px] min-h-[38px] px-2 bg-[#120f1a]/85 border-2 border-white/25 text-[#fde68a] flex items-center justify-center gap-1 text-xs font-mc cursor-pointer active:bg-white/25 touch-manipulation"
+          >
+            <User className="w-4 h-4" />
+            <span className="hidden sm:inline">Skin</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={onToggleFullscreen}
-          aria-label={isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
-          className="min-w-[44px] min-h-[42px] px-2.5 bg-[#120f1a]/80 border-2 border-white/25 text-[#5eead4] flex items-center justify-center gap-1 text-xs font-mc cursor-pointer active:bg-white/25"
-        >
-          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-        </button>
+          <button
+            type="button"
+            onClick={onToggleF3}
+            aria-label="Bật tắt F3"
+            className="min-w-[40px] min-h-[38px] px-2 bg-[#120f1a]/85 border-2 border-white/25 text-white flex items-center justify-center gap-1 text-xs font-mono-num cursor-pointer active:bg-white/25 touch-manipulation"
+          >
+            <Bug className="w-4 h-4" />
+          </button>
 
-        <button
-          type="button"
-          onClick={onPause}
-          aria-label="Tạm dừng"
-          className="min-w-[44px] min-h-[42px] px-2.5 bg-[#120f1a]/80 border-2 border-white/25 text-white flex items-center justify-center gap-1 text-xs font-mc cursor-pointer active:bg-white/25"
-        >
-          <Pause className="w-4 h-4" />
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={onToggleFullscreen}
+            aria-label={isFullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
+            className="min-w-[40px] min-h-[38px] px-2 bg-[#120f1a]/85 border-2 border-white/25 text-[#5eead4] flex items-center justify-center gap-1 text-xs font-mc cursor-pointer active:bg-white/25 touch-manipulation"
+          >
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={onPause}
+            aria-label="Tạm dừng"
+            className="min-w-[40px] min-h-[38px] px-2 bg-[#120f1a]/85 border-2 border-white/25 text-white flex items-center justify-center gap-1 text-xs font-mc cursor-pointer active:bg-white/25 touch-manipulation"
+          >
+            <Pause className="w-4 h-4" />
+          </button>
+        </div>
 
       {/* Bottom-Left Minecraft D-Pad (Thumb zone, above hotbar on small screens) */}
       <div className="absolute left-3 bottom-20 sm:bottom-16 grid grid-cols-3 gap-1 pointer-events-auto touch-none">
@@ -330,6 +348,7 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
           {flying ? 'BAY LÊN (2× NHẢY)' : 'NHẢY'}
         </button>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
