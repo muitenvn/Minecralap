@@ -43,7 +43,7 @@ import {
   VideoSettings,
   WorldSave,
 } from './game/types';
-import { buildOriginalMinecraftPack } from './game/vanillaTextures';
+import { buildFaithfulHdPlusPack, buildOriginalMinecraftPack } from './game/vanillaTextures';
 
 type AppScreen =
   | 'boot'
@@ -289,25 +289,35 @@ export default function App() {
         ]);
         if (!alive) return;
 
-        if (!cachedPack || cachedPack.sourceType === 'github-default') {
-          setBootStatus('Đang nạp gói Texture 32×32 HD 1.16...');
-          cachedPack = await buildHd32DefaultPack(cachedPack?.guiBlobs);
+        if (
+          !cachedPack ||
+          cachedPack.sourceType === 'github-default' ||
+          cachedPack.sourceType === 'hd-32' ||
+          (cachedPack.sourceType === 'faithful-32x' &&
+            cachedPack.version !== '1.16.5-faithful32-hdplus-v1')
+        ) {
+          setBootStatus('Đang nạp gói chính thức HD+ Faithful 32x (Block & Vật phẩm 1.16)...');
+          cachedPack = await buildFaithfulHdPlusPack(cachedPack?.guiBlobs);
           if (!alive) return;
         } else if (
           cachedPack.sourceType === 'original-classic' &&
-          cachedPack.version !== '1.16.5-official-v2'
+          cachedPack.version !== '1.16.5-official-v3'
         ) {
-          setBootStatus('Đang cập nhật Texture Minecraft 1.16.5 Chính Gốc...');
+          setBootStatus('Đang cập nhật Minecraft 1.16.5 Chính Gốc (Block & Vật phẩm)...');
           cachedPack = await buildOriginalMinecraftPack(cachedPack.guiBlobs);
           if (!alive) return;
         }
 
-        setBootStatus('Đang biên dịch Texture Atlas 32×32 HD & giao diện 1.16...');
+        setBootStatus('Đang biên dịch Texture Atlas 32×32 HD+ & icon vật phẩm 1.16...');
         await applyCompiledPack(cachedPack);
         if (!alive) return;
 
         const detectedPreset: TexturePreset =
-          cachedPack.sourceType === 'original-classic' ? 'original' : 'current';
+          cachedPack.sourceType === 'faithful-32x'
+            ? 'hd_plus'
+            : cachedPack.sourceType === 'original-classic'
+              ? 'original'
+              : 'current';
         setSettings((prev) => {
           if (prev.texturePreset === detectedPreset) return prev;
           const synced = { ...prev, texturePreset: detectedPreset };
@@ -371,7 +381,9 @@ export default function App() {
     async (preset: TexturePreset) => {
       const existing = await loadActiveResourcePack();
       let nextCached: CachedResourcePack;
-      if (preset === 'original') {
+      if (preset === 'hd_plus') {
+        nextCached = await buildFaithfulHdPlusPack(existing?.guiBlobs);
+      } else if (preset === 'original') {
         nextCached = await buildOriginalMinecraftPack(existing?.guiBlobs);
       } else {
         nextCached = await buildHd32DefaultPack(existing?.guiBlobs);

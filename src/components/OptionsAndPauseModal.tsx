@@ -340,9 +340,9 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
             onClick={async () => {
               setSwitchingPack(true);
               try {
-                await onSwitchTexturePreset(
-                  settings.texturePreset === 'current' ? 'original' : 'current',
-                );
+                const order: TexturePreset[] = ['hd_plus', 'original', 'current'];
+                const nextPreset = order[(order.indexOf(settings.texturePreset) + 1) % order.length];
+                await onSwitchTexturePreset(nextPreset);
               } finally {
                 setSwitchingPack(false);
               }
@@ -352,9 +352,11 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
             <Layers className="w-4 h-4" />
             {switchingPack
               ? 'Đang đổi Texture...'
-              : settings.texturePreset === 'original'
-                ? 'Texture: Chính Gốc 1.16'
-                : 'Texture: 32×32 HD'}
+              : settings.texturePreset === 'hd_plus'
+                ? 'Texture: HD+ (Faithful 32x)'
+                : settings.texturePreset === 'original'
+                  ? 'Texture: Chính Gốc 1.16'
+                  : 'Texture: 32×32 Offline'}
           </McButton>
         </div>
       </div>

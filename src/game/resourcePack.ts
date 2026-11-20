@@ -290,10 +290,30 @@ export async function importZipResourcePack(
   const buf = new Uint8Array(await file.arrayBuffer());
   const unzipped = unzipSync(buf);
   const blockBlobs: Record<string, Blob> = { ...fallback.blockBlobs };
+  const itemBlobs: Record<string, Blob> = { ...(fallback.itemBlobs || {}) };
   const guiBlobs: Record<string, Blob> = { ...fallback.guiBlobs };
   const keySet = new Set(ALL_TEXTURE_KEYS);
+  const zipItemAlias: Record<string, string> = {
+    golden_helmet: 'gold_helmet',
+    golden_chestplate: 'gold_chestplate',
+    golden_leggings: 'gold_leggings',
+    golden_boots: 'gold_boots',
+    porkchop: 'raw_porkchop',
+    beef: 'raw_beef',
+    cooked_beef: 'steak',
+    chicken: 'raw_chicken',
+    mutton: 'raw_mutton',
+    rabbit: 'raw_rabbit',
+    cod: 'raw_cod',
+    salmon: 'raw_salmon',
+    clock_00: 'clock',
+    compass_00: 'compass',
+    crossbow_standby: 'crossbow',
+    ender_eye: 'eye_of_ender',
+  };
 
   let replacedBlocks = 0;
+  let replacedItems = 0;
   let replacedGui = 0;
   let loadedBytes = 0;
 
@@ -310,6 +330,19 @@ export async function importZipResourcePack(
       continue;
     }
 
+    // Match item textures (both 1.16 "item/" and legacy "items/")
+    const itemMatch = lower.match(/(?:textures\/items?\/)([^/]+)\.png$/);
+    if (itemMatch) {
+      const rawName = itemMatch[1];
+      const mappedId = ITEM_DEFS[rawName] ? rawName : zipItemAlias[rawName];
+      if (mappedId && ITEM_DEFS[mappedId]) {
+        itemBlobs[mappedId] = new Blob([data], { type: 'image/png' });
+        replacedItems++;
+        loadedBytes += data.byteLength;
+        continue;
+      }
+    }
+
     // Match GUI textures (widgets.png, icons.png, options_background.png)
     const guiMatch = lower.match(/(?:textures\/gui\/)(widgets|icons|options_background)\.png$/);
     if (guiMatch) {
@@ -319,9 +352,9 @@ export async function importZipResourcePack(
     }
   }
 
-  if (replacedBlocks === 0 && replacedGui === 0) {
+  if (replacedBlocks === 0 && replacedItems === 0 && replacedGui === 0) {
     throw new Error(
-      'File .zip không chứa thư mục textures/block/*.png hoặc textures/gui/*.png chuẩn Minecraft 1.16.',
+      'File .zip không chứa thư mục textures/block/*.png, textures/item/*.png hoặc textures/gui/*.png chuẩn Minecraft 1.16.',
     );
   }
 
@@ -329,11 +362,12 @@ export async function importZipResourcePack(
     id: 'active_pack',
     name: file.name.replace(/\.zip$/i, ''),
     version: '1.16.5 ZIP',
-    sourceLabel: `Gói ZIP cục bộ (${replacedBlocks} block · ${replacedGui} UI)`,
+    sourceLabel: `Gói ZIP cục bộ (${replacedBlocks} block · ${replacedItems} vật phẩm · ${replacedGui} UI)`,
     sourceType: 'zip-upload',
     downloadedAt: Date.now(),
     totalBytes: loadedBytes || file.size,
     blockBlobs,
+    itemBlobs,
     guiBlobs,
   };
   await saveResourcePack(record);
@@ -573,7 +607,8 @@ export async function compileResourcePack(
   const cols = Math.ceil(Math.sqrt(keys.length));
   const atlasDim = Math.pow(2, Math.ceil(Math.log2(cols * TILE)));
   const tilesPerRow = atlasDim / TILE;
-  const useHd32 = cached.sourceType === 'hd-32';
+  const useHd32Only = cached.sourceType === 'hd-32';
+  const useHd32Fallback = cached.sourceType === 'hd-32' || cached.sourceType === 'faithful-32x';
 
   const atlasCanvas = document.createElement('canvas');
   atlasCanvas.width = atlasDim;
@@ -603,7 +638,7 @@ export async function compileResourcePack(
       const row = Math.floor(idx / tilesPerRow);
       const px = col * TILE;
       const py = row * TILE;
-      const blob = useHd32 ? undefined : cached.blockBlobs[key];
+      const blob = useHd32Only ? undefined : cached.blockBlobs[key];
       let drawn = false;
       if (blob) {
         try {
@@ -618,7 +653,7 @@ export async function compileResourcePack(
         }
       }
       if (!drawn) {
-        const fallbackCanvas = useHd32
+        const fallbackCanvas = useHd32Fallback
           ? paintHd32BlockCanvas(key)
           : paintOriginalBlockCanvas(key);
         tileImages[key] = fallbackCanvas;
@@ -645,7 +680,21 @@ export async function compileResourcePack(
     }),
   );
 
-  // Build crisp 2D item icon cache for Inventory / Hotbar / Crafting UI
+  // Decode all real item PNG textures in parallel (Faithful 32x / Official 1.16.5 / Custom ZIP)
+  const decodedItemImages: Record<string, HTMLImageElement> = {};
+  if (cached.itemBlobs) {
+    await Promise.all(
+      Object.entries(cached.itemBlobs).map(async ([itemId, blob]) => {
+        try {
+          decodedItemImages[itemId] = await decodeSharedBlob(blob);
+        } catch {
+          // fallback icon will be used
+        }
+      }),
+    );
+  }
+
+  // Build crisp 32x32 2D item icon cache for Inventory / Hotbar / Crafting / Held Hand
   const itemIcons: Record<string, string> = {};
   const iconCanvas = document.createElement('canvas');
   iconCanvas.width = 32;
@@ -654,6 +703,15 @@ export async function compileResourcePack(
   iconCtx.imageSmoothingEnabled = false;
 
   for (const item of Object.values(ITEM_DEFS)) {
+    const realItemImg = decodedItemImages[item.id];
+    if (realItemImg) {
+      iconCtx.clearRect(0, 0, 32, 32);
+      iconCtx.imageSmoothingEnabled = false;
+      const s = Math.min(realItemImg.width, realItemImg.height);
+      iconCtx.drawImage(realItemImg, 0, 0, s, s, 0, 0, 32, 32);
+      itemIcons[item.id] = iconCanvas.toDataURL('image/png');
+      continue;
+    }
     if (item.blockId !== undefined) {
       const bdef = BLOCK_DEFS[item.blockId];
       const topImg = tileImages[bdef.textures.top];
@@ -772,7 +830,7 @@ export async function compileResourcePack(
       sourceType: cached.sourceType,
       downloadedAt: cached.downloadedAt,
       totalBytes: cached.totalBytes,
-      blockCount: useHd32 ? keys.length : Math.max(Object.keys(cached.blockBlobs).length, keys.length),
+      blockCount: useHd32Only ? keys.length : Math.max(Object.keys(cached.blockBlobs).length, keys.length),
       guiCount: Object.keys(cached.guiBlobs).length,
     },
     atlasTexture,

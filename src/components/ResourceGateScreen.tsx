@@ -9,6 +9,7 @@ import {
 } from '../game/resourcePack';
 import { clearResourcePackCache, loadActiveResourcePack } from '../game/storage';
 import { CachedResourcePack, TexturePreset } from '../game/types';
+import { buildFaithfulHdPlusPack } from '../game/vanillaTextures';
 import { McButton, McTitleLogo } from './McSprites';
 
 interface ResourceGateScreenProps {
@@ -51,11 +52,11 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
     setDownloading(true);
     try {
       const existing = await loadActiveResourcePack();
-      const cached = await buildHd32DefaultPack(existing?.guiBlobs);
+      const cached = await buildFaithfulHdPlusPack(existing?.guiBlobs);
       await onPackReady(cached);
-      setNotice('Đã nạp thành công Dạng 1: Texture 32×32 HD (Mặc Định)!');
+      setNotice('Đã nạp thành công gói chính thức HD+ Faithful 32x (Block + Vật phẩm)!');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Lỗi nạp gói tài nguyên 32×32 HD.');
+      setError(e instanceof Error ? e.message : 'Lỗi nạp gói HD+ Faithful 32x.');
     } finally {
       setDownloading(false);
     }
@@ -68,9 +69,11 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
     try {
       await onSelectPreset(preset);
       setNotice(
-        preset === 'original'
-          ? 'Đã chuyển sang Dạng 2: Minecraft 1.16.5 Chính Gốc (Official Vanilla)!'
-          : 'Đã chuyển sang Dạng 1: Texture 32×32 HD (Mặc Định)!',
+        preset === 'hd_plus'
+          ? 'Đã áp dụng HD+ Faithful 32x (Block + Vật phẩm + Thuốc + UI)!'
+          : preset === 'original'
+            ? 'Đã chuyển sang Minecraft 1.16.5 Chính Gốc (Block + Vật phẩm)!'
+            : 'Đã chuyển sang 32×32 Offline (Nhẹ)!',
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không thể chuyển bộ texture.');
@@ -166,7 +169,7 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
               }`}
             >
               <Download className="w-4 h-4 shrink-0" />
-              <span className="truncate">2 Dạng Texture</span>
+              <span className="truncate">HD+ &amp; Chính Gốc</span>
             </button>
             <button
               type="button"
@@ -194,63 +197,111 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
             </button>
           </div>
 
-          {/* Tab contents: 2 Built-in Texture Presets */}
+          {/* Tab contents: Official HD+ Faithful 32x + Original 1.16.5 + Offline 32x */}
           {sourceTab === 'default' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            <div className="space-y-3 mb-4">
+              {/* Featured Official HD+ Section */}
               <div
-                className={`p-3.5 border-2 flex flex-col justify-between gap-3 ${
-                  texturePreset === 'current'
-                    ? 'bg-[#1a292b] border-[#2dd4bf]'
-                    : 'bg-[#110f16] border-white/10'
+                className={`p-3.5 border-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                  texturePreset === 'hd_plus'
+                    ? 'bg-[#1a292b] border-[#fde047]'
+                    : 'bg-[#15121c] border-amber-500/40'
                 }`}
               >
                 <div>
-                  <div className="text-sm font-mc font-bold text-[#fde68a]">
-                    1. Texture 32×32 HD (Mặc Định)
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-mc font-bold px-1.5 py-0.5 bg-[#eab308] text-black">
+                      HD+ · CHÍNH THỨC
+                    </span>
+                    <span className="text-sm font-mc font-bold text-[#fde68a]">
+                      Faithful 32x (Minecraft 1.16.5 HD+)
+                    </span>
                   </div>
                   <div className="text-xs text-zinc-300 mt-1">
-                    Độ phân giải 32×32 HD sắc nét (Faithful style) cho toàn bộ 337 khối 1.16, chuyển đổi tức thì không cần chờ tải.
+                    Gói chính thức 32×32 sắc nét cho cả <strong>Block, Vật phẩm, Vũ khí, Giáp, Thuốc &amp; UI</strong>, tối ưu màu biome và lưu cache đổi tức thì.
                   </div>
                 </div>
                 <McButton
-                  variant={texturePreset === 'current' ? 'primary' : 'stone'}
+                  variant={texturePreset === 'hd_plus' ? 'primary' : 'stone'}
                   disabled={downloading}
                   onClick={() =>
-                    compiledPack ? handleSwitchPreset('current') : handleDownloadDefault()
+                    compiledPack ? handleSwitchPreset('hd_plus') : handleDownloadDefault()
                   }
-                  className="w-full text-xs"
+                  className="shrink-0 sm:min-w-[165px] text-xs"
                   widgetsUrl={compiledPack?.guiUrls.widgets}
                 >
                   {downloading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                  {texturePreset === 'current' && compiledPack ? 'Đang dùng · Nạp lại' : 'Dùng Texture 32×32 HD'}
+                  {texturePreset === 'hd_plus' && compiledPack ? 'Đang dùng HD+' : 'Dùng HD+ (32x)'}
                 </McButton>
               </div>
 
-              <div
-                className={`p-3.5 border-2 flex flex-col justify-between gap-3 ${
-                  texturePreset === 'original'
-                    ? 'bg-[#1a292b] border-[#2dd4bf]'
-                    : 'bg-[#110f16] border-white/10'
-                }`}
-              >
-                <div>
-                  <div className="text-sm font-mc font-bold text-[#5eead4]">
-                    2. Minecraft 1.16.5 Chính Gốc (Vanilla)
-                  </div>
-                  <div className="text-xs text-zinc-300 mt-1">
-                    Tải trực tiếp bộ ảnh khối Minecraft Java 1.16.5 thật (đúng màu cỏ, nước, đá, gỗ, Nether gốc) và lưu cache để đổi tức thì.
-                  </div>
-                </div>
-                <McButton
-                  variant={texturePreset === 'original' ? 'primary' : 'stone'}
-                  disabled={downloading}
-                  onClick={() => handleSwitchPreset('original')}
-                  className="w-full text-xs"
-                  widgetsUrl={compiledPack?.guiUrls.widgets}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div
+                  className={`p-3 border-2 flex flex-col justify-between gap-2.5 ${
+                    texturePreset === 'original'
+                      ? 'bg-[#1a292b] border-[#2dd4bf]'
+                      : 'bg-[#110f16] border-white/10'
+                  }`}
                 >
-                  {downloading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                  {texturePreset === 'original' && compiledPack ? 'Đang dùng · Nạp lại' : 'Dùng Chính Gốc 1.16'}
-                </McButton>
+                  <div>
+                    <div className="text-sm font-mc font-bold text-[#5eead4]">
+                      Chính Gốc (Minecraft 1.16.5)
+                    </div>
+                    <div className="text-xs text-zinc-300 mt-1">
+                      Bộ texture 16×16 gốc thật của Minecraft Java 1.16.5 (đủ cả Block, Vật phẩm &amp; Thuốc).
+                    </div>
+                  </div>
+                  <McButton
+                    variant={texturePreset === 'original' ? 'primary' : 'stone'}
+                    disabled={downloading}
+                    onClick={() => handleSwitchPreset('original')}
+                    className="w-full text-xs"
+                    widgetsUrl={compiledPack?.guiUrls.widgets}
+                  >
+                    {downloading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                    {texturePreset === 'original' && compiledPack ? 'Đang dùng' : 'Dùng Chính Gốc'}
+                  </McButton>
+                </div>
+
+                <div
+                  className={`p-3 border-2 flex flex-col justify-between gap-2.5 ${
+                    texturePreset === 'current'
+                      ? 'bg-[#1a292b] border-[#2dd4bf]'
+                      : 'bg-[#110f16] border-white/10'
+                  }`}
+                >
+                  <div>
+                    <div className="text-sm font-mc font-bold text-zinc-100">
+                      32×32 Offline (Nhẹ)
+                    </div>
+                    <div className="text-xs text-zinc-300 mt-1">
+                      Gói 32×32 tích hợp sẵn trong app, chạy không cần tải mạng.
+                    </div>
+                  </div>
+                  <McButton
+                    variant={texturePreset === 'current' ? 'primary' : 'stone'}
+                    disabled={downloading}
+                    onClick={async () => {
+                      if (compiledPack) {
+                        await handleSwitchPreset('current');
+                      } else {
+                        setDownloading(true);
+                        try {
+                          const existing = await loadActiveResourcePack();
+                          const cached = await buildHd32DefaultPack(existing?.guiBlobs);
+                          await onPackReady(cached);
+                        } finally {
+                          setDownloading(false);
+                        }
+                      }
+                    }}
+                    className="w-full text-xs"
+                    widgetsUrl={compiledPack?.guiUrls.widgets}
+                  >
+                    {downloading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                    {texturePreset === 'current' && compiledPack ? 'Đang dùng' : 'Dùng 32×32 Offline'}
+                  </McButton>
+                </div>
               </div>
             </div>
           )}

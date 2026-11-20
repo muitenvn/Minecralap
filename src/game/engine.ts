@@ -439,6 +439,60 @@ export class NetherCraftEngine {
     this.emitHud();
   }
 
+  private heldTexCache = new Map<string, THREE.Texture>();
+
+  private getHeldTexture(itemId: string): THREE.Texture | null {
+    if (!this.pack) return null;
+    const cached = this.heldTexCache.get(itemId);
+    if (cached) return cached;
+
+    const def = ITEM_DEFS[itemId];
+    if (!def) return null;
+
+    // For full 3D cubes, crop the real block texture directly from the 32x32 atlas
+    if (def.blockId !== undefined) {
+      const bdef = BLOCK_DEFS[def.blockId];
+      const texKey = bdef.textures.front || bdef.textures.side;
+      const uv = this.pack.uvMap[texKey];
+      if (uv) {
+        const atlas = this.pack.atlasCanvas;
+        const sx = Math.round(uv.u0 * atlas.width);
+        const sy = Math.round((1 - uv.v1) * atlas.height);
+        const sw = Math.max(1, Math.round((uv.u1 - uv.u0) * atlas.width));
+        const sh = Math.max(1, Math.round((uv.v1 - uv.v0) * atlas.height));
+        const c = document.createElement('canvas');
+        c.width = 32;
+        c.height = 32;
+        const ctx = c.getContext('2d')!;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(atlas, sx, sy, sw, sh, 0, 0, 32, 32);
+        const tex = new THREE.CanvasTexture(c);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.magFilter = THREE.NearestFilter;
+        tex.minFilter = THREE.NearestFilter;
+        tex.generateMipmaps = false;
+        this.heldTexCache.set(itemId, tex);
+        return tex;
+      }
+    }
+
+    // For tools, weapons, food, potions, armor, etc., use the actual pack 2D item sprite
+    const dataUrl = this.pack.itemIcons[itemId];
+    if (!dataUrl) return null;
+    const img = new Image();
+    const tex = new THREE.Texture(img);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    img.onload = () => {
+      tex.needsUpdate = true;
+    };
+    img.src = dataUrl;
+    this.heldTexCache.set(itemId, tex);
+    return tex;
+  }
+
   private updateFirstPersonHeldVisual(): void {
     if (!this.world) return;
     const stack = this.world.player.inventory[this.world.player.selectedSlot];
@@ -456,28 +510,35 @@ export class NetherCraftEngine {
       held.visible = true;
       const def = ITEM_DEFS[stack.itemId];
       const mat = held.material as THREE.MeshStandardMaterial;
-      if (def?.toolKind && def.toolKind !== 'none') {
-        held.scale.set(0.38, 1.45, 0.38);
-        mat.color.set(def.iconColor || '#d4d8dc');
-        mat.metalness = def.toolTier && def.toolTier >= 3 ? 0.72 : 0.15;
-        mat.roughness = def.toolTier && def.toolTier >= 3 ? 0.22 : 0.75;
-      } else if (def?.blockId) {
+      const tex = this.getHeldTexture(stack.itemId);
+
+      if (def?.blockId !== undefined) {
         held.scale.set(1.0, 1.0, 1.0);
-        const bdef = BLOCK_DEFS[def.blockId];
-        const colMap: Record<string, number> = {
-          obsidian: 0x261a3b, crying_obsidian: 0x5b21b6, netherrack: 0x7c2d2d,
-          crimson_nylium: 0x9f1239, warped_nylium: 0x0f766e, blackstone: 0x2e2a36,
-          ancient_debris: 0x6b4b3e, shroomlight: 0xf59e0b, grass_block: 0x5ca63e,
-          oak_planks: 0xa2824e, cobblestone: 0x747474,
-        };
-        mat.color.setHex(colMap[bdef.key] ?? 0x8b8b8b);
+        mat.map = tex;
+        mat.color.setHex(tex ? 0xffffff : 0x8b8b8b);
+        mat.transparent = Boolean(BLOCK_DEFS[def.blockId]?.transparent);
+        mat.alphaTest = BLOCK_DEFS[def.blockId]?.transparent ? 0.4 : 0;
         mat.metalness = 0.05;
         mat.roughness = 0.85;
-      } else {
-        held.scale.set(0.65, 0.65, 0.65);
-        mat.color.set(def?.iconColor || '#e5e7eb');
-        mat.metalness = 0.35;
+        mat.needsUpdate = true;
+      } else if (def?.toolKind && def.toolKind !== 'none') {
+        held.scale.set(1.25, 1.25, 0.14);
+        mat.map = tex;
+        mat.color.setHex(tex ? 0xffffff : 0xd4d8dc);
+        mat.transparent = Boolean(tex);
+        mat.alphaTest = tex ? 0.45 : 0;
+        mat.metalness = def.toolTier && def.toolTier >= 3 ? 0.35 : 0.1;
         mat.roughness = 0.45;
+        mat.needsUpdate = true;
+      } else {
+        held.scale.set(0.95, 0.95, 0.12);
+        mat.map = tex;
+        mat.color.setHex(tex ? 0xffffff : 0xe5e7eb);
+        mat.transparent = Boolean(tex);
+        mat.alphaTest = tex ? 0.45 : 0;
+        mat.metalness = 0.15;
+        mat.roughness = 0.5;
+        mat.needsUpdate = true;
       }
     }
   }
@@ -620,6 +681,8 @@ export class NetherCraftEngine {
 
   public setResourcePack(pack: CompiledResourcePack): void {
     this.pack = pack;
+    for (const tex of this.heldTexCache.values()) tex.dispose();
+    this.heldTexCache.clear();
     pack.atlasTexture.needsUpdate = true;
     this.opaqueMat.map = pack.atlasTexture;
     this.opaqueMat.needsUpdate = true;

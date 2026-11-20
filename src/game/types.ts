@@ -50,7 +50,7 @@ export interface GameRules {
   naturalRegeneration: boolean;
 }
 
-export type TexturePreset = 'current' | 'original';
+export type TexturePreset = 'hd_plus' | 'current' | 'original';
 export type CameraMode = 'first' | 'third_back' | 'third_front';
 export type SkinArmModel = 'classic' | 'slim';
 
@@ -140,7 +140,7 @@ export const DEFAULT_VIDEO_SETTINGS: VideoSettings = {
   volume: 0.75,
   muted: false,
   touchMode: 'auto',
-  texturePreset: 'current',
+  texturePreset: 'hd_plus',
 };
 
 export interface FurnaceState {
@@ -282,11 +282,12 @@ export interface CachedResourcePack {
   name: string;
   version: string;
   sourceLabel: string;
-  sourceType: 'hd-32' | 'github-default' | 'original-classic' | 'github-raw' | 'zip-upload';
+  sourceType: 'faithful-32x' | 'hd-32' | 'github-default' | 'original-classic' | 'github-raw' | 'zip-upload';
   sourceUrl?: string;
   downloadedAt: number;
   totalBytes: number;
   blockBlobs: Record<string, Blob>; // textureKey -> PNG Blob
+  itemBlobs?: Record<string, Blob>; // itemId -> PNG Blob
   guiBlobs: Record<string, Blob>; // 'widgets' | 'icons' | 'options_background' -> PNG Blob
 }
 
