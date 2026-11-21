@@ -12,6 +12,12 @@ import {
   isBlockSolid,
   isBlockTransparent,
 } from './blocks';
+import { unlockAdvancement } from './advancements';
+import {
+  BEACON_EFFECT_LABELS_VI,
+  checkWitherSummonPattern,
+  evaluateBeaconPyramid,
+} from './bossesAndBeacon';
 import { stepBrewingStand } from './brewing';
 import { buildSubChunkGeometry } from './chunkMesher';
 import { computeJavaMeleeAttack, stepAttackCooldown } from './combat';
@@ -22,8 +28,15 @@ import {
   MOB_SPECS,
   MobEntity,
   MobType,
+  stepAllyGuardianCombat,
   updateMobAI,
 } from './mobs';
+import {
+  isGravityBlock,
+  settleFallingBlocks,
+  stepFluidSpread,
+  WorldBlockIO,
+} from './physicsWorld';
 import {
   animatePlayerRig,
   buildExtrudedItemGeometry,
@@ -33,6 +46,13 @@ import {
   PlayerRig,
   updateRigArmorVisuals,
 } from './playerSkin';
+import {
+  applyHeroOfTheVillageDiscount,
+  createRaid,
+  getRaidWaveMobTypes,
+  RaidState,
+  recordRaidKill,
+} from './raid';
 import { SMELTING_RECIPES } from './recipes';
 import {
   activatePiston,
@@ -41,9 +61,17 @@ import {
   RedstoneWorldAccessor,
   stepHopperTransfer,
   toggleLever,
+  triggerObserverPulse,
   updateRedstoneNetworkAround,
 } from './redstone';
 import { CompiledResourcePack } from './resourcePack';
+import {
+  CAMPFIRE_COOK_MAP,
+  getFurnaceSpeedMultiplier,
+  interactCauldron,
+  rollFishingLoot,
+  stepComposter,
+} from './stations';
 import {
   createEmptyBrewingState,
   createEmptyChestSlots,
@@ -246,6 +274,10 @@ export class NetherCraftEngine {
   private activeChestKey: string | null = null;
   private activeBrewingKey: string | null = null;
   private activeTradingMobId: string | null = null;
+  private raidState: RaidState | null = null;
+  private advancementToast: { id: string; titleVi: string; descVi: string; iconColor: string; at: number } | null = null;
+  private activeBeacon: { x: number; y: number; z: number; effect: EffectId } | null = null;
+  private beaconTick = 0;
   private redstoneTickAccum = 0;
   private randomTickAccum = 0;
   private playerAttackCooldown = 1.0;
@@ -1170,6 +1202,10 @@ export class NetherCraftEngine {
     this.activeChestKey = null;
     this.activeBrewingKey = null;
     this.activeTradingMobId = null;
+    this.raidState = null;
+    this.advancementToast = null;
+    this.activeBeacon = null;
+    this.beaconTick = 0;
     this.generator = new WorldGenerator(this.world.seed);
     this.mode = 'playing';
     this.paused = false;
@@ -1326,6 +1362,7 @@ export class NetherCraftEngine {
     if (this.world.gameMode !== 'creative') {
       this.world.player.level = Math.max(0, this.world.player.level - levels);
     }
+    this.unlockPlayerAdvancement('enchant_item');
     this.emitHud();
   }
 
@@ -1389,9 +1426,14 @@ export class NetherCraftEngine {
     const idx = villager.tradeOffers.findIndex((o) => o.id === offerId);
     if (idx === -1) return;
 
+    const hasHero = this.getEffectLevel('hero_of_the_village') > 0;
+    const effectiveOffer = hasHero
+      ? applyHeroOfTheVillageDiscount([villager.tradeOffers[idx]], true)[0]
+      : villager.tradeOffers[idx];
+
     const res = executeVillagerTrade(
       this.world.player.inventory,
-      villager.tradeOffers[idx],
+      effectiveOffer,
       villager.tradeXp ?? 0,
       villager.tradeLevel ?? 1,
     );
@@ -1402,7 +1444,7 @@ export class NetherCraftEngine {
     }
 
     this.world.player.inventory = res.inventory;
-    villager.tradeOffers[idx] = res.offer;
+    villager.tradeOffers[idx] = { ...villager.tradeOffers[idx], uses: res.offer.uses };
     villager.tradeXp = res.villagerXp;
     if (res.leveledUp) {
       villager.tradeLevel = res.villagerLevel;
@@ -1421,6 +1463,7 @@ export class NetherCraftEngine {
       this.showItemToast(`Giao dịch thành công với ${VILLAGER_PROFESSION_LABELS[villager.profession]}!`);
     }
     this.grantPlayerXp(3);
+    this.unlockPlayerAdvancement('trade_villager');
     this.updateFirstPersonHeldVisual();
     this.emitHud();
   }
@@ -1623,6 +1666,7 @@ export class NetherCraftEngine {
           this.switchDimension('overworld', sx, sy, sz, false);
         }
       },
+      startRaid: () => this.startVillageRaid(),
       reply: (text, tone = 'system') => this.callbacks.onChatMessage(text, tone),
     });
   }
@@ -2030,8 +2074,12 @@ export class NetherCraftEngine {
     if (targetDim === 'end') {
       soundEngine.playEndPortal();
       soundEngine.playDragonRoar();
+      this.unlockPlayerAdvancement('enter_end');
     } else {
       soundEngine.playPortal();
+      if (targetDim === 'nether') {
+        this.unlockPlayerAdvancement('enter_nether');
+      }
     }
     soundEngine.setDimensionMusic(targetDim);
     this.spawnInitialMobs();
@@ -2191,18 +2239,87 @@ export class NetherCraftEngine {
     this.emitHud();
   }
 
+  private unlockPlayerAdvancement(id: string): void {
+    if (!this.world) return;
+    const res = unlockAdvancement(this.world.advancements, id);
+    if (!res.newlyUnlocked || !res.def) return;
+    this.world.advancements = res.nextMap;
+    this.advancementToast = {
+      id: res.def.id,
+      titleVi: res.def.titleVi,
+      descVi: res.def.descVi,
+      iconColor: res.def.iconColor,
+      at: performance.now(),
+    };
+    this.grantPlayerXp(res.def.xpReward);
+    soundEngine.playLevelUp();
+    this.callbacks.onChatMessage(
+      `★ Thành tựu mở khóa: [${res.def.titleVi}] (+${res.def.xpReward} XP)`,
+      'gold',
+    );
+  }
+
+  public startVillageRaid(): void {
+    if (!this.world) return;
+    if (this.world.difficulty === 'peaceful') {
+      this.callbacks.onChatMessage('Không thể bắt đầu Đột Kích ở độ khó Hòa Bình (Peaceful)!', 'error');
+      return;
+    }
+    this.raidState = createRaid(3);
+    this.spawnRaidWave(getRaidWaveMobTypes(1));
+    soundEngine.playNoteBlockSound(4, 'trumpet');
+    this.callbacks.onTitleBanner('title', 'ĐỘT KÍCH LÀNG!');
+    this.callbacks.onTitleBanner('subtitle', 'Đợt 1/3 — Hãy bảo vệ Dân Làng khỏi Kẻ Cướp (Pillager)!');
+    this.callbacks.onChatMessage('Tiếng tù và vang lên! Cuộc Đột Kích Làng (3 đợt) đã bắt đầu!', 'gold');
+    this.emitHud();
+  }
+
+  private spawnRaidWave(types: MobType[]): void {
+    for (let i = 0; i < types.length; i++) {
+      const ang = (i / Math.max(1, types.length)) * Math.PI * 2 + Math.random() * 0.4;
+      const dist = 13 + (i % 3) * 3;
+      const mx = this.px + Math.cos(ang) * dist;
+      const mz = this.pz + Math.sin(ang) * dist;
+      const my = this.findSafeGroundY(Math.floor(mx), Math.floor(mz));
+      this.spawnMob(types[i], mx, my, mz, { isRaidMob: true });
+    }
+  }
+
+  private handleRaidMobDefeated(mob: MobEntity): void {
+    if (!mob.isRaidMob || !this.raidState || !this.raidState.active) return;
+    const outcome = recordRaidKill(this.raidState);
+    this.raidState = outcome.state;
+    if (outcome.spawnNextWave && outcome.spawnNextWave.length > 0) {
+      this.spawnRaidWave(outcome.spawnNextWave);
+      soundEngine.playNoteBlockSound(6, 'trumpet');
+      this.callbacks.onTitleBanner('title', `ĐỘT KÍCH — ĐỢT ${this.raidState.wave}/${this.raidState.maxWaves}!`);
+      this.callbacks.onTitleBanner('subtitle', 'Quân tiếp viện Pillager & Skeleton đang tiến tới!');
+    } else if (outcome.victoryTriggered) {
+      this.applyPlayerEffect('hero_of_the_village', 300, 0);
+      this.addItemToInventory('emerald', 8);
+      this.grantPlayerXp(30);
+      this.unlockPlayerAdvancement('win_raid');
+      soundEngine.playLevelUp();
+      this.callbacks.onTitleBanner('title', 'CHIẾN THẮNG ĐỘT KÍCH!');
+      this.callbacks.onTitleBanner('subtitle', 'Hiệu ứng Anh Hùng Của Làng (-30% giá Ngọc Lục Bảo) +8 Ngọc Lục Bảo!');
+      this.callbacks.onChatMessage('Chúc mừng! Bạn đã nhận hiệu ứng Anh Hùng Của Làng trong 5 phút!', 'gold');
+    }
+  }
+
   // --- Mobs ---
   private spawnInitialMobs(): void {
     if (!this.world || !this.world.gamerules.doMobSpawning) return;
     if (this.world.dimension === 'end') {
-      // Spawn the iconic Ender Dragon Boss circling above the central island!
+      // Spawn the iconic Ender Dragon Boss + Endermen on the central island!
       this.spawnMob('ender_dragon', 0, 76, -18);
+      this.spawnMob('enderman', 10, this.findSafeGroundY(10, 6), 6);
+      this.spawnMob('enderman', -10, this.findSafeGroundY(-10, -6), -6);
       return;
     }
     const types: MobType[] =
       this.world.dimension === 'overworld'
-        ? ['pig', 'sheep', 'villager', 'villager', 'camel', 'allay', 'copper_golem', 'zombie', 'creeper']
-        : ['piglin', 'strider', 'zombified_piglin', 'piglin', 'ghast', 'ghastling'];
+        ? ['pig', 'sheep', 'villager', 'villager', 'iron_golem', 'wolf', 'camel', 'allay', 'copper_golem', 'zombie', 'skeleton', 'spider', 'enderman', 'slime', 'creeper']
+        : ['piglin', 'strider', 'zombified_piglin', 'blaze', 'ghast', 'ghastling'];
     for (let i = 0; i < types.length; i++) {
       const ang = (i / types.length) * Math.PI * 2 + 0.5;
       const dist = 11 + (i % 3) * 5;
@@ -2214,7 +2331,13 @@ export class NetherCraftEngine {
     }
   }
 
-  private spawnMob(type: MobType, x: number, y: number, z: number, options?: { isBaby?: boolean }): void {
+  private spawnMob(
+    type: MobType,
+    x: number,
+    y: number,
+    z: number,
+    options?: { isBaby?: boolean; isRaidMob?: boolean },
+  ): void {
     if (!this.world) return;
     const spec = MOB_SPECS[type];
     if (spec.hostile && this.world.difficulty === 'peaceful') return;
@@ -2246,6 +2369,7 @@ export class NetherCraftEngine {
       walkPhase: 0,
       fuseTimer: 0,
       isBaby: options?.isBaby,
+      isRaidMob: options?.isRaidMob,
       babyAgeSec: 0,
       profession,
       tradeSeed: seed,
@@ -2288,7 +2412,7 @@ export class NetherCraftEngine {
     let dmg = def?.attackDamage || 2;
     if (held?.enchants?.sharpness) dmg += held.enchants.sharpness * 1.5;
     if (held?.enchants?.smite) {
-      const undead = ['zombie', 'zombified_piglin', 'bogged', 'parched', 'zombie_horse', 'zombie_nautilus', 'camel_husk', 'frostbite'];
+      const undead = ['zombie', 'skeleton', 'zombified_piglin', 'bogged', 'parched', 'zombie_horse', 'zombie_nautilus', 'camel_husk', 'frostbite'];
       if (undead.includes(hitMob.type)) dmg += held.enchants.smite * 2.5;
     }
     if (held?.enchants?.fire_aspect) {
@@ -2314,6 +2438,7 @@ export class NetherCraftEngine {
       this.spawnBreakParticles(hitMob.x, hitMob.y + 0.4, hitMob.z, 0xe0f2fe, 18);
       this.spawnBreakParticles(hitMob.x, hitMob.y + 0.8, hitMob.z, 0xfacc15, 10);
       this.showItemToast(`ĐẬP CHÙY MACE! (+${smashBonus} sát thương)`);
+      this.unlockPlayerAdvancement('mace_smash');
       for (const other of this.mobs) {
         if (other === hitMob) continue;
         const odx = other.x - hitMob.x;
@@ -2353,6 +2478,20 @@ export class NetherCraftEngine {
     hitMob.vx += _camDir.x * (isMaceSmash ? 11 : isSpear ? 8.5 : 7) * kbMult;
     hitMob.vz += _camDir.z * (isMaceSmash ? 11 : isSpear ? 8.5 : 7) * kbMult;
     if (hitMob.type === 'zombified_piglin') hitMob.hostile = true;
+    // Iconic Enderman short-range teleport when struck while still alive!
+    if (hitMob.type === 'enderman' && hitMob.hp > 0 && Math.random() < 0.45) {
+      const ang = Math.random() * Math.PI * 2;
+      const distTp = 3.5 + Math.random() * 3.0;
+      const tx = hitMob.x + Math.cos(ang) * distTp;
+      const tz = hitMob.z + Math.sin(ang) * distTp;
+      const ty = this.findSafeGroundY(Math.floor(tx), Math.floor(tz));
+      this.spawnBreakParticles(hitMob.x, hitMob.y + 1.5, hitMob.z, 0xe879f9, 10);
+      hitMob.x = tx;
+      hitMob.y = ty;
+      hitMob.z = tz;
+      soundEngine.playPortal();
+      this.spawnBreakParticles(tx, ty + 1.5, tz, 0xe879f9, 10);
+    }
 
     // Sword Sweeping Attack: splash damage to nearby mobs within 2.5m!
     if (melee.isSweep && melee.sweepDamage > 0) {
@@ -2393,9 +2532,16 @@ export class NetherCraftEngine {
         this.addItemToInventory('dragon_breath', 4);
         this.addItemToInventory('dragon_head', 1);
         this.grantPlayerXp(120);
+        this.unlockPlayerAdvancement('slay_dragon');
         soundEngine.playDragonDeath();
         this.callbacks.onTitleBanner('title', 'CHIẾN THẮNG! ĐÃ HẠ RỒNG ENDER!');
         this.callbacks.onTitleBanner('subtitle', 'Nhận Trứng Rồng, Đầu Rồng & Hơi Thở Rồng! Bước vào cổng giữa đảo để về nhà.');
+      } else if (hitMob.type === 'wither') {
+        this.grantPlayerXp(60);
+        this.unlockPlayerAdvancement('summon_wither');
+        soundEngine.playLevelUp();
+        this.callbacks.onTitleBanner('title', 'ĐÃ TIÊU DIỆT BOSS WITHER!');
+        this.callbacks.onTitleBanner('subtitle', 'Nhận Ngôi Sao Địa Ngục (Nether Star) để chế tạo Đèn Hiệu Beacon!');
       } else if (hitMob.type === 'sulfur_cube') {
         this.addItemToInventory('cinnabar_gem', 1);
       }
@@ -2403,6 +2549,7 @@ export class NetherCraftEngine {
       this.worldGroup.remove(hitMob.mesh);
       disposeMobMesh(hitMob.mesh);
       this.mobs = this.mobs.filter((m) => m !== hitMob);
+      this.handleRaidMobDefeated(hitMob);
       this.callbacks.onChatMessage(`Đã hạ ${spec.nameVi} (+${totalDrops} ${ITEM_DEFS[spec.drop]?.nameVi || spec.drop})`, 'system');
       this.emitHud();
     }
@@ -2438,6 +2585,7 @@ export class NetherCraftEngine {
           `Trao đổi Piglin (1.16): Đổi 1 Thỏi Vàng lấy ${qty}x ${ITEM_DEFS[reward]?.nameVi || reward}!`,
           'gold',
         );
+        this.unlockPlayerAdvancement('piglin_barter');
         this.emitHud();
         return true;
       }
@@ -2655,6 +2803,24 @@ export class NetherCraftEngine {
           }
         }
       }
+    }
+    // Advancement hooks for mining milestones
+    if (def.key.endsWith('_log') || def.key.endsWith('_stem')) {
+      this.unlockPlayerAdvancement('mine_wood');
+      if (def.key === 'poplar_log') this.unlockPlayerAdvancement('wilderness_263');
+    } else if (def.key === 'iron_ore' || def.key === 'deepslate_iron_ore') {
+      this.unlockPlayerAdvancement('mine_iron');
+    } else if (def.key === 'diamond_ore' || def.key === 'deepslate_diamond_ore') {
+      this.unlockPlayerAdvancement('mine_diamond');
+    }
+    // Observer pulse on adjacent block break
+    triggerObserverPulse(this.createRedstoneAccessor(), tb.x, tb.y, tb.z);
+    // Wave 11: Gravity blocks above collapse & adjacent Water/Lava flows into vacated block (Cobblestone Generator!)
+    const blockIO = this.createWorldBlockIO();
+    settleFallingBlocks(blockIO, tb.x, tb.y + 1, tb.z);
+    const fluidRes = stepFluidSpread(blockIO, tb.x, tb.y, tb.z);
+    if (fluidRes.createdCobblestone > 0) {
+      soundEngine.playSplash();
     }
     this.emitHud();
   }
@@ -3268,9 +3434,62 @@ export class NetherCraftEngine {
           this.spawnBreakParticles(aimedMob.x, aimedMob.y + 0.8, aimedMob.z, 0xfde047, 14);
           soundEngine.playLevelUp();
           this.consumeHeldItem();
+          this.unlockPlayerAdvancement('golden_dandelion_261');
           this.showItemToast('Bồ Công Anh Vàng (26.1): Đã khóa tuổi thú non!');
           this.emitHud();
           return;
+        }
+        // Wolf Taming (Bone), Wolf Armor (1.20.5+), Healing (Meat), and Sit/Follow Toggle!
+        if (aimedMob.type === 'wolf') {
+          if (!aimedMob.tamed && held?.itemId === 'bone') {
+            aimedMob.tamed = true;
+            aimedMob.sitting = false;
+            aimedMob.maxHp = 20;
+            aimedMob.hp = 20;
+            const collar = aimedMob.mesh.getObjectByName('wolfCollar');
+            if (collar) collar.visible = true;
+            this.consumeHeldItem();
+            this.spawnBreakParticles(aimedMob.x, aimedMob.y + 0.8, aimedMob.z, 0xf43f5e, 14);
+            soundEngine.playLevelUp();
+            this.unlockPlayerAdvancement('tame_wolf');
+            this.showItemToast('Đã thuần hóa Sói! Sói sẽ đi theo & bảo vệ bạn!');
+            this.emitHud();
+            return;
+          }
+          if (aimedMob.tamed) {
+            if (held?.itemId === 'wolf_armor' && !aimedMob.armored) {
+              aimedMob.armored = true;
+              aimedMob.maxHp = 40;
+              aimedMob.hp = 40;
+              this.consumeHeldItem();
+              this.spawnBreakParticles(aimedMob.x, aimedMob.y + 0.7, aimedMob.z, 0xd6d3d1, 12);
+              soundEngine.playAnvil();
+              this.showItemToast('Đã trang bị Giáp Sói (+20 máu tối đa)!');
+              this.emitHud();
+              return;
+            }
+            const isMeat =
+              held?.itemId === 'raw_porkchop' ||
+              held?.itemId === 'cooked_porkchop' ||
+              held?.itemId === 'beef' ||
+              held?.itemId === 'cooked_beef' ||
+              held?.itemId === 'mutton' ||
+              held?.itemId === 'cooked_mutton';
+            if (isMeat && aimedMob.hp < aimedMob.maxHp) {
+              aimedMob.hp = Math.min(aimedMob.maxHp, aimedMob.hp + 6);
+              this.consumeHeldItem();
+              this.spawnBreakParticles(aimedMob.x, aimedMob.y + 0.8, aimedMob.z, 0x4ade80, 10);
+              soundEngine.playEat();
+              this.showItemToast(`Đã cho Sói ăn hồi máu (${Math.ceil(aimedMob.hp)}/${aimedMob.maxHp})!`);
+              this.emitHud();
+              return;
+            }
+            aimedMob.sitting = !aimedMob.sitting;
+            soundEngine.playClick();
+            this.showItemToast(aimedMob.sitting ? 'Sói đã ngồi yên chờ bạn.' : 'Sói đứng dậy đi theo bảo vệ bạn!');
+            this.emitHud();
+            return;
+          }
         }
         // Villager Trading UI!
         if (aimedMob.type === 'villager') {
@@ -3849,23 +4068,30 @@ export class NetherCraftEngine {
             const wz = Math.floor(this.pz + _camDir.z * d);
             if (this.getWorldBlock(wx, wy, wz) === BLOCK.WATER || this.getWorldBlock(wx, wy - 1, wz) === BLOCK.WATER) {
               nearWater = true;
-              this.spawnBreakParticles(wx + 0.5, wy + 0.5, wz + 0.5, 0x38bdf8, 12);
+              this.spawnBreakParticles(wx + 0.5, wy + 0.5, wz + 0.5, 0x38bdf8, 14);
               break;
             }
           }
         }
         if (nearWater) {
-          const catches = [
-            'raw_cod', 'raw_cod', 'raw_cod',
-            'raw_salmon', 'raw_salmon',
-            'tropical_fish', 'pufferfish',
-            'nautilus_shell', 'name_tag', 'saddle', 'enchanted_book',
-          ];
-          const caught = catches[Math.floor(Math.random() * catches.length)];
-          this.addItemToInventory(caught, 1);
-          this.grantPlayerXp(3);
+          const luckLv = held.enchants?.looting || held.enchants?.fortune || 0;
+          const res = rollFishingLoot(luckLv);
+          // Preserve real enchantments when catching Enchanted Books / Enchanted Bows!
+          if (res.item.enchants && Object.keys(res.item.enchants).length > 0) {
+            const emptyIdx = this.world.player.inventory.findIndex((s) => s === null);
+            if (emptyIdx !== -1) {
+              this.world.player.inventory[emptyIdx] = { ...res.item, enchants: { ...res.item.enchants } };
+            } else {
+              this.addItemToInventory(res.item.itemId, res.item.count);
+            }
+          } else {
+            this.addItemToInventory(res.item.itemId, res.item.count);
+          }
+          this.grantPlayerXp(res.xp);
+          this.unlockPlayerAdvancement('catch_fish');
           soundEngine.playSplash();
-          this.showItemToast(`Câu được: ${ITEM_DEFS[caught]?.nameVi || caught}! (+3 XP)`);
+          const tag = res.category === 'treasure' ? '★ KHO BÁU! ' : res.category === 'junk' ? '(Rác) ' : '';
+          this.showItemToast(`${tag}Câu được: ${ITEM_DEFS[res.item.itemId]?.nameVi || res.item.itemId} (+${res.xp} XP)`);
         } else {
           soundEngine.playThrow();
           this.showItemToast('Hãy hướng Cần Câu về phía mặt nước để câu cá!');
@@ -4019,7 +4245,14 @@ export class NetherCraftEngine {
         }
         return;
       }
-      if (targetKey === 'chest' || targetKey === 'trapped_chest' || targetKey === 'barrel' || targetKey === 'copper_chest') {
+      if (
+        targetKey === 'chest' ||
+        targetKey === 'trapped_chest' ||
+        targetKey === 'barrel' ||
+        targetKey === 'copper_chest' ||
+        targetKey === 'dispenser' ||
+        targetKey === 'dropper'
+      ) {
         if (!this.world.chests) this.world.chests = {};
         const key = `${this.world.dimension}:${tb.x},${tb.y},${tb.z}`;
         if (!this.world.chests[key]) {
@@ -4059,14 +4292,64 @@ export class NetherCraftEngine {
         this.callbacks.onOpenContainer('brewing');
         return;
       }
+      if (targetKey === 'stonecutter') {
+        this.exitPointerLock();
+        soundEngine.playClick();
+        this.callbacks.onOpenContainer('stonecutter');
+        return;
+      }
+      if (targetKey === 'composter') {
+        if (!this.world.composterLevels) this.world.composterLevels = {};
+        const key = `${this.world.dimension}:${tb.x},${tb.y},${tb.z}`;
+        const cur = this.world.composterLevels[key] ?? 0;
+        const res = stepComposter(cur, held?.itemId ?? null);
+        if (res.producedBoneMeal) {
+          this.world.composterLevels[key] = 0;
+          this.addItemToInventory('bone_meal', 1);
+          this.spawnBreakParticles(tb.x + 0.5, tb.y + 1.0, tb.z + 0.5, 0x4ade80, 14);
+          soundEngine.playXpOrb();
+          this.showItemToast('Thùng Ủ Phân đầy! Thu hoạch +1 Bột Xương!');
+        } else if (res.accepted) {
+          this.world.composterLevels[key] = res.level;
+          this.consumeHeldItem();
+          this.spawnBreakParticles(tb.x + 0.5, tb.y + 0.9, tb.z + 0.5, res.increased ? 0x22c55e : 0xa16207, 8);
+          soundEngine.playBlock('grass', 'place');
+          this.showItemToast(`Thùng Ủ Phân: Mức ${res.level}/7 ${res.level >= 7 ? '(Bấm lại để lấy Bột Xương!)' : ''}`);
+        } else {
+          this.showItemToast(`Thùng Ủ Phân (${cur}/7): Bỏ hạt giống, lá, lúa mì, hoa quả để ủ Bột Xương!`);
+        }
+        this.emitHud();
+        return;
+      }
+      if (targetKey === 'cauldron') {
+        if (!this.world.cauldronLevels) this.world.cauldronLevels = {};
+        const key = `${this.world.dimension}:${tb.x},${tb.y},${tb.z}`;
+        const cur = this.world.cauldronLevels[key] ?? 0;
+        const res = interactCauldron(cur, held?.itemId ?? null);
+        if (res.changed) {
+          this.world.cauldronLevels[key] = res.waterLevel;
+          if (res.consumeHeld) {
+            this.consumeHeldItem(res.giveItem);
+          } else if (res.giveItem) {
+            this.addItemToInventory(res.giveItem, 1);
+          }
+          soundEngine.playSplash();
+          this.spawnBreakParticles(tb.x + 0.5, tb.y + 0.8, tb.z + 0.5, 0x38bdf8, 10);
+          this.showItemToast(res.messageVi || `Cái Vạc: ${res.waterLevel}/3 nước`);
+        } else {
+          this.showItemToast(`Cái Vạc (${cur}/3 nước): Dùng Xô Nước để đổ đầy hoặc Chai Thủy Tinh để múc!`);
+        }
+        this.emitHud();
+        return;
+      }
       if (
         tb.blockId === BLOCK.CRAFTING_TABLE ||
         targetKey === 'crafter' ||
-        targetKey === 'stonecutter' ||
         targetKey === 'loom' ||
         targetKey === 'cartography_table' ||
         targetKey === 'fletching_table'
       ) {
+        this.unlockPlayerAdvancement('craft_table');
         this.exitPointerLock();
         this.callbacks.onOpenContainer('crafting');
         return;
@@ -4169,14 +4452,35 @@ export class NetherCraftEngine {
           return;
         }
       }
+      if (targetKey === 'campfire' || targetKey === 'soul_campfire') {
+        const cookedId = held ? CAMPFIRE_COOK_MAP[held.itemId] : undefined;
+        if (cookedId) {
+          this.consumeHeldItem();
+          this.addItemToInventory(cookedId, 1);
+          this.grantPlayerXp(2);
+          soundEngine.playEat();
+          this.spawnBreakParticles(tb.x + 0.5, tb.y + 0.8, tb.z + 0.5, 0xf97316, 10);
+          this.showItemToast(`Lửa Trại đã nướng chín: ${ITEM_DEFS[cookedId]?.nameVi || cookedId} (miễn nhiên liệu)!`);
+          this.emitHud();
+          return;
+        }
+        this.showItemToast('Cầm thịt/cá sống hoặc khoai tây bấm vào Lửa Trại để nướng không cần than!');
+        this.emitHud();
+        return;
+      }
       if (
         tb.blockId === BLOCK.FURNACE ||
         targetKey === 'blast_furnace' ||
-        targetKey === 'smoker' ||
-        targetKey === 'campfire' ||
-        targetKey === 'soul_campfire'
+        targetKey === 'smoker'
       ) {
+        this.world.furnace.stationKind =
+          targetKey === 'blast_furnace'
+            ? 'blast_furnace'
+            : targetKey === 'smoker'
+              ? 'smoker'
+              : 'furnace';
         this.exitPointerLock();
+        this.emitHud();
         this.callbacks.onOpenContainer('furnace');
         return;
       }
@@ -4194,6 +4498,9 @@ export class NetherCraftEngine {
       }
       if (targetKey === 'note_block') {
         const res = playNoteBlock(this.createRedstoneAccessor(), tb.x, tb.y, tb.z, true);
+        if (res.instrument === 'trumpet') {
+          this.unlockPlayerAdvancement('copper_trumpet_261');
+        }
         this.spawnBreakParticles(
           tb.x + 0.5,
           tb.y + 1.1,
@@ -4207,6 +4514,7 @@ export class NetherCraftEngine {
       }
       if (targetKey === 'lever') {
         const res = toggleLever(this.createRedstoneAccessor(), tb.x, tb.y, tb.z);
+        this.unlockPlayerAdvancement('redstone_engineer');
         soundEngine.playClick();
         this.handSwing = 0.7;
         this.showItemToast(res.active ? 'Cần Gạt: BẬT (Tín hiệu 15)' : 'Cần Gạt: TẮT');
@@ -4229,6 +4537,7 @@ export class NetherCraftEngine {
           targetKey === 'sticky_piston',
           false,
         );
+        if (ok) this.unlockPlayerAdvancement('redstone_engineer');
         soundEngine.playClick();
         this.handSwing = 0.8;
         this.showItemToast(ok ? 'Piston đã đẩy khối!' : 'Piston bị chặn hoặc không có khối đẩy');
@@ -4239,6 +4548,33 @@ export class NetherCraftEngine {
         soundEngine.playLevelUp();
         this.spawnBreakParticles(tb.x + 0.5, tb.y + 0.8, tb.z + 0.5, 0xfacc15, 8);
         this.showItemToast('Chuông Làng vang lên!');
+        this.emitHud();
+        return;
+      }
+      if (targetKey === 'beacon') {
+        const evalRes = evaluateBeaconPyramid((x, y, z) => this.getWorldBlock(x, y, z), tb.x, tb.y, tb.z);
+        if (evalRes.tier === 0) {
+          soundEngine.playClick();
+          this.showItemToast('Đèn Hiệu chưa kích hoạt! Hãy xây đế 3×3 Khối Sắt/Vàng/Kim Cương ngay bên dưới.');
+          this.emitHud();
+          return;
+        }
+        const curIdx =
+          this.activeBeacon &&
+          this.activeBeacon.x === tb.x &&
+          this.activeBeacon.y === tb.y &&
+          this.activeBeacon.z === tb.z
+            ? evalRes.unlockedEffects.indexOf(this.activeBeacon.effect)
+            : -1;
+        const nextEffect = evalRes.unlockedEffects[(curIdx + 1) % evalRes.unlockedEffects.length];
+        this.activeBeacon = { x: tb.x, y: tb.y, z: tb.z, effect: nextEffect };
+        this.applyPlayerEffect(nextEffect, 14, evalRes.maxAmplifier);
+        this.unlockPlayerAdvancement('activate_beacon');
+        soundEngine.playLevelUp();
+        this.spawnBreakParticles(tb.x + 0.5, tb.y + 1.2, tb.z + 0.5, 0x38bdf8, 16);
+        this.showItemToast(
+          `Đèn Hiệu Cấp ${evalRes.tier} (R=${evalRes.radius}m): ${BEACON_EFFECT_LABELS_VI[nextEffect] || nextEffect}${evalRes.maxAmplifier > 0 ? ' II' : ''}!`,
+        );
         this.emitHud();
         return;
       }
@@ -4257,6 +4593,9 @@ export class NetherCraftEngine {
           this.world.timeOfDay = 1000;
           this.world.weather = 'clear';
           this.world.player.hp = Math.min(this.world.player.maxHp, this.world.player.hp + 4);
+          if (targetKey === 'straw_bed') {
+            this.unlockPlayerAdvancement('sleep_straw_bed');
+          }
           soundEngine.playLevelUp();
           this.callbacks.onChatMessage(
             targetKey === 'straw_bed'
@@ -4462,9 +4801,16 @@ export class NetherCraftEngine {
     ) {
       const liquidId = held.itemId === 'lava_bucket' ? BLOCK.LAVA : BLOCK.WATER;
       this.setWorldBlock(placeX, placeY, placeZ, liquidId, true);
+      const spread = stepFluidSpread(this.createWorldBlockIO(), placeX, placeY, placeZ);
       soundEngine.playSplash();
       this.handSwing = 0.9;
-      if (held.itemId.endsWith('_bucket') && held.itemId !== 'water_bucket' && held.itemId !== 'lava_bucket') {
+      if (spread.createdObsidian > 0) {
+        this.spawnBreakParticles(placeX + 0.5, placeY + 0.5, placeZ + 0.5, 0x7e22ce, 12);
+        this.showItemToast('Nước gặp Dung Nham -> Tạo Hắc Diện Thạch (Obsidian)!');
+      } else if (spread.createdCobblestone > 0) {
+        this.spawnBreakParticles(placeX + 0.5, placeY + 0.5, placeZ + 0.5, 0x9ca3af, 10);
+        this.showItemToast('Nước gặp Dung Nham -> Tạo Đá Cuội (Cobblestone)!');
+      } else if (held.itemId.endsWith('_bucket') && held.itemId !== 'water_bucket' && held.itemId !== 'lava_bucket') {
         this.spawnBreakParticles(placeX + 0.5, placeY + 0.5, placeZ + 0.5, 0x38bdf8, 12);
         this.showItemToast(`Đã thả ${itemDef.nameVi} xuống nước!`);
       }
@@ -4541,6 +4887,30 @@ export class NetherCraftEngine {
       }
     }
 
+    // 4.6 Wither Skeleton Skull on Soul Sand/Soil T-Altar -> Summon Boss Wither!
+    if (held.itemId === 'wither_skeleton_skull') {
+      const altarBlocks = checkWitherSummonPattern(
+        (x, y, z) => this.getWorldBlock(x, y, z),
+        placeX,
+        placeY,
+        placeZ,
+      );
+      if (altarBlocks) {
+        for (const [ax, ay, az] of altarBlocks) {
+          this.setWorldBlock(ax, ay, az, BLOCK.AIR, true);
+        }
+        this.consumeHeldItem();
+        this.spawnMob('wither', placeX + 0.5, placeY + 1.5, placeZ + 0.5);
+        this.detonateExplosion(placeX + 0.5, placeY + 1.0, placeZ + 0.5, 2, 0x18181b, 0);
+        soundEngine.playThunder();
+        this.unlockPlayerAdvancement('summon_wither');
+        this.callbacks.onTitleBanner('title', 'BOSS WITHER ĐÃ XUẤT HIỆN!');
+        this.callbacks.onTitleBanner('subtitle', '300 Máu · Bắn Đầu Lâu Khô Héo · Hạ gục để lấy Ngôi Sao Địa Ngục!');
+        this.emitHud();
+        return;
+      }
+    }
+
     // 5. Place block
     if (itemDef.blockId !== undefined) {
       // Prevent placing solid block inside player AABB
@@ -4579,12 +4949,35 @@ export class NetherCraftEngine {
         pk === 'note_block' ||
         pk === 'iron_door' ||
         pk === 'iron_trapdoor' ||
-        pk === 'copper_bulb'
+        pk === 'copper_bulb' ||
+        pk === 'dispenser' ||
+        pk === 'dropper' ||
+        pk === 'observer'
       ) {
         updateRedstoneNetworkAround(this.createRedstoneAccessor(), placeX, placeY, placeZ);
       }
+      // Wave 11: Gravity-affected blocks (Sand/Gravel/Anvil/Concrete Powder) fall immediately if unsupported
+      if (isGravityBlock(itemDef.blockId)) {
+        const fall = settleFallingBlocks(this.createWorldBlockIO(), placeX, placeY, placeZ);
+        if (fall.hardenedConcrete > 0) {
+          soundEngine.playSplash();
+          this.showItemToast('Bột Bê Tông chạm nước đã đông cứng thành Bê Tông!');
+        }
+      }
+      // Notify any adjacent Observer blocks on block placement!
+      const obsRes = triggerObserverPulse(this.createRedstoneAccessor(), placeX, placeY, placeZ);
+      if (obsRes.triggeredObservers > 0) {
+        this.unlockPlayerAdvancement('redstone_engineer');
+      }
       this.emitHud();
     }
+  }
+
+  private createWorldBlockIO(): WorldBlockIO {
+    return {
+      getBlock: (x, y, z) => this.getWorldBlock(x, y, z),
+      setBlock: (x, y, z, blockId) => this.setWorldBlock(x, y, z, blockId, true),
+    };
   }
 
   private createRedstoneAccessor(): RedstoneWorldAccessor {
@@ -4607,12 +5000,27 @@ export class NetherCraftEngine {
       },
       getChestSlots: (key) => {
         if (!this.world) return null;
-        return this.world.chests?.[key] ?? null;
+        return this.world.chests?.[key] ?? this.world.chests?.[`${this.world.dimension}:${key}`] ?? null;
       },
       setChestSlots: (key, slots) => {
         if (!this.world) return;
         if (!this.world.chests) this.world.chests = {};
-        this.world.chests[key] = slots;
+        const dimKey = `${this.world.dimension}:${key}`;
+        if (this.world.chests[dimKey]) this.world.chests[dimKey] = slots;
+        else this.world.chests[key] = slots;
+      },
+      onDispense: (x, y, z, itemId, dir) => {
+        soundEngine.playBowShoot();
+        this.spawnBreakParticles(x + 0.5 + dir[0] * 0.6, y + 0.5 + dir[1] * 0.6, z + 0.5 + dir[2] * 0.6, 0xf8fafc, 8);
+        if (itemId === 'arrow') {
+          for (const mob of this.mobs) {
+            if (Math.hypot(mob.x - (x + 0.5), mob.z - (z + 0.5)) < 8) {
+              mob.hp -= 5;
+              mob.hurtTimer = 0.25;
+              break;
+            }
+          }
+        }
       },
     };
   }
@@ -4954,11 +5362,27 @@ export class NetherCraftEngine {
   private updateWorldSystems(dt: number): void {
     if (!this.world || !this.generator) return;
 
-    // 1. Active Potion Effects countdown
+    // 1. Active Potion Effects countdown + Active Beacon Pyramid Aura
     if (this.world.player.effects.length > 0) {
       this.world.player.effects = this.world.player.effects
         .map((e) => ({ ...e, remainingSec: e.remainingSec - dt }))
         .filter((e) => e.remainingSec > 0);
+    }
+    if (this.activeBeacon) {
+      this.beaconTick += dt;
+      if (this.beaconTick >= 3.0) {
+        this.beaconTick = 0;
+        const b = this.activeBeacon;
+        const bKey = BLOCK_DEFS[this.getWorldBlock(b.x, b.y, b.z)]?.key;
+        if (bKey !== 'beacon') {
+          this.activeBeacon = null;
+        } else {
+          const evalRes = evaluateBeaconPyramid((x, y, z) => this.getWorldBlock(x, y, z), b.x, b.y, b.z);
+          if (evalRes.tier > 0 && Math.hypot(this.px - b.x, this.pz - b.z) <= evalRes.radius) {
+            this.applyPlayerEffect(b.effect, 12, evalRes.maxAmplifier);
+          }
+        }
+      }
     }
 
     // 2. Live Furnace smelting tick
@@ -4981,7 +5405,8 @@ export class NetherCraftEngine {
       }
     }
     if (f.burnTime > 0 && canAcceptOutput && f.input && outputItem) {
-      f.cookProgress += dt / 5.0; // 5s crisp smelting per item
+      const speedMult = getFurnaceSpeedMultiplier(f.stationKind, f.input.itemId);
+      f.cookProgress += (dt / 5.0) * speedMult; // 5s standard, 2.5s in Blast Furnace / Smoker!
       if (f.cookProgress >= 1) {
         f.cookProgress = 0;
         f.input.count -= 1;
@@ -5006,6 +5431,7 @@ export class NetherCraftEngine {
           }
           if (res.completed) {
             soundEngine.playSplash();
+            this.unlockPlayerAdvancement('brew_potion');
             if (bKey === this.activeBrewingKey) {
               this.showItemToast('Ủ thuốc hoàn tất!');
             }
@@ -5324,7 +5750,7 @@ export class NetherCraftEngine {
 
     for (let i = this.mobs.length - 1; i >= 0; i--) {
       const m = this.mobs[i];
-      const maxRange = m.type === 'ender_dragon' ? 140 : 68;
+      const maxRange = m.type === 'ender_dragon' || m.type === 'wither' ? 140 : 68;
       if (!m.riddenByPlayer && Math.hypot(m.x - this.px, m.z - this.pz) > maxRange) {
         this.worldGroup.remove(m.mesh);
         disposeMobMesh(m.mesh);
@@ -5376,10 +5802,27 @@ export class NetherCraftEngine {
         this.worldGroup.remove(m.mesh);
         disposeMobMesh(m.mesh);
         this.mobs.splice(i, 1);
+        this.handleRaidMobDefeated(m);
         continue;
       }
       m.mesh.position.set(m.x - this.originCX * CHUNK_SIZE, m.y, m.z - this.originCZ * CHUNK_SIZE);
       m.mesh.rotation.y = m.yaw;
+    }
+
+    // Iron Golem & Tamed Wolf ally guardian combat against nearby hostile mobs
+    const allyEvents = stepAllyGuardianCombat(this.mobs, dt);
+    if (allyEvents.length > 0) {
+      for (const ev of allyEvents) {
+        this.spawnBreakParticles(ev.target.x, ev.target.y + 1.0, ev.target.z, 0xef4444, 6);
+        if (ev.killed) {
+          const spec = MOB_SPECS[ev.target.type];
+          this.addItemToInventory(spec.drop, spec.dropCount);
+          this.callbacks.onChatMessage(
+            `${MOB_SPECS[ev.attacker.type].nameVi} đã hạ ${spec.nameVi}!`,
+            'system',
+          );
+        }
+      }
     }
 
     // Occasional ambient mob spawn (complete 1.17–26.4 biome ecosystem!)
@@ -5873,7 +6316,7 @@ export class NetherCraftEngine {
             name: MOB_SPECS[bossMob.type].nameVi,
             hp: Math.max(0, bossMob.hp),
             maxHp: bossMob.maxHp,
-            color: bossMob.type === 'ender_dragon' ? 'purple' : 'teal',
+            color: bossMob.type === 'ender_dragon' || bossMob.type === 'wither' ? 'purple' : 'teal',
           }
         : null,
       locatorMarkers,
@@ -5910,15 +6353,27 @@ export class NetherCraftEngine {
         if (!this.activeTradingMobId) return null;
         const v = this.mobs.find((m) => m.id === this.activeTradingMobId && m.type === 'villager');
         if (!v || !v.profession || !v.tradeOffers) return null;
+        const hasHero = this.getEffectLevel('hero_of_the_village') > 0;
         return {
           mobId: v.id,
           profession: v.profession,
           nameVi: VILLAGER_PROFESSION_LABELS[v.profession],
           level: v.tradeLevel ?? 1,
           xp: v.tradeXp ?? 0,
-          offers: v.tradeOffers.map((o) => ({ ...o })),
+          offers: applyHeroOfTheVillageDiscount(v.tradeOffers, hasHero),
         };
       })(),
+      raidState: this.raidState
+        ? {
+            active: this.raidState.active,
+            wave: this.raidState.wave,
+            maxWaves: this.raidState.maxWaves,
+            remaining: this.raidState.remainingInWave,
+            total: this.raidState.totalInWave,
+          }
+        : null,
+      advancementToast: this.advancementToast ? { ...this.advancementToast } : null,
+      unlockedAdvancements: { ...(this.world.advancements || {}) },
     });
   }
 

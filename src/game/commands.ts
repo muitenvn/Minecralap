@@ -44,6 +44,7 @@ export interface CommandContext {
   showTitle: (kind: 'title' | 'subtitle' | 'actionbar', text: string) => void;
   playSound: (name: string) => void;
   switchDimension?: (dim: DimensionId) => void;
+  startRaid?: () => void;
   reply: (text: string, tone?: 'system' | 'chat' | 'success' | 'error' | 'gold') => void;
 }
 
@@ -77,6 +78,7 @@ export const ALL_COMMAND_NAMES = [
   '/playsound',
   '/say',
   '/me',
+  '/raid',
   '/help',
 ];
 
@@ -92,7 +94,7 @@ function parseCoord(token: string, base: number): number | null {
 
 const VALID_EFFECTS: EffectId[] = [
   'speed', 'slowness', 'haste', 'strength', 'jump_boost', 'regeneration',
-  'resistance', 'fire_resistance', 'water_breathing', 'night_vision', 'levitation', 'slow_falling', 'darkness',
+  'resistance', 'fire_resistance', 'water_breathing', 'night_vision', 'levitation', 'slow_falling', 'darkness', 'hero_of_the_village',
 ];
 
 const VALID_ENCHANTS: EnchantmentId[] = [
@@ -133,6 +135,16 @@ const VALID_MOBS: (MobType | 'lightning_bolt')[] = [
   'cold_sulfur_cube',
   'frostbite',
   'ender_dragon',
+  'villager',
+  'skeleton',
+  'blaze',
+  'wolf',
+  'iron_golem',
+  'pillager',
+  'wither',
+  'enderman',
+  'spider',
+  'slime',
   'lightning_bolt',
 ];
 
@@ -159,7 +171,20 @@ export function autocompleteCommand(input: string): string[] {
       .filter((r) => r.toLowerCase().startsWith(last));
   }
   if (cmd === '/locatebiome') return Object.keys(BIOME_LABELS).filter((b) => b.startsWith(last));
-  if (cmd === '/locate') return ['ruined_portal', 'trial_chamber', 'ancient_city', 'trail_ruins', 'stronghold', 'end_city'].filter((s) => s.startsWith(last));
+  if (cmd === '/locate') {
+    return [
+      'ruined_portal',
+      'trial_chamber',
+      'ancient_city',
+      'trail_ruins',
+      'stronghold',
+      'end_city',
+      'ocean_monument',
+      'village',
+      'nether_fortress',
+      'abandoned_camp',
+    ].filter((s) => s.startsWith(last));
+  }
   if (cmd === '/dimension') return ['overworld', 'nether', 'end'].filter((d) => d.startsWith(last));
   return [];
 }
@@ -573,10 +598,18 @@ export function executeCommand(rawInput: string, ctx: CommandContext): void {
         ctx.reply('Pháo Đài Cổng The End (Stronghold) tại (7, 26, -25) — dùng /tp 7 27 -29', 'gold');
       } else if (target.includes('end_city')) {
         ctx.reply('Thành Phố The End (End City Purpur) ở chiều The End tại (103, 64, 7) — dùng /tp 103 65 4', 'gold');
+      } else if (target.includes('monument') || target.includes('ocean')) {
+        ctx.reply('Đền Thờ Đại Dương (Ocean Monument) tại (-40, 56, -40) — dùng /tp -40 62 -40', 'gold');
+      } else if (target.includes('village')) {
+        ctx.reply('Làng Dân Làng (Village) tại (38, 72, 22) — dùng /tp 38 74 22', 'gold');
+      } else if (target.includes('fortress')) {
+        ctx.reply('Pháo Đài Nether (Nether Fortress) ở chiều Nether tại (24, 62, 24) — dùng /tp 24 63 24', 'gold');
+      } else if (target.includes('camp')) {
+        ctx.reply('Trại Bỏ Hoang 26.3 (Abandoned Camp) tại (-25, 72, 39) — dùng /tp -25 74 39', 'gold');
       } else if (target.includes('portal')) {
         ctx.reply('Tàn tích Cổng Nether tại (11, ~68, 10) ở Overworld!', 'gold');
       } else {
-        ctx.reply('Cấu trúc: /locate <ruined_portal|trial_chamber|ancient_city|trail_ruins|stronghold|end_city>', 'system');
+        ctx.reply('Cấu trúc: /locate <village|ocean_monument|stronghold|trial_chamber|ancient_city|trail_ruins|abandoned_camp|nether_fortress|end_city|ruined_portal>', 'system');
       }
       return;
     }
@@ -621,7 +654,16 @@ export function executeCommand(rawInput: string, ctx: CommandContext): void {
       return;
     }
 
+    case 'raid': {
+      if (ctx.startRaid) {
+        ctx.startRaid();
+      } else {
+        ctx.reply('Chế độ Đột Kích Làng chưa khả dụng trong bối cảnh này.', 'error');
+      }
+      return;
+    }
+
     default:
-      ctx.reply(`Lệnh không tồn tại: /${cmd}. Gõ /help để xem toàn bộ 26 lệnh 1.16.`, 'error');
+      ctx.reply(`Lệnh không tồn tại: /${cmd}. Gõ /help để xem toàn bộ lệnh.`, 'error');
   }
 }

@@ -836,6 +836,15 @@ export const EXT_ITEMS: ItemDef[] = [
   { id: 'frostbite_spawn_egg', nameVi: 'Trứng Thây Ma Băng Giá', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#38bdf8', iconAccent: '#1e3a8a' },
   { id: 'ender_dragon_spawn_egg', nameVi: 'Trứng Rồng Ender (Boss)', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#18181b', iconAccent: '#c084fc' },
   { id: 'villager_spawn_egg', nameVi: 'Trứng Dân Làng (Villager)', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#7c4a2d', iconAccent: '#16a34a' },
+  { id: 'skeleton_spawn_egg', nameVi: 'Trứng Bộ Xương (Skeleton)', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#e5e7eb', iconAccent: '#6b7280' },
+  { id: 'blaze_spawn_egg', nameVi: 'Trứng Quỷ Lửa (Blaze)', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#f59e0b', iconAccent: '#fef08a' },
+  { id: 'wolf_spawn_egg', nameVi: 'Trứng Sói (Wolf)', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#d6d3d1', iconAccent: '#78716c' },
+  { id: 'iron_golem_spawn_egg', nameVi: 'Trứng Người Sắt (Iron Golem)', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#d6d3d1', iconAccent: '#4d7c0f' },
+  { id: 'pillager_spawn_egg', nameVi: 'Trứng Kẻ Cướp (Pillager)', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#4b5563', iconAccent: '#7f1d1d' },
+  { id: 'wither_spawn_egg', nameVi: 'Trứng Boss Wither', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#18181b', iconAccent: '#e0f2fe' },
+  { id: 'enderman_spawn_egg', nameVi: 'Trứng Enderman', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#111113', iconAccent: '#e879f9' },
+  { id: 'spider_spawn_egg', nameVi: 'Trứng Nhện (Spider)', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#27272a', iconAccent: '#ef4444' },
+  { id: 'slime_spawn_egg', nameVi: 'Trứng Slime', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#84cc16', iconAccent: '#4d7c0f' },
 
   // =========================================================================
   // MINECRAFT 1.17 – 26.3 MODERN WEAPONS, TOOLS, ARMOR & ITEMS

@@ -1,7 +1,9 @@
 import React from 'react';
 import {
   ArrowLeft,
+  Award,
   Bug,
+  Check,
   Download,
   Layers,
   LogOut,
@@ -17,6 +19,11 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
+import {
+  ADVANCEMENTS,
+  ADVANCEMENT_CATEGORY_LABELS,
+  getAdvancementProgress,
+} from '../game/advancements';
 import { CompiledResourcePack } from '../game/resourcePack';
 import {
   DEFAULT_VIDEO_SETTINGS,
@@ -32,8 +39,10 @@ interface PauseModalProps {
   worldName: string;
   pack: CompiledResourcePack;
   isFullscreen: boolean;
+  unlockedAdvancements?: Record<string, number>;
   onToggleFullscreen: () => void;
   onResume: () => void;
+  onOpenAdvancements?: () => void;
   onOpenOptions: () => void;
   onOpenResourcePack: () => void;
   onExportWorld: () => void;
@@ -44,61 +53,153 @@ export const PauseModal: React.FC<PauseModalProps> = ({
   worldName,
   pack,
   isFullscreen,
+  unlockedAdvancements,
   onToggleFullscreen,
   onResume,
+  onOpenAdvancements,
   onOpenOptions,
   onOpenResourcePack,
   onExportWorld,
   onSaveAndQuit,
-}) => (
-  <div className="fixed inset-0 z-30 bg-black/65 flex items-center justify-center p-4">
-    <div className="w-full max-w-[360px] flex flex-col gap-2.5">
-      <div className="text-center mb-2">
-        <h2 className="font-mc text-xl font-bold text-white mc-text-shadow">
-          Menu Trò Chơi
-        </h2>
-        <p className="text-xs text-zinc-300 font-mono-num mt-0.5 truncate">{worldName}</p>
+}) => {
+  const advProg = getAdvancementProgress(unlockedAdvancements);
+  return (
+    <div className="fixed inset-0 z-30 bg-black/65 flex items-center justify-center p-4">
+      <div className="w-full max-w-[360px] flex flex-col gap-2.5">
+        <div className="text-center mb-2">
+          <h2 className="font-mc text-xl font-bold text-white mc-text-shadow">
+            Menu Trò Chơi
+          </h2>
+          <p className="text-xs text-zinc-300 font-mono-num mt-0.5 truncate">{worldName}</p>
+        </div>
+
+        <McButton
+          variant="primary"
+          widgetsUrl={pack.guiUrls.widgets}
+          onClick={onResume}
+          className="w-full h-11"
+        >
+          <Play className="w-4 h-4 fill-current" />
+          Tiếp Tục
+        </McButton>
+
+        {onOpenAdvancements && (
+          <McButton widgetsUrl={pack.guiUrls.widgets} onClick={onOpenAdvancements} className="w-full">
+            <Award className="w-4 h-4 text-[#facc15]" />
+            Thành Tựu ({advProg.unlocked}/{advProg.total})
+          </McButton>
+        )}
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <McButton widgetsUrl={pack.guiUrls.widgets} onClick={onOpenOptions}>
+            <Settings className="w-4 h-4" />
+            Cài Đặt
+          </McButton>
+          <McButton widgetsUrl={pack.guiUrls.widgets} onClick={onOpenResourcePack}>
+            <Package className="w-4 h-4" />
+            Texture
+          </McButton>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <McButton widgetsUrl={pack.guiUrls.widgets} onClick={onToggleFullscreen}>
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            {isFullscreen ? 'Thu Nhỏ' : 'Full Màn'}
+          </McButton>
+          <McButton widgetsUrl={pack.guiUrls.widgets} onClick={onExportWorld}>
+            <Download className="w-4 h-4" />
+            Xuất File
+          </McButton>
+        </div>
+
+        <McButton widgetsUrl={pack.guiUrls.widgets} onClick={onSaveAndQuit} className="mt-1">
+          <LogOut className="w-4 h-4" />
+          Lưu &amp; Thoát
+        </McButton>
       </div>
-
-      <McButton
-        variant="primary"
-        widgetsUrl={pack.guiUrls.widgets}
-        onClick={onResume}
-        className="w-full h-11"
-      >
-        <Play className="w-4 h-4 fill-current" />
-        Tiếp Tục
-      </McButton>
-
-      <div className="grid grid-cols-2 gap-2.5">
-        <McButton widgetsUrl={pack.guiUrls.widgets} onClick={onOpenOptions}>
-          <Settings className="w-4 h-4" />
-          Cài Đặt
-        </McButton>
-        <McButton widgetsUrl={pack.guiUrls.widgets} onClick={onOpenResourcePack}>
-          <Package className="w-4 h-4" />
-          Texture
-        </McButton>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2.5">
-        <McButton widgetsUrl={pack.guiUrls.widgets} onClick={onToggleFullscreen}>
-          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          {isFullscreen ? 'Thu Nhỏ' : 'Full Màn'}
-        </McButton>
-        <McButton widgetsUrl={pack.guiUrls.widgets} onClick={onExportWorld}>
-          <Download className="w-4 h-4" />
-          Xuất File
-        </McButton>
-      </div>
-
-      <McButton widgetsUrl={pack.guiUrls.widgets} onClick={onSaveAndQuit} className="mt-1">
-        <LogOut className="w-4 h-4" />
-        Lưu &amp; Thoát
-      </McButton>
     </div>
-  </div>
-);
+  );
+};
+
+// --- 1B. ADVANCEMENTS MODAL (Java 1.16 - 26.3 Progress Tracker) ---
+interface AdvancementsModalProps {
+  pack: CompiledResourcePack;
+  unlockedAdvancements: Record<string, number>;
+  onClose: () => void;
+}
+
+export const AdvancementsModal: React.FC<AdvancementsModalProps> = ({
+  pack,
+  unlockedAdvancements,
+  onClose,
+}) => {
+  const prog = getAdvancementProgress(unlockedAdvancements);
+  return (
+    <div className="fixed inset-0 z-30 bg-black/75 flex items-center justify-center p-3 sm:p-5">
+      <div className="w-full max-w-[680px] max-h-[86dvh] bg-[#212121] border-2 border-[#555] flex flex-col overflow-hidden">
+        <div className="px-4 py-3 border-b-2 border-black bg-[#171717] flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-mc text-lg font-bold text-[#facc15] mc-text-shadow flex items-center gap-2">
+              <Award className="w-5 h-5" />
+              Thành Tựu Minecraft (1.16 – 26.3)
+            </h2>
+            <p className="text-xs font-mono-num text-zinc-300 mt-0.5">
+              Đã đạt {prog.unlocked}/{prog.total} thành tựu ({prog.percent}%)
+            </p>
+          </div>
+          <McButton
+            widgetsUrl={pack.guiUrls.widgets}
+            onClick={onClose}
+            className="min-h-[36px] text-xs px-3"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Quay lại
+          </McButton>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {ADVANCEMENTS.map((adv) => {
+            const done = Boolean(unlockedAdvancements[adv.id]);
+            return (
+              <div
+                key={adv.id}
+                className={`border-2 px-3 py-2.5 flex items-start gap-2.5 ${
+                  done
+                    ? 'bg-[#1f2c1f] border-[#4ade80]'
+                    : 'bg-[#1a1a1d] border-[#3f3f46] opacity-80'
+                }`}
+              >
+                <div
+                  className="w-9 h-9 shrink-0 border-2 flex items-center justify-center font-mc text-sm font-bold text-white"
+                  style={{
+                    backgroundColor: done ? adv.iconColor : '#27272a',
+                    borderColor: done ? '#facc15' : '#52525b',
+                  }}
+                >
+                  {done ? <Check className="w-4 h-4" /> : '?'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`font-mc text-xs font-bold truncate ${done ? 'text-[#facc15]' : 'text-zinc-200'}`}>
+                      {adv.titleVi}
+                    </span>
+                    <span className="text-[10px] font-mono-num text-zinc-400 shrink-0">
+                      +{adv.xpReward} XP
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-zinc-300 leading-snug mt-0.5">{adv.descVi}</p>
+                  <div className="text-[10px] font-mono-num text-zinc-400 mt-1">
+                    {ADVANCEMENT_CATEGORY_LABELS[adv.category]}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // --- 2. CLASSIC MINECRAFT OPTIONS SCREEN (Contains Skin & F3 toggle!) ---
 interface VideoOptionsModalProps {

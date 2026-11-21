@@ -8,6 +8,7 @@ import { ContainerModal } from './components/ContainerModal';
 import { HudOverlay } from './components/HudOverlay';
 import { MobileTouchControls } from './components/MobileTouchControls';
 import {
+  AdvancementsModal,
   DeathModal,
   PauseModal,
   VideoOptionsModal,
@@ -84,7 +85,7 @@ export default function App() {
   // In-game live states
   const [hud, setHud] = useState<HudSnapshot | null>(null);
   const [paused, setPaused] = useState(false);
-  const [inGameModal, setInGameModal] = useState<'none' | 'options' | 'resources'>('none');
+  const [inGameModal, setInGameModal] = useState<'none' | 'options' | 'resources' | 'advancements'>('none');
   const [containerType, setContainerType] = useState<ContainerType>('none');
   const [showF3, setShowF3] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -797,14 +798,25 @@ export default function App() {
                 worldName={activeWorldName}
                 pack={compiledPack}
                 isFullscreen={isFullscreen}
+                unlockedAdvancements={hud.unlockedAdvancements}
                 onToggleFullscreen={handleToggleFullscreen}
                 onResume={handleResumeGame}
+                onOpenAdvancements={() => setInGameModal('advancements')}
                 onOpenOptions={() => setInGameModal('options')}
                 onOpenResourcePack={() => setInGameModal('resources')}
                 onExportWorld={handleExportCurrentWorld}
                 onSaveAndQuit={handleSaveAndQuit}
               />
             )}
+
+          {/* In-Game Advancements Progress Viewer */}
+          {paused && inGameModal === 'advancements' && (
+            <AdvancementsModal
+              pack={compiledPack}
+              unlockedAdvancements={hud.unlockedAdvancements || {}}
+              onClose={() => setInGameModal('none')}
+            />
+          )}
 
           {/* In-Game Video Settings (Skin & F3 inside Settings) */}
           {paused && inGameModal === 'options' && (

@@ -13,7 +13,8 @@ export type ContainerType =
   | 'chest'
   | 'ender_chest'
   | 'brewing'
-  | 'trading';
+  | 'trading'
+  | 'stonecutter';
 
 export type VillagerProfession =
   | 'farmer'
@@ -78,7 +79,8 @@ export type EffectId =
   | 'night_vision'
   | 'levitation'
   | 'slow_falling'
-  | 'darkness';
+  | 'darkness'
+  | 'hero_of_the_village';
 
 export interface ActiveEffect {
   id: EffectId;
@@ -212,6 +214,7 @@ export interface FurnaceState {
   burnTime: number;
   burnMax: number;
   cookProgress: number; // 0..1
+  stationKind?: 'furnace' | 'blast_furnace' | 'smoker';
 }
 
 export interface WorldSave {
@@ -262,6 +265,9 @@ export interface WorldSave {
   enderChest?: (ItemStack | null)[];
   brewingStands?: Record<string, BrewingStandState>;
   redstoneStates?: Record<string, number>;
+  composterLevels?: Record<string, number>;
+  cauldronLevels?: Record<string, number>;
+  advancements?: Record<string, number>;
 }
 
 export interface ChatMessage {
@@ -367,6 +373,21 @@ export interface HudSnapshot {
     xp: number;
     offers: VillagerTradeOffer[];
   } | null;
+  raidState?: {
+    active: boolean;
+    wave: number;
+    maxWaves: number;
+    remaining: number;
+    total: number;
+  } | null;
+  advancementToast?: {
+    id: string;
+    titleVi: string;
+    descVi: string;
+    iconColor: string;
+    at: number;
+  } | null;
+  unlockedAdvancements?: Record<string, number>;
 }
 
 export interface PackManifestFile {

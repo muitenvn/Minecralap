@@ -1,29 +1,26 @@
-# TEST REPORT — Minecralap Autonomous Complete Upgrade
+# TEST REPORT — Minecralap / NetherCraft 26.3 (Waves 1–14)
 
-- **Thời điểm chạy kiểm thử cuối**: 2026-11-21
-- **Môi trường kiểm thử**: Node.js (`tsx --test`), TypeScript (`tsc --noEmit`), Vite production bundler (`vite build` qua `compile_applet` & `lint_applet`).
+## 1. Kết quả Unit & Integration Tests (`npm test` → `tsx --test tests/*.test.ts`)
 
-## 1. Kết Quả Unit & Integration Tests (`npm test`)
+- **Tổng số bài kiểm thử**: **41**
+- **Đạt (PASS)**: **41 / 41** (100%)
+- **Thất bại (FAIL)**: **0**
+- **Thời gian chạy**: ~5.9 giây
 
-Tổng số test case: **18 / 18 PASSED (0 failed, 0 skipped)**
+| Tệp kiểm thử | Số test | Kết quả | Nội dung đã xác minh |
+| --- | --- | --- | --- |
+| `tests/wave1_storage_containers.test.ts` | 3 | PASS | Save Schema v3, di trú v1→v3 giữ nguyên túi đồ/biến đổi khối, mảng Rương 27 ô & Giàn Pha Thuốc 3 bình |
+| `tests/wave2_brewing.test.ts` | 3 | PASS | Ma trận pha thuốc Java, tiêu thụ Bột Quỷ Lửa, ủ 3 bình đồng thời, hủy tiến trình khi rút nguyên liệu |
+| `tests/wave3_redstone.test.ts` | 5 | PASS | Suy hao Redstone 0–15 & Repeater, Lever bật/tắt Đèn & TNT, Piston/Sticky Piston + chặn Obsidian/Bedrock, Đá Nhạc Kèn Đồng 26.1, Hopper truyền đồ & khóa tín hiệu |
+| `tests/wave4_trading_farming_worldgen.test.ts` | 4 | PASS | 6 nghề Dân Làng + Sách Phù Phép, giao dịch & thăng cấp giới hạn kho, thú non lớn lên & Bồ Công Anh Vàng 26.1 khóa tuổi, sinh cấu trúc Làng / Trại Bỏ Hoang 26.3 / Pháo Đài Nether |
+| `tests/wave5_java263_combat.test.ts` | 3 | PASS | Công thức Thẻ Tên & Bồ Công Anh Vàng 26.1, khối/công thức/quần xã Rừng Dương 26.3, Attack Cooldown + Chí mạng 1.5× + Đánh lan Kiếm |
+| `tests/wave7_stations_fishing.test.ts` | 4 | PASS | Câu cá Java (Luck/Lure/Enchanted Book), Composter 0→7 → Bột Xương, Cauldron 0→3 Xô/Chai, Stonecutter + Campfire + Blast Furnace/Smoker 2× |
+| `tests/wave8_mobs_raid.test.ts` | 5 | PASS | 5 mob kinh điển + trứng + mesh 3D (`skeleton`, `blaze`, `wolf`, `iron_golem`, `pillager`), Đột Kích Làng 3 đợt & Chiến thắng, Anh Hùng Của Làng giảm giá 30%, Iron Golem & Sói thuần hóa tấn công quái (Sói ngồi đứng yên), lệnh `/raid` |
+| `tests/wave9_advancements_redstone_v2.test.ts` | 4 | PASS | 22 Thành Tựu Java duy nhất + mở khóa idempotent + phần trăm tiến độ, Save Schema v3 di trú `advancements`/`composterLevels`/`cauldronLevels`, Observer kích đèn khi khối cạnh đổi, Dispenser bắn TNT/Nước & Dropper đẩy vật phẩm sang rương |
+| `tests/wave11_physics_fluids.test.ts` | 4 | PASS | Nhận diện khối trọng lực, sụp đổ cột Cát/Sỏi/Đe, đông cứng Bột Bê Tông chạm Nước thành Bê Tông, Máy Tạo Đá Cuội (Cobblestone Generator), Nước đổ lên Dung Nham tạo Obsidian & lan truyền chất lỏng giới hạn |
+| `tests/wave12_wither_beacon.test.ts` | 3 | PASS | Kiểm tra khung chữ T Cát/Đất Linh Hồn (trục X & Z) triệu hồi Wither, đánh giá Kim Tự Tháp Đèn Hiệu Beacon Tầng 0→4 (bán kính 20→50, 6 hiệu ứng, cấp II ở Tầng 4), Boss Wither 300 HP / Sao Nether / `/summon wither` & 2 thành tựu mới |
+| `tests/wave13_structures_enderman_loop.test.ts` | 3 | PASS | Enderman (40 HP / `ender_pearl`), Spider (`string`), Slime (`slime_ball`) + trứng & `/summon`, sinh tất định Đền Thờ Đại Dương Ocean Monument tại chunk `(-3, -3)` với Lăng Kính / Đèn Biển / 8 khối Vàng, lệnh `/locate` & autocomplete mở rộng |
 
-| Bộ Test | Số Test | Kết Quả | Nội Dung Xác Minh |
-| :--- | :---: | :---: | :--- |
-| `tests/wave1_storage_containers.test.ts` | 3 | `PASS` | Khởi tạo World Schema v2, migration save v1→v2 không mất dữ liệu, khởi tạo Rương 27 ô & Giá Ủ Thuốc |
-| `tests/wave2_brewing.test.ts` | 3 | `PASS` | Ma trận pha chế Java (Awkward → Hiệu ứng → Đảo mắt nhện → Splash → Lingering), tiêu hao nhiên liệu Bột Quỷ Lửa, ủ 3 chai đồng thời, hủy tiến trình khi rút nguyên liệu |
-| `tests/wave3_redstone.test.ts` | 5 | `PASS` | Suy hao tín hiệu Redstone 0–15 + khuếch đại Repeater, Cần Gạt bật/tắt Đèn & kích nổ TNT, Piston đẩy 3 khối / từ chối Obsidian / Piston Dính kéo khối, Kèn Đồng Note Block 26.1, Phễu chuyển đồ & khóa khi có điện |
-| `tests/wave4_trading_farming_worldgen.test.ts` | 4 | `PASS` | 6 nghề Dân Làng + Thủ Thư bán Sách Phù Phép, thực thi giao dịch + lên cấp + khóa hết hàng, thú non tự lớn & khóa tuổi bằng Bồ Công Anh Vàng 26.1, sinh cấu trúc Làng (2,1), Trại Bỏ Hoang (-2,2) & Pháo Đài Nether (1,1) |
-| `tests/wave5_java263_combat.test.ts` | 3 | `PASS` | Chế tạo Thẻ Tên & Bồ Công Anh Vàng (26.1), 12 block & công thức 26.3 Wilderness Bound + quần xã Rừng Nắng Đốm, hồi chiêu chiến đấu Java + Chí mạng 1.5× + Quét Kiếm |
-
-## 2. Kết Quả Kiểm Tra Kiểu & Biên Dịch
-
-- **`lint_applet` (`tsc --noEmit`)**: **PASS** (0 lỗi TypeScript trên toàn bộ `src/`).
-- **`compile_applet` (`vite build`)**: **PASS** (biên dịch gói production hoàn chỉnh thành công).
-
-## 3. Lỗi Phát Hiện Trong Quá Trình Kiểm Thử & Đã Sửa
-
-1. `engine.ts`: tham chiếu `this.activeContainer` không tồn tại ở tick Brewing Stand → sửa bằng cờ `activeBrewChanged` gắn với `this.activeBrewingKey`.
-2. `audio.ts`: gọi `this.ensureContext()` thay vì `this.ensureCtx()` trong `playNoteBlockSound` → đã sửa và `tsc` đạt 0 lỗi.
-3. `worldGen.ts` & `wave4`: chữ ký `generateChunk(dimension, cx, cz, mods)` và đảm bảo Làng vùng xuất phát `(2,1)` luôn sinh kể cả khi seed rơi vào vùng đỉnh núi → đã sửa và test 15/15 PASS.
-4. `engine.ts`: gọi `addPlayerXp` thay vì `grantPlayerXp` → đổi sang `grantPlayerXp` (đồng thời kích hoạt tự sửa Mending cho cả Ô Tay Trái).
-5. `worldGen.ts` & `catalog116.ts`: `poplar_leaves` dùng `texStyle: 'stone'` hợp lệ và bổ sung `dappled_forest` vào nhánh sinh cây Overworld → 18/18 PASS và `tsc` đạt 0 lỗi.
+## 2. Kiểm tra kiểu tĩnh & Build sản xuất
+- `npm run lint` (`tsc --noEmit`): **0 lỗi**.
+- `compile_applet` (`npm run build` / Vite production bundle): Xác minh đồng thời cùng `lint_applet` ở bước chốt Wave 14.

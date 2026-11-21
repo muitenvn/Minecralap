@@ -10,7 +10,7 @@ import {
   WorldSave,
 } from './types';
 
-export const CURRENT_SAVE_SCHEMA_VERSION = 2;
+export const CURRENT_SAVE_SCHEMA_VERSION = 3;
 
 export function createEmptyChestSlots(): (ItemStack | null)[] {
   return new Array(27).fill(null);
@@ -82,6 +82,9 @@ export function migrateWorldSave(raw: WorldSave): WorldSave {
     enderChest: normalizeSlotArray(raw.enderChest, 27),
     brewingStands,
     redstoneStates: raw.redstoneStates || {},
+    composterLevels: raw.composterLevels || {},
+    cauldronLevels: raw.cauldronLevels || {},
+    advancements: raw.advancements || {},
   };
 }
 
@@ -274,6 +277,9 @@ export function createNewWorldRecord(opts: {
     enderChest: createEmptyChestSlots(),
     brewingStands: {},
     redstoneStates: {},
+    composterLevels: {},
+    cauldronLevels: {},
+    advancements: {},
   };
 }
 

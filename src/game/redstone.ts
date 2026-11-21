@@ -36,6 +36,7 @@ export interface RedstoneWorldAccessor {
   playNote?(x: number, y: number, z: number, pitch: number, instrument: NoteInstrument): void;
   getChestSlots?(key: string): (ItemStack | null)[] | null;
   setChestSlots?(key: string, slots: (ItemStack | null)[]): void;
+  onDispense?(x: number, y: number, z: number, itemId: string, dir: [number, number, number]): void;
 }
 
 export function makeCoordKey(x: number, y: number, z: number): string {
@@ -391,6 +392,26 @@ export function updateRedstoneNetworkAround(
             world.setState(sKey, next);
             updatedBlocks++;
           }
+        } else if (key === 'dispenser') {
+          const p = computeRedstonePowerAt(world, x, y, z);
+          const pKey = `pwr:${makeCoordKey(x, y, z)}`;
+          const was = world.getState(pKey) > 0;
+          world.setState(pKey, p > 0 ? 1 : 0);
+          if (p > 0 && !was) {
+            if (triggerDispenser(world, x, y, z, pistonDir[0], pistonDir[1], pistonDir[2])) {
+              updatedBlocks++;
+            }
+          }
+        } else if (key === 'dropper') {
+          const p = computeRedstonePowerAt(world, x, y, z);
+          const pKey = `pwr:${makeCoordKey(x, y, z)}`;
+          const was = world.getState(pKey) > 0;
+          world.setState(pKey, p > 0 ? 1 : 0);
+          if (p > 0 && !was) {
+            if (triggerDropper(world, x, y, z, pistonDir[0], pistonDir[1], pistonDir[2])) {
+              updatedBlocks++;
+            }
+          }
         }
       }
     }
@@ -473,3 +494,127 @@ export function stepHopperTransfer(
   world.setChestSlots(dstKey, nextDst);
   return true;
 }
+
+/**
+ * Observer pulse (Java Edition): when an adjacent block changes, emits a 15-power pulse
+ * and updates the surrounding redstone network.
+ */
+export function triggerObserverPulse(
+  world: RedstoneWorldAccessor,
+  changedX: number,
+  changedY: number,
+  changedZ: number,
+  pistonDir: [number, number, number] = [0, 1, 0],
+): { triggeredObservers: number; updatedBlocks: number; ignitedTnt: number } {
+  let triggeredObservers = 0;
+  let updatedBlocks = 0;
+  let ignitedTnt = 0;
+
+  for (const [dx, dy, dz] of NEIGHBORS_6) {
+    const ox = changedX + dx;
+    const oy = changedY + dy;
+    const oz = changedZ + dz;
+    const id = world.getBlock(ox, oy, oz);
+    if (BLOCK_DEFS[id]?.key !== 'observer') continue;
+    const oKey = makeCoordKey(ox, oy, oz);
+    world.setState(oKey, 15);
+    triggeredObservers++;
+    const res = updateRedstoneNetworkAround(world, ox, oy, oz, pistonDir);
+    updatedBlocks += res.updatedBlocks;
+    ignitedTnt += res.ignitedTnt;
+  }
+
+  return { triggeredObservers, updatedBlocks, ignitedTnt };
+}
+
+/**
+ * Dispenser action (Java Edition): fires arrows/TNT/water from its inventory (or shoots a default arrow if empty).
+ */
+export function triggerDispenser(
+  world: RedstoneWorldAccessor,
+  x: number,
+  y: number,
+  z: number,
+  dx = 0,
+  dy = 1,
+  dz = 0,
+): { dispensed: boolean; itemId: string } {
+  const key = makeCoordKey(x, y, z);
+  const slots = world.getChestSlots?.(key) ?? null;
+  let itemId = 'arrow';
+
+  if (slots) {
+    const idx = slots.findIndex((s) => s !== null && s.count > 0);
+    if (idx !== -1) {
+      const picked = slots[idx]!;
+      itemId = picked.itemId;
+      const next = slots.map((s) => (s ? { ...s } : null));
+      next[idx] = picked.count > 1 ? { ...picked, count: picked.count - 1 } : null;
+      world.setChestSlots?.(key, next);
+    }
+  }
+
+  const tx = x + dx;
+  const ty = y + dy;
+  const tz = z + dz;
+  if (itemId === 'tnt') {
+    world.igniteTnt(tx, ty, tz);
+  } else if (itemId === 'water_bucket' && world.getBlock(tx, ty, tz) === BLOCK.AIR) {
+    world.setBlock(tx, ty, tz, BLOCK.WATER);
+  }
+  world.onDispense?.(x, y, z, itemId, [dx, dy, dz]);
+  return { dispensed: true, itemId };
+}
+
+/**
+ * Dropper action (Java Edition): pushes 1 item from its storage into an adjacent container at (x+dx, y+dy, z+dz).
+ */
+export function triggerDropper(
+  world: RedstoneWorldAccessor,
+  x: number,
+  y: number,
+  z: number,
+  dx = 0,
+  dy = 1,
+  dz = 0,
+): boolean {
+  if (!world.getChestSlots || !world.setChestSlots) return false;
+  const srcKey = makeCoordKey(x, y, z);
+  const dstKey = makeCoordKey(x + dx, y + dy, z + dz);
+  const srcSlots = world.getChestSlots(srcKey);
+  const dstSlots = world.getChestSlots(dstKey);
+  if (!srcSlots || !dstSlots) return false;
+
+  const srcIdx = srcSlots.findIndex((s) => s !== null && s.count > 0);
+  if (srcIdx === -1) return false;
+
+  const srcItem = srcSlots[srcIdx]!;
+  const maxStack = ITEM_DEFS[srcItem.itemId]?.maxStack ?? 64;
+  let dstIdx = -1;
+  if (maxStack > 1 && !srcItem.enchants) {
+    dstIdx = dstSlots.findIndex(
+      (s) => s !== null && s.itemId === srcItem.itemId && !s.enchants && s.count < maxStack,
+    );
+  }
+  if (dstIdx === -1) dstIdx = dstSlots.findIndex((s) => s === null);
+  if (dstIdx === -1) return false;
+
+  const nextSrc = srcSlots.map((s) => (s ? { ...s } : null));
+  const nextDst = dstSlots.map((s) => (s ? { ...s } : null));
+  const existing = nextDst[dstIdx];
+  if (existing) {
+    existing.count += 1;
+  } else {
+    nextDst[dstIdx] = {
+      itemId: srcItem.itemId,
+      count: 1,
+      enchants: srcItem.enchants ? { ...srcItem.enchants } : undefined,
+      durability: srcItem.durability,
+    };
+  }
+  nextSrc[srcIdx] = srcItem.count > 1 ? { ...srcItem, count: srcItem.count - 1 } : null;
+  world.setChestSlots(srcKey, nextSrc);
+  world.setChestSlots(dstKey, nextDst);
+  return true;
+}
+

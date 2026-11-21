@@ -19,6 +19,7 @@ import {
   matchSmithing,
 } from '../game/recipes';
 import { CompiledResourcePack } from '../game/resourcePack';
+import { getStonecutterOutputs, StonecutterOutput } from '../game/stations';
 import { canAffordTrade, VILLAGER_LEVEL_LABELS } from '../game/trading';
 import {
   BrewingStandState,
@@ -163,6 +164,7 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
   const [enchantSeed, setEnchantSeed] = useState(() => Math.floor(Math.random() * 100000));
   const [anvilLeft, setAnvilLeft] = useState<ItemStack | null>(null);
   const [anvilRight, setAnvilRight] = useState<ItemStack | null>(null);
+  const [stoneInput, setStoneInput] = useState<ItemStack | null>(null);
 
   // Creative & Recipe Book filters
   const [creativeTab, setCreativeTab] = useState<'all' | CreativeCategory>('all');
@@ -185,6 +187,7 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
     setEnchLapis(null);
     setAnvilLeft(null);
     setAnvilRight(null);
+    setStoneInput(null);
   }, [type, gridSize]);
 
   const handleSafeClose = () => {
@@ -197,6 +200,7 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
     if (enchLapis) addStackToArray(nextInv, enchLapis);
     if (anvilLeft) addStackToArray(nextInv, anvilLeft);
     if (anvilRight) addStackToArray(nextInv, anvilRight);
+    if (stoneInput) addStackToArray(nextInv, stoneInput);
     onUpdateInventory(nextInv);
     onClose();
   };
@@ -579,7 +583,12 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
   const titleMap: Record<Exclude<ContainerType, 'none'>, string> = {
     inventory: isCreativeCatalog ? 'Kho Sáng Tạo' : 'Túi Đồ',
     crafting: 'Bàn Chế Tạo',
-    furnace: 'Lò Nung',
+    furnace:
+      furnace.stationKind === 'blast_furnace'
+        ? 'Lò Cao (Nung Quặng ×2)'
+        : furnace.stationKind === 'smoker'
+          ? 'Lò Hun Khói (Nướng Thịt ×2)'
+          : 'Lò Nung',
     smithing: 'Bàn Rèn',
     enchanting: 'Bàn Phù Phép',
     anvil: 'Đe Rèn',
@@ -587,6 +596,7 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
     ender_chest: 'Rương Ender',
     brewing: 'Giá Ủ Thuốc',
     trading: 'Giao Dịch Dân Làng',
+    stonecutter: 'Bàn Cắt Đá',
   };
 
   const relevantRecipes = useMemo(() => {
@@ -1591,6 +1601,63 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
             </div>
           </div>
         )}
+
+        {/* --- STONECUTTER (BÀN CẮT ĐÁ CHUẨN JAVA) --- */}
+        {type === 'stonecutter' && (() => {
+          const outputs: StonecutterOutput[] = getStonecutterOutputs(stoneInput?.itemId);
+          const handleCut = (out: StonecutterOutput) => {
+            if (!stoneInput || stoneInput.count <= 0) return;
+            const nextInv = inventory.map(cloneStack);
+            if (!addStackToArray(nextInv, { itemId: out.itemId, count: out.count })) return;
+            const left = stoneInput.count - 1;
+            setStoneInput(left > 0 ? { ...stoneInput, count: left } : null);
+            onUpdateInventory(nextInv);
+            soundEngine.playBlock('stone', 'break');
+          };
+          return (
+            <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-3 sm:p-4 mb-3">
+              <div className="text-xs font-mc font-bold text-[#222] mb-2.5">
+                Bàn Cắt Đá · Đặt Đá / Đá Cuội / Deepslate / Khối Đồng / Blackstone / Thạch Anh để cắt trực tiếp
+              </div>
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-[10px] font-mc font-bold text-[#333]">Khối đá</span>
+                  <McItemSlot
+                    stack={stoneInput}
+                    pack={pack}
+                    size={52}
+                    placeholder="Đá"
+                    onClick={() => interactSlot(stoneInput, setStoneInput)}
+                    onContextMenu={() => interactSlot(stoneInput, setStoneInput, true)}
+                  />
+                </div>
+                <div className="flex-1 min-w-[200px] bg-[#9c9c9c] border-2 border-[#6e6e6e] p-2">
+                  {outputs.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                      {outputs.map((out) => (
+                        <button
+                          key={out.itemId}
+                          type="button"
+                          onClick={() => handleCut(out)}
+                          className="flex items-center gap-1.5 bg-[#d4d4d4] hover:bg-[#e8f5e9] border-2 border-black px-2 py-1 text-left cursor-pointer"
+                        >
+                          <McItemSlot stack={{ itemId: out.itemId, count: out.count }} pack={pack} size={32} />
+                          <span className="text-[11px] font-mc font-bold text-[#1f1f1f] truncate">
+                            {ITEM_DEFS[out.itemId]?.nameVi || out.itemId}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-[#2f2f2f] text-center py-4">
+                      Đặt Đá, Đá Cuội, Deepslate, Khối Đồng, Blackstone, Thạch Anh hoặc Calcite vào ô bên trái để cắt!
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* --- PLAYER MAIN INVENTORY (27 SLOTS) --- */}
         <div className="mb-2.5">

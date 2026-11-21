@@ -36,7 +36,16 @@ export type MobType =
   | 'cold_sulfur_cube'
   | 'frostbite'
   | 'ender_dragon'
-  | 'villager';
+  | 'villager'
+  | 'skeleton'
+  | 'blaze'
+  | 'wolf'
+  | 'iron_golem'
+  | 'pillager'
+  | 'wither'
+  | 'enderman'
+  | 'spider'
+  | 'slime';
 
 export interface MobEntity {
   id: string;
@@ -67,6 +76,9 @@ export interface MobEntity {
   ageLocked?: boolean; // Java 26.1 Golden Dandelion freezes baby growth!
   customName?: string; // Name Tag
   breedCooldownSec?: number;
+  tamed?: boolean; // Tamed Wolf companion
+  sitting?: boolean; // Tamed Wolf sitting toggle
+  isRaidMob?: boolean; // Tracks active Village Raid pillagers/raiders
   profession?: VillagerProfession;
   tradeSeed?: number;
   tradeLevel?: number;
@@ -90,6 +102,7 @@ export interface MobSpec {
   flying?: boolean;
   aquatic?: boolean;
   boss?: boolean;
+  ranged?: 'arrow' | 'fireball';
 }
 
 export const MOB_SPECS: Record<MobType, MobSpec> = {
@@ -127,6 +140,15 @@ export const MOB_SPECS: Record<MobType, MobSpec> = {
   frostbite: { nameVi: 'Frostbite (Xác Băng 26.4)', hp: 22, hostile: true, speed: 2.7, damage: 4, drop: 'snow_bricks', dropCount: 2, width: 0.65, height: 1.9 },
   ender_dragon: { nameVi: 'Rồng Ender (Ender Dragon)', hp: 200, hostile: true, speed: 7.5, damage: 8, drop: 'dragon_egg', dropCount: 1, width: 4.5, height: 3.2, flying: true, boss: true },
   villager: { nameVi: 'Dân Làng (Villager)', hp: 20, hostile: false, speed: 1.9, damage: 0, drop: 'emerald', dropCount: 1, width: 0.65, height: 1.95 },
+  skeleton: { nameVi: 'Bộ Xương (Skeleton)', hp: 20, hostile: true, speed: 2.6, damage: 4, drop: 'arrow', dropCount: 3, width: 0.65, height: 1.9, ranged: 'arrow' },
+  blaze: { nameVi: 'Quỷ Lửa (Blaze)', hp: 20, hostile: true, speed: 2.5, damage: 5, drop: 'blaze_rod', dropCount: 1, width: 0.75, height: 1.85, flying: true, ranged: 'fireball' },
+  wolf: { nameVi: 'Sói (Wolf)', hp: 12, hostile: false, speed: 3.4, damage: 4, drop: 'bone', dropCount: 1, width: 0.65, height: 0.85 },
+  iron_golem: { nameVi: 'Người Sắt (Iron Golem)', hp: 100, hostile: false, speed: 1.8, damage: 12, drop: 'iron_ingot', dropCount: 4, width: 1.25, height: 2.7 },
+  pillager: { nameVi: 'Kẻ Cướp (Pillager)', hp: 24, hostile: true, speed: 2.8, damage: 4, drop: 'emerald', dropCount: 2, width: 0.65, height: 1.95, ranged: 'arrow' },
+  wither: { nameVi: 'Boss Wither (Khô Héo)', hp: 300, hostile: true, speed: 3.6, damage: 9, drop: 'nether_star', dropCount: 1, width: 1.5, height: 3.3, flying: true, boss: true, ranged: 'fireball' },
+  enderman: { nameVi: 'Enderman (Bóng Đêm)', hp: 40, hostile: true, speed: 3.4, damage: 6, drop: 'ender_pearl', dropCount: 1, width: 0.65, height: 2.9 },
+  spider: { nameVi: 'Nhện (Spider)', hp: 16, hostile: true, speed: 3.5, damage: 3, drop: 'string', dropCount: 2, width: 1.35, height: 0.85 },
+  slime: { nameVi: 'Slime (Khối Nhờn)', hp: 16, hostile: true, speed: 2.2, damage: 3, drop: 'slime_ball', dropCount: 2, width: 1.05, height: 1.05 },
 };
 
 const PX = 1 / 16;
@@ -1585,6 +1607,272 @@ function buildFallbackProceduralMob(type: MobType): { group: THREE.Group; limbs:
     return { group, limbs };
   }
 
+  if (type === 'skeleton') {
+    const bone = 0xe5e7eb;
+    const boneDark = 0x9ca3af;
+    for (const lx of [-0.14, 0.14]) {
+      const leg = partBox(0.12, 0.72, 0.12, bone, 0.75);
+      leg.position.set(lx, 0.36, 0);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    const rib = partBox(0.42, 0.68, 0.2, bone, 0.75);
+    rib.position.set(0, 1.06, 0);
+    const head = partBox(0.46, 0.46, 0.46, bone, 0.72);
+    head.position.set(0, 1.64, 0);
+    for (const ex of [-0.11, 0.11]) {
+      const eye = partBox(0.1, 0.1, 0.05, 0x18181b, 0.2);
+      eye.position.set(ex, 1.66, 0.23);
+      group.add(eye);
+    }
+    const armL = partBox(0.11, 0.66, 0.11, boneDark, 0.75);
+    armL.position.set(-0.3, 1.12, 0.22);
+    armL.rotation.x = -Math.PI * 0.45;
+    const armR = partBox(0.11, 0.66, 0.11, boneDark, 0.75);
+    armR.position.set(0.3, 1.12, 0.22);
+    armR.rotation.x = -Math.PI * 0.45;
+    const bow = partBox(0.08, 0.56, 0.14, 0x78350f, 0.85);
+    bow.position.set(0, -0.22, 0.3);
+    armR.add(bow);
+    group.add(rib, head, armL, armR);
+    return { group, limbs };
+  }
+
+  if (type === 'blaze') {
+    const head = partBox(0.5, 0.5, 0.5, 0xf59e0b, 0.3, 0.2, 0xea580c);
+    head.position.set(0, 1.55, 0);
+    for (const ex of [-0.12, 0.12]) {
+      const eye = partBox(0.11, 0.09, 0.05, 0xfef08a, 0.1, 0, 0xfef08a);
+      eye.position.set(ex, 1.58, 0.25);
+      group.add(eye);
+    }
+    const core = partBox(0.28, 0.9, 0.28, 0x78350f, 0.6, 0.1, 0xb45309);
+    core.position.set(0, 0.85, 0);
+    group.add(head, core);
+    for (let r = 0; r < 6; r++) {
+      const ang = (r / 6) * Math.PI * 2;
+      const rod = partBox(0.11, 0.52, 0.11, 0xfacc15, 0.25, 0.35, 0xf59e0b);
+      rod.position.set(Math.cos(ang) * 0.48, 0.55 + (r % 2) * 0.5, Math.sin(ang) * 0.48);
+      group.add(rod);
+      limbs.push(rod);
+    }
+    return { group, limbs };
+  }
+
+  if (type === 'wolf') {
+    const fur = 0xd6d3d1;
+    const furDark = 0x78716c;
+    const body = partBox(0.46, 0.42, 0.78, fur, 0.88);
+    body.position.set(0, 0.52, 0);
+    const mane = partBox(0.52, 0.46, 0.32, furDark, 0.9);
+    mane.position.set(0, 0.54, 0.28);
+    const head = partBox(0.38, 0.36, 0.38, fur, 0.85);
+    head.position.set(0, 0.62, 0.56);
+    const snout = partBox(0.2, 0.18, 0.22, furDark, 0.8);
+    snout.position.set(0, 0.54, 0.82);
+    const earL = partBox(0.1, 0.16, 0.08, furDark, 0.85);
+    earL.position.set(-0.13, 0.86, 0.54);
+    const earR = earL.clone();
+    earR.position.x = 0.13;
+    const collar = partBox(0.42, 0.1, 0.14, 0xdc2626, 0.5);
+    collar.name = 'wolfCollar';
+    collar.visible = false;
+    collar.position.set(0, 0.55, 0.42);
+    const tail = partBox(0.12, 0.12, 0.46, furDark, 0.85);
+    tail.position.set(0, 0.56, -0.52);
+    tail.rotation.x = 0.35;
+    for (const [lx, lz] of [[-0.14, 0.26], [0.14, 0.26], [-0.14, -0.26], [0.14, -0.26]]) {
+      const leg = partBox(0.13, 0.34, 0.13, fur, 0.88);
+      leg.position.set(lx, 0.17, lz);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    group.add(body, mane, head, snout, earL, earR, collar, tail);
+    return { group, limbs };
+  }
+
+  if (type === 'iron_golem') {
+    const iron = 0xd6d3d1;
+    const ironShade = 0xa8a29e;
+    const vine = 0x4d7c0f;
+    for (const lx of [-0.28, 0.28]) {
+      const leg = partBox(0.34, 0.98, 0.34, ironShade, 0.55, 0.35);
+      leg.position.set(lx, 0.49, 0);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    const waist = partBox(0.68, 0.38, 0.44, ironShade, 0.5, 0.4);
+    waist.position.set(0, 1.16, 0);
+    const chest = partBox(1.12, 0.86, 0.64, iron, 0.45, 0.45);
+    chest.position.set(0, 1.76, 0);
+    const moss = partBox(1.14, 0.16, 0.66, vine, 0.9);
+    moss.position.set(0, 1.92, 0);
+    const head = partBox(0.52, 0.6, 0.52, iron, 0.45, 0.4);
+    head.position.set(0, 2.42, 0.08);
+    const nose = partBox(0.14, 0.26, 0.14, ironShade, 0.5, 0.35);
+    nose.position.set(0, 2.34, 0.38);
+    for (const ex of [-0.14, 0.14]) {
+      const eye = partBox(0.1, 0.08, 0.05, 0xdc2626, 0.2, 0, 0x991b1b);
+      eye.position.set(ex, 2.5, 0.34);
+      group.add(eye);
+    }
+    const armL = partBox(0.28, 1.65, 0.3, iron, 0.45, 0.45);
+    armL.position.set(-0.72, 1.38, 0);
+    const armR = partBox(0.28, 1.65, 0.3, iron, 0.45, 0.45);
+    armR.position.set(0.72, 1.38, 0);
+    group.add(waist, chest, moss, head, nose, armL, armR);
+    limbs.push(armL, armR);
+    return { group, limbs };
+  }
+
+  if (type === 'pillager') {
+    const skin = 0x9ca3af;
+    const coat = 0x4b5563;
+    const trim = 0x7f1d1d;
+    for (const lx of [-0.15, 0.15]) {
+      const leg = partBox(0.24, 0.7, 0.24, 0x374151, 0.85);
+      leg.position.set(lx, 0.35, 0);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    const torso = partBox(0.54, 0.72, 0.32, coat, 0.82);
+    torso.position.set(0, 1.04, 0);
+    const sash = partBox(0.56, 0.2, 0.34, trim, 0.75);
+    sash.position.set(0, 0.94, 0);
+    const head = partBox(0.48, 0.56, 0.48, skin, 0.78);
+    head.position.set(0, 1.68, 0);
+    const nose = partBox(0.12, 0.24, 0.14, 0x6b7280, 0.8);
+    nose.position.set(0, 1.58, 0.28);
+    const brow = partBox(0.42, 0.08, 0.06, 0x1f2937, 0.8);
+    brow.position.set(0, 1.78, 0.25);
+    const armL = partBox(0.2, 0.66, 0.2, coat, 0.82);
+    armL.position.set(-0.37, 1.08, 0.18);
+    armL.rotation.x = -0.7;
+    const armR = partBox(0.2, 0.66, 0.2, coat, 0.82);
+    armR.position.set(0.37, 1.08, 0.18);
+    armR.rotation.x = -0.7;
+    const crossbow = partBox(0.46, 0.1, 0.36, 0x78350f, 0.8);
+    crossbow.position.set(0, -0.22, 0.28);
+    armR.add(crossbow);
+    group.add(torso, sash, head, nose, brow, armL, armR);
+    limbs.push(armL, armR);
+    return { group, limbs };
+  }
+
+  if (type === 'wither') {
+    const bone = 0x18181b;
+    const boneEdge = 0x3f3f46;
+    const glow = 0xe0f2fe;
+    const spine = partBox(0.32, 1.85, 0.32, bone, 0.65, 0.2);
+    spine.position.set(0, 1.35, 0);
+    const shoulders = partBox(1.85, 0.3, 0.34, boneEdge, 0.55, 0.25);
+    shoulders.position.set(0, 2.25, 0);
+    for (let r = 0; r < 3; r++) {
+      const rib = partBox(1.05 - r * 0.14, 0.14, 0.42, boneEdge, 0.6);
+      rib.position.set(0, 1.85 - r * 0.32, 0.05);
+      group.add(rib);
+    }
+    const tail = partBox(0.24, 0.72, 0.24, bone, 0.7);
+    tail.position.set(0, 0.48, -0.18);
+    tail.rotation.x = 0.35;
+    // 3 iconic Wither skulls (center larger + left/right)
+    const heads: [number, number, number][] = [
+      [0, 2.75, 0.56],
+      [-0.78, 2.55, 0.44],
+      [0.78, 2.55, 0.44],
+    ];
+    for (const [hx, hy, hs] of heads) {
+      const h = partBox(hs, hs, hs, bone, 0.55, 0.2);
+      h.position.set(hx, hy, 0.08);
+      const eyeL = partBox(hs * 0.22, hs * 0.14, 0.05, glow, 0.1, 0, glow);
+      eyeL.position.set(hx - hs * 0.2, hy + hs * 0.08, 0.08 + hs * 0.5);
+      const eyeR = eyeL.clone();
+      eyeR.position.x = hx + hs * 0.2;
+      group.add(h, eyeL, eyeR);
+      limbs.push(h);
+    }
+    group.add(spine, shoulders, tail);
+    limbs.push(tail);
+    return { group, limbs };
+  }
+
+  if (type === 'enderman') {
+    const black = 0x111113;
+    const eyePurple = 0xe879f9;
+    for (const lx of [-0.14, 0.14]) {
+      const leg = partBox(0.14, 1.45, 0.14, black, 0.8);
+      leg.position.set(lx, 0.72, 0);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    const torso = partBox(0.46, 0.78, 0.24, black, 0.8);
+    torso.position.set(0, 1.84, 0);
+    const head = partBox(0.48, 0.48, 0.48, black, 0.75);
+    head.position.set(0, 2.48, 0);
+    for (const ex of [-0.13, 0.13]) {
+      const eye = partBox(0.14, 0.07, 0.05, eyePurple, 0.1, 0, eyePurple);
+      eye.position.set(ex, 2.5, 0.24);
+      group.add(eye);
+    }
+    for (const ax of [-0.32, 0.32]) {
+      const arm = partBox(0.13, 1.4, 0.13, black, 0.8);
+      arm.position.set(ax, 1.56, 0.04);
+      group.add(arm);
+      limbs.push(arm);
+    }
+    group.add(torso, head);
+    return { group, limbs };
+  }
+
+  if (type === 'spider') {
+    const dark = 0x27272a;
+    const abdomen = partBox(0.76, 0.52, 0.86, dark, 0.85);
+    abdomen.position.set(0, 0.48, -0.45);
+    const thorax = partBox(0.5, 0.4, 0.48, 0x1f1f23, 0.85);
+    thorax.position.set(0, 0.42, 0.14);
+    const head = partBox(0.54, 0.44, 0.48, dark, 0.8);
+    head.position.set(0, 0.44, 0.56);
+    for (const [ex, ey] of [[-0.14, 0.5], [0.14, 0.5], [-0.08, 0.4], [0.08, 0.4]]) {
+      const eye = partBox(0.08, 0.07, 0.05, 0xef4444, 0.1, 0, 0xdc2626);
+      eye.position.set(ex, ey, 0.8);
+      group.add(eye);
+    }
+    for (let side of [-1, 1]) {
+      for (let k = 0; k < 4; k++) {
+        const leg = partBox(0.78, 0.11, 0.11, 0x18181b, 0.85);
+        leg.position.set(side * 0.58, 0.34, 0.32 - k * 0.22);
+        leg.rotation.z = side * -0.42;
+        group.add(leg);
+        limbs.push(leg);
+      }
+    }
+    group.add(abdomen, thorax, head);
+    return { group, limbs };
+  }
+
+  if (type === 'slime') {
+    const inner = partBox(0.68, 0.68, 0.68, 0x4d7c0f, 0.5);
+    inner.position.set(0, 0.52, 0);
+    const outerGeo = new THREE.BoxGeometry(1.02, 1.02, 1.02);
+    const outerMat = new THREE.MeshStandardMaterial({
+      color: 0x84cc16,
+      roughness: 0.3,
+      transparent: true,
+      opacity: 0.68,
+    });
+    const outer = new THREE.Mesh(outerGeo, outerMat);
+    outer.position.set(0, 0.52, 0);
+    outer.castShadow = true;
+    const eyeL = partBox(0.14, 0.14, 0.06, 0x1a2e05, 0.2);
+    eyeL.position.set(-0.2, 0.66, 0.36);
+    const eyeR = eyeL.clone();
+    eyeR.position.x = 0.2;
+    const mouth = partBox(0.12, 0.12, 0.06, 0x1a2e05, 0.2);
+    mouth.position.set(0.06, 0.4, 0.36);
+    group.add(inner, outer, eyeL, eyeR, mouth);
+    return { group, limbs };
+  }
+
   const isCreeper = type === 'creeper';
   const isPiglin = type === 'piglin';
   const isZPiglin = type === 'zombified_piglin';
@@ -1799,9 +2087,11 @@ export function updateMobAI(
     mob.limbs.forEach((l, idx) => {
       l.rotation.x = Math.sin(mob.walkPhase + idx * 0.7) * (mob.type === 'allay' ? 0.55 : 0.25);
     });
-    if (mob.type === 'ghast' && isAggro && dist < 8 && Math.abs(dy) < 6 && mob.attackCooldown <= 0) {
-      mob.attackCooldown = 2.6;
-      onAttackPlayer(spec.damage, spec.nameVi);
+    if ((mob.type === 'ghast' || mob.type === 'blaze' || mob.type === 'wither') && isAggro && dist < 18 && Math.abs(dy) < 10 && mob.attackCooldown <= 0) {
+      mob.attackCooldown = mob.type === 'wither' ? 1.85 : mob.type === 'blaze' ? 2.1 : 2.6;
+      const dmgScale = difficulty === 'hard' ? 1.4 : difficulty === 'easy' ? 0.65 : 1.0;
+      const inflict = mob.type === 'wither' ? 'darkness' : undefined;
+      onAttackPlayer(Math.max(1, Math.round(spec.damage * dmgScale)), spec.nameVi, undefined, inflict);
     }
     return;
   }
@@ -1830,10 +2120,34 @@ export function updateMobAI(
     return;
   }
 
-  // --- GROUND MOBS ---
+  // --- GROUND MOBS (with Tamed Wolf follow/sit & Ranged Skeleton/Pillager spacing) ---
   let moveX = 0;
   let moveZ = 0;
-  if (isAggro && dist > 1.2) {
+  if (mob.type === 'wolf' && mob.tamed) {
+    const collar = mob.mesh.getObjectByName('wolfCollar');
+    if (collar) collar.visible = true;
+    if (mob.sitting) {
+      moveX = 0;
+      moveZ = 0;
+    } else if (dist > 22) {
+      // Teleport tamed wolf back near owner like Java Edition
+      mob.x = playerPos.x + (Math.random() - 0.5) * 2.5;
+      mob.y = playerPos.y + 0.2;
+      mob.z = playerPos.z + (Math.random() - 0.5) * 2.5;
+    } else if (dist > 3.2) {
+      mob.yaw = Math.atan2(dx, dz);
+      moveX = (dx / dist) * spec.speed;
+      moveZ = (dz / dist) * spec.speed;
+    }
+  } else if (isAggro && spec.ranged && dist > 6.5 && dist < 16) {
+    mob.yaw = Math.atan2(dx, dz);
+    moveX = (dx / dist) * spec.speed * 0.75;
+    moveZ = (dz / dist) * spec.speed * 0.75;
+  } else if (isAggro && spec.ranged && dist <= 6.5) {
+    mob.yaw = Math.atan2(dx, dz);
+    moveX = 0;
+    moveZ = 0;
+  } else if (isAggro && dist > 1.2) {
     mob.yaw = Math.atan2(dx, dz);
     moveX = (dx / dist) * spec.speed;
     moveZ = (dz / dist) * spec.speed;
@@ -1916,14 +2230,17 @@ export function updateMobAI(
     if (onSolid && Math.random() < dt * 0.8) {
       mob.vy = 8.2;
     }
-  } else if (mob.type === 'sulfur_cube' || mob.type === 'cold_sulfur_cube') {
+  } else if (mob.type === 'sulfur_cube' || mob.type === 'cold_sulfur_cube' || mob.type === 'slime') {
     mob.walkPhase += dt * 6;
     if (onSolid && Math.random() < dt * 1.1) {
-      mob.vy = 6.5; // Bouncy slime/sulfur cube hop!
+      mob.vy = mob.type === 'slime' ? 7.2 : 6.5; // Bouncy slime/sulfur cube hop!
     }
-    const squish = onSolid ? 1 + Math.sin(mob.walkPhase) * 0.08 : 0.9;
+    const squish = onSolid ? 1 + Math.sin(mob.walkPhase) * 0.09 : 0.88;
     mob.mesh.scale.set(1 / Math.sqrt(squish), squish, 1 / Math.sqrt(squish));
   } else {
+    if (mob.type === 'spider' && isAggro && onSolid && dist < 6 && Math.random() < dt * 1.2) {
+      mob.vy = 6.4; // Spider lunge jump!
+    }
     if (mob.type === 'goat' && onSolid && Math.random() < dt * 0.35) {
       mob.vy = 10.2; // High mountain Goat leap!
     }
@@ -1941,6 +2258,13 @@ export function updateMobAI(
         limb.rotation.x *= 0.85;
       });
     }
+  }
+
+  // Ranged attacks (Skeleton Bow, Pillager Crossbow)
+  if (isAggro && spec.ranged && dist >= 2.2 && dist < 14 && Math.abs(dy) < 6 && mob.attackCooldown <= 0) {
+    mob.attackCooldown = 2.1;
+    const dmgScale = difficulty === 'hard' ? 1.4 : difficulty === 'easy' ? 0.65 : 1.0;
+    onAttackPlayer(Math.max(1, Math.round(spec.damage * dmgScale)), spec.nameVi);
   }
 
   // Creeper fuse & melee attack (plus Frostbite/Cold Sulfur Cube Slowness & Warden Darkness!)
@@ -1970,3 +2294,62 @@ export function updateMobAI(
     mob.mesh.scale.set(1, 1, 1);
   }
 }
+
+export interface AllyStrikeEvent {
+  attacker: MobEntity;
+  target: MobEntity;
+  damage: number;
+  killed: boolean;
+}
+
+/**
+ * Pure ally guardian combat tick: Iron Golems defend villages/players against nearby hostiles
+ * (launching them upward like Java Edition!), and Tamed non-sitting Wolves attack nearby hostiles.
+ */
+export function stepAllyGuardianCombat(mobs: MobEntity[], dt: number): AllyStrikeEvent[] {
+  const events: AllyStrikeEvent[] = [];
+  for (const ally of mobs) {
+    if (ally.hp <= 0) continue;
+    const isGolem = ally.type === 'iron_golem';
+    const isGuardWolf = ally.type === 'wolf' && ally.tamed && !ally.sitting;
+    if (!isGolem && !isGuardWolf) continue;
+
+    const searchRange = isGolem ? 12 : 9;
+    let nearest: MobEntity | null = null;
+    let bestDist = searchRange;
+    for (const other of mobs) {
+      if (other === ally || other.hp <= 0 || !other.hostile || other.type === 'creeper') continue;
+      const d = Math.hypot(other.x - ally.x, other.z - ally.z);
+      if (d < bestDist) {
+        bestDist = d;
+        nearest = other;
+      }
+    }
+    if (!nearest) continue;
+
+    const dx = nearest.x - ally.x;
+    const dz = nearest.z - ally.z;
+    const dist = Math.max(0.01, Math.hypot(dx, dz));
+    const spec = MOB_SPECS[ally.type];
+    ally.yaw = Math.atan2(dx, dz);
+
+    if (dist > 2.0) {
+      ally.x += (dx / dist) * spec.speed * dt;
+      ally.z += (dz / dist) * spec.speed * dt;
+    } else if (ally.attackCooldown <= 0) {
+      ally.attackCooldown = isGolem ? 1.35 : 0.9;
+      const dmg = spec.damage;
+      nearest.hp -= dmg;
+      nearest.hurtTimer = 0.25;
+      nearest.vy = Math.max(nearest.vy, isGolem ? 7.8 : 4.2);
+      events.push({
+        attacker: ally,
+        target: nearest,
+        damage: dmg,
+        killed: nearest.hp <= 0,
+      });
+    }
+  }
+  return events;
+}
+

@@ -29,6 +29,14 @@ export function isNetherFortressChunk(cx: number, cz: number): boolean {
   return gx === 1 && gz === 1;
 }
 
+/** Deterministic Ocean Monument placement (includes chunk (-3, -3) + periodic grid). */
+export function isOceanMonumentChunk(cx: number, cz: number): boolean {
+  if (cx === -3 && cz === -3) return true;
+  const gx = ((cx % 16) + 16) % 16;
+  const gz = ((cz % 16) + 16) % 16;
+  return gx === 13 && gz === 13;
+}
+
 export type OverworldBiome =
   | 'plains'
   | 'forest'
@@ -793,6 +801,61 @@ export class WorldGenerator {
         setChunkBlock(col, x, surfY + 3, 6, woolId);
         setChunkBlock(col, x, surfY + 3, 7, woolId);
       }
+    }
+
+    // --- STRUCTURE 4 (1.8+): OCEAN MONUMENT (Prismarine + Sea Lanterns + Gold Vault) at chunk (-3, -3) ---
+    if (isOceanMonumentChunk(col.cx, col.cz)) {
+      const prism = BLOCK_BY_KEY['prismarine']?.id ?? BLOCK.STONE;
+      const prismBrick = BLOCK_BY_KEY['prismarine_bricks']?.id ?? prism;
+      const darkPrism = BLOCK_BY_KEY['dark_prismarine']?.id ?? prism;
+      const seaLantern = BLOCK_BY_KEY['sea_lantern']?.id ?? BLOCK.GLOWSTONE;
+      const goldBlock = BLOCK_BY_KEY['gold_block']?.id ?? BLOCK.GOLD_BLOCK;
+
+      const baseY = 50;
+      // Carve ocean basin & fill with water up to SEA_LEVEL
+      for (let x = 0; x < CHUNK_SIZE; x++) {
+        for (let z = 0; z < CHUNK_SIZE; z++) {
+          for (let y = baseY; y <= SEA_LEVEL + 6; y++) {
+            setChunkBlock(col, x, y, z, y <= SEA_LEVEL ? BLOCK.WATER : BLOCK.AIR);
+          }
+          setChunkBlock(col, x, baseY - 1, z, prism);
+        }
+      }
+      // Stepped Prismarine Monument Pyramid (3 tiers)
+      for (let layer = 0; layer < 6; layer++) {
+        const min = 1 + layer;
+        const max = 14 - layer;
+        const y = baseY + layer;
+        for (let x = min; x <= max; x++) {
+          for (let z = min; z <= max; z++) {
+            const isEdge = x === min || x === max || z === min || z === max;
+            const isTop = layer === 5;
+            if (isTop) {
+              setChunkBlock(col, x, y, z, (x + z) % 2 === 0 ? seaLantern : darkPrism);
+            } else if (isEdge) {
+              const isCorner = (x === min || x === max) && (z === min || z === max);
+              setChunkBlock(col, x, y, z, isCorner ? seaLantern : layer % 2 === 0 ? prismBrick : prism);
+            } else {
+              // Interior dry sanctuary room
+              setChunkBlock(col, x, y, z, BLOCK.AIR);
+            }
+          }
+        }
+      }
+      // Entrance arch at z=14
+      setChunkBlock(col, 7, baseY + 1, 14, BLOCK.WATER);
+      setChunkBlock(col, 8, baseY + 1, 14, BLOCK.WATER);
+      setChunkBlock(col, 7, baseY + 2, 14, BLOCK.WATER);
+      setChunkBlock(col, 8, baseY + 2, 14, BLOCK.WATER);
+      // Central Treasure Chamber: 2x2x2 Gold Blocks encased in Dark Prismarine
+      for (let x = 7; x <= 8; x++) {
+        for (let z = 7; z <= 8; z++) {
+          setChunkBlock(col, x, baseY + 1, z, goldBlock);
+          setChunkBlock(col, x, baseY + 2, z, goldBlock);
+        }
+      }
+      setChunkBlock(col, 7, baseY + 3, 7, seaLantern);
+      setChunkBlock(col, 8, baseY + 3, 8, seaLantern);
     }
   }
 

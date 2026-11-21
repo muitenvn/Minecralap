@@ -116,6 +116,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
 
   const now = performance.now();
   const showToast = hud.heldItemToast && now - hud.heldItemToastAt < 2400;
+  const showAdvToast = hud.advancementToast && now - hud.advancementToast.at < 5200;
   const showBanner = titleBanner && Date.now() < titleBanner.expiresAt;
   const baseSlotSize =
     guiScale === 'small' ? 36 : guiScale === 'large' ? 46 : touchVisible ? 38 : 42;
@@ -179,8 +180,8 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
         </div>
       )}
 
-      {/* Top-Center Boss Health Bar (Ender Dragon / Warden) + Chase the Skies Locator Bar */}
-      {!showF3 && !hud.dead && (hud.bossBar || (hud.locatorMarkers && hud.locatorMarkers.length > 0)) && (
+      {/* Top-Center Boss Health Bar (Ender Dragon / Warden / Village Raid) + Chase the Skies Locator Bar */}
+      {!showF3 && !hud.dead && (hud.bossBar || hud.raidState?.active || (hud.locatorMarkers && hud.locatorMarkers.length > 0)) && (
         <div
           className={`absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 pointer-events-none ${
             touchVisible ? 'top-[54px]' : 'top-2'
@@ -200,6 +201,25 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
                   style={{
                     width: `${Math.max(0, Math.min(100, (hud.bossBar.hp / Math.max(1, hud.bossBar.maxHp)) * 100))}%`,
                     backgroundColor: hud.bossBar.color === 'teal' ? '#0d9488' : '#c026d3',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {hud.raidState?.active && (
+            <div className="w-[min(320px,62vw)] flex flex-col items-center gap-0.5">
+              <div className="font-mc text-xs sm:text-sm font-bold text-red-100 mc-text-shadow-sm flex items-center gap-2">
+                <span>Đột Kích Làng · Đợt {hud.raidState.wave}/{hud.raidState.maxWaves}</span>
+                <span className="text-[10px] font-mono-num text-amber-300">
+                  Còn {hud.raidState.remaining}/{hud.raidState.total}
+                </span>
+              </div>
+              <div className="w-full h-2.5 bg-black/80 border border-red-950 p-[1px]">
+                <div
+                  className="h-full bg-red-600 transition-all duration-150"
+                  style={{
+                    width: `${Math.max(0, Math.min(100, (hud.raidState.remaining / Math.max(1, hud.raidState.total)) * 100))}%`,
                   }}
                 />
               </div>
@@ -242,6 +262,26 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {/* Classic Minecraft Golden Advancement Toast (Top-Right) */}
+      {showAdvToast && hud.advancementToast && !hud.dead && (
+        <div className="absolute top-3 right-3 z-30 pointer-events-none w-[min(280px,74vw)] bg-[#212121] border-2 border-[#555555] shadow-lg px-3 py-2 flex items-center gap-2.5">
+          <div
+            className="w-8 h-8 shrink-0 border-2 border-[#facc15] flex items-center justify-center font-mc text-sm font-bold text-white"
+            style={{ backgroundColor: hud.advancementToast.iconColor }}
+          >
+            ★
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="font-mc text-[11px] font-bold text-[#facc15] leading-tight">
+              Thành Tựu Đạt Được!
+            </div>
+            <div className="font-mc text-xs text-white truncate mt-0.5">
+              {hud.advancementToast.titleVi}
+            </div>
+          </div>
         </div>
       )}
 
