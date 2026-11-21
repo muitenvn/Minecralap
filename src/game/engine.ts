@@ -76,7 +76,9 @@ import {
   createEmptyBrewingState,
   createEmptyChestSlots,
   migrateWorldSave,
+  packShulkerBoxItem,
   saveWorld,
+  unpackShulkerBoxItem,
 } from './storage';
 import {
   executeVillagerTrade,
@@ -2221,6 +2223,7 @@ export class NetherCraftEngine {
           { id: 'fire_resistance', amplifier: 0, remainingSec: 30 },
         ];
         soundEngine.playTotem();
+        this.unlockPlayerAdvancement('evoker_totem');
         this.heldItemToast = 'Vật Tổ Bất Tử đã cứu bạn!';
         this.heldItemToastAt = performance.now();
         this.callbacks.onChatMessage('Vật Tổ Bất Tử đã kích hoạt và cứu sống bạn!', 'gold');
@@ -2310,16 +2313,17 @@ export class NetherCraftEngine {
   private spawnInitialMobs(): void {
     if (!this.world || !this.world.gamerules.doMobSpawning) return;
     if (this.world.dimension === 'end') {
-      // Spawn the iconic Ender Dragon Boss + Endermen on the central island!
+      // Spawn the iconic Ender Dragon Boss + Endermen + Shulker on the island!
       this.spawnMob('ender_dragon', 0, 76, -18);
       this.spawnMob('enderman', 10, this.findSafeGroundY(10, 6), 6);
       this.spawnMob('enderman', -10, this.findSafeGroundY(-10, -6), -6);
+      this.spawnMob('shulker', 14, this.findSafeGroundY(14, -8), -8);
       return;
     }
     const types: MobType[] =
       this.world.dimension === 'overworld'
         ? ['pig', 'sheep', 'villager', 'villager', 'iron_golem', 'wolf', 'camel', 'allay', 'copper_golem', 'zombie', 'skeleton', 'spider', 'enderman', 'slime', 'creeper']
-        : ['piglin', 'strider', 'zombified_piglin', 'blaze', 'ghast', 'ghastling'];
+        : ['piglin', 'strider', 'zombified_piglin', 'wither_skeleton', 'blaze', 'ghast', 'ghastling'];
     for (let i = 0; i < types.length; i++) {
       const ang = (i / types.length) * Math.PI * 2 + 0.5;
       const dist = 11 + (i % 3) * 5;
@@ -2542,6 +2546,9 @@ export class NetherCraftEngine {
         soundEngine.playLevelUp();
         this.callbacks.onTitleBanner('title', 'ĐÃ TIÊU DIỆT BOSS WITHER!');
         this.callbacks.onTitleBanner('subtitle', 'Nhận Ngôi Sao Địa Ngục (Nether Star) để chế tạo Đèn Hiệu Beacon!');
+      } else if (hitMob.type === 'evoker') {
+        this.grantPlayerXp(15);
+        this.unlockPlayerAdvancement('evoker_totem');
       } else if (hitMob.type === 'sulfur_cube') {
         this.addItemToInventory('cinnabar_gem', 1);
       }
@@ -2774,7 +2781,22 @@ export class NetherCraftEngine {
       const itemDef = held ? ITEM_DEFS[held.itemId] : null;
       const tier = itemDef?.toolKind === def.tool ? itemDef.toolTier || 0 : 0;
       const hasSilk = Boolean(held?.enchants?.silk_touch);
-      if (!def.minTier || tier >= def.minTier || hasSilk) {
+      if (def.key === 'shulker_box') {
+        // Authentic Java Shulker Box: breaking preserves all 27 slots inside the carried item!
+        const sKey = `${this.world.dimension}:${tb.x},${tb.y},${tb.z}`;
+        const storedSlots = this.world.chests?.[sKey];
+        const packed = packShulkerBoxItem(storedSlots);
+        if (this.world.chests && storedSlots) {
+          delete this.world.chests[sKey];
+        }
+        const emptyIdx = this.world.player.inventory.findIndex((s) => !s);
+        if (emptyIdx >= 0) {
+          this.world.player.inventory[emptyIdx] = packed;
+        } else {
+          this.addItemToInventory('shulker_box', 1);
+        }
+        this.unlockPlayerAdvancement('shulker_box_pack');
+      } else if (!def.minTier || tier >= def.minTier || hasSilk) {
         if (hasSilk && ITEM_DEFS[def.key]) {
           this.addItemToInventory(def.key, 1);
         } else if (def.dropItem) {
@@ -4250,6 +4272,7 @@ export class NetherCraftEngine {
         targetKey === 'trapped_chest' ||
         targetKey === 'barrel' ||
         targetKey === 'copper_chest' ||
+        targetKey === 'shulker_box' ||
         targetKey === 'dispenser' ||
         targetKey === 'dropper'
       ) {
@@ -4264,9 +4287,12 @@ export class NetherCraftEngine {
           }
           this.world.chests[key] = fresh;
         }
+        if (targetKey === 'shulker_box') {
+          this.unlockPlayerAdvancement('shulker_box_pack');
+        }
         this.activeChestKey = key;
         this.exitPointerLock();
-        soundEngine.playBlock('wood', 'place');
+        soundEngine.playBlock(targetKey === 'shulker_box' ? 'stone' : 'wood', 'place');
         this.emitHud();
         this.callbacks.onOpenContainer('chest');
         return;
@@ -4490,9 +4516,11 @@ export class NetherCraftEngine {
         return;
       }
       if (targetKey === 'jukebox') {
-        soundEngine.playMusicDisc('music_disc_pigstep');
+        const discId = held?.itemId?.startsWith('music_disc_') ? held.itemId : 'music_disc_pigstep';
+        const discName = ITEM_DEFS[discId]?.nameVi ?? 'Đĩa Nhạc Pigstep';
+        soundEngine.playMusicDisc(discId);
         this.spawnBreakParticles(tb.x + 0.5, tb.y + 1.1, tb.z + 0.5, 0xf59e0b, 10);
-        this.showItemToast('Máy Hát đang phát: Pigstep ♪');
+        this.showItemToast(`Máy Hát đang phát: ${discName} ♪`);
         this.emitHud();
         return;
       }
@@ -4927,6 +4955,12 @@ export class NetherCraftEngine {
       }
 
       this.setWorldBlock(placeX, placeY, placeZ, itemDef.blockId, true);
+      if (def.key === 'shulker_box' && held.shulkerItems) {
+        if (!this.world.chests) this.world.chests = {};
+        const sKey = `${this.world.dimension}:${placeX},${placeY},${placeZ}`;
+        this.world.chests[sKey] = unpackShulkerBoxItem(held);
+        this.showItemToast('Đã đặt Hòm Shulker — giữ nguyên toàn bộ vật phẩm bên trong!');
+      }
       soundEngine.playBlock(def.sound, 'place');
       this.handSwing = 0.9;
       if (this.world.gameMode === 'survival') {
@@ -5775,6 +5809,8 @@ export class NetherCraftEngine {
           } else if (inflictEffect === 'darkness') {
             soundEngine.playWardenHeartbeat();
             this.applyPlayerEffect('darkness', 12, 0);
+          } else if (inflictEffect === 'levitation') {
+            this.applyPlayerEffect('levitation', 5, 0);
           }
           this.damagePlayer(dmg, mobName);
         },
@@ -5855,6 +5891,18 @@ export class NetherCraftEngine {
           pool = isNight ? ['frostbite', 'cold_sulfur_cube', 'goat'] : ['goat', 'goat', 'sheep'];
         } else {
           pool = isNight ? ['zombie', 'creeper', 'bogged', 'zombie_horse', 'sulfur_cube'] : ['pig', 'sheep', 'copper_golem', 'armadillo', 'zombie_horse'];
+        }
+        const pCx = Math.floor(this.px / CHUNK_SIZE);
+        const pCz = Math.floor(this.pz / CHUNK_SIZE);
+        if (this.world.dimension === 'overworld') {
+          if ((pCx === 3 && pCz === -3) || (pCx === -3 && pCz === 2)) {
+            this.unlockPlayerAdvancement('mansion_explorer');
+          }
+          if (Math.hypot(pCx - 3, pCz + 3) <= 1.5) {
+            pool = ['evoker', 'vindicator', 'vindicator'];
+          } else if (Math.hypot(pCx + 3, pCz + 3) <= 1.5) {
+            pool = ['guardian', 'guardian', 'glow_squid'];
+          }
         }
         const pick = pool[Math.floor(Math.random() * pool.length)];
         const ang = Math.random() * Math.PI * 2;

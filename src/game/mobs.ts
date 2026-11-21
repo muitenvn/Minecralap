@@ -45,7 +45,12 @@ export type MobType =
   | 'wither'
   | 'enderman'
   | 'spider'
-  | 'slime';
+  | 'slime'
+  | 'wither_skeleton'
+  | 'evoker'
+  | 'vindicator'
+  | 'guardian'
+  | 'shulker';
 
 export interface MobEntity {
   id: string;
@@ -149,6 +154,11 @@ export const MOB_SPECS: Record<MobType, MobSpec> = {
   enderman: { nameVi: 'Enderman (Bóng Đêm)', hp: 40, hostile: true, speed: 3.4, damage: 6, drop: 'ender_pearl', dropCount: 1, width: 0.65, height: 2.9 },
   spider: { nameVi: 'Nhện (Spider)', hp: 16, hostile: true, speed: 3.5, damage: 3, drop: 'string', dropCount: 2, width: 1.35, height: 0.85 },
   slime: { nameVi: 'Slime (Khối Nhờn)', hp: 16, hostile: true, speed: 2.2, damage: 3, drop: 'slime_ball', dropCount: 2, width: 1.05, height: 1.05 },
+  wither_skeleton: { nameVi: 'Bộ Xương Wither', hp: 20, hostile: true, speed: 3.1, damage: 6, drop: 'wither_skeleton_skull', dropCount: 1, width: 0.72, height: 2.4 },
+  evoker: { nameVi: 'Pháp Sư Evoker', hp: 24, hostile: true, speed: 2.7, damage: 6, drop: 'totem_of_undying', dropCount: 1, width: 0.65, height: 1.95, ranged: 'arrow' },
+  vindicator: { nameVi: 'Chiến Binh Vindicator', hp: 24, hostile: true, speed: 3.6, damage: 7, drop: 'emerald', dropCount: 2, width: 0.65, height: 1.95 },
+  guardian: { nameVi: 'Vệ Binh Đại Dương (Guardian)', hp: 30, hostile: true, speed: 2.9, damage: 6, drop: 'prismarine_shard', dropCount: 2, width: 0.9, height: 0.9, aquatic: true, ranged: 'arrow' },
+  shulker: { nameVi: 'Shulker (Hòm The End)', hp: 30, hostile: true, speed: 0.25, damage: 4, drop: 'shulker_shell', dropCount: 2, width: 1.0, height: 1.05, ranged: 'arrow' },
 };
 
 const PX = 1 / 16;
@@ -1873,6 +1883,110 @@ function buildFallbackProceduralMob(type: MobType): { group: THREE.Group; limbs:
     return { group, limbs };
   }
 
+  if (type === 'wither_skeleton') {
+    const bone = 0x27272a;
+    for (const lx of [-0.14, 0.14]) {
+      const leg = partBox(0.14, 0.95, 0.14, bone, 0.8);
+      leg.position.set(lx, 0.48, 0);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    const ribs = partBox(0.46, 0.82, 0.22, bone, 0.78);
+    ribs.position.set(0, 1.36, 0);
+    const skull = partBox(0.52, 0.52, 0.52, 0x1f2024, 0.72);
+    skull.position.set(0, 2.04, 0);
+    const eyeL = partBox(0.1, 0.08, 0.06, 0x9ca3af, 0.2);
+    eyeL.position.set(-0.12, 2.06, 0.26);
+    const eyeR = eyeL.clone();
+    eyeR.position.x = 0.12;
+    const armL = partBox(0.13, 0.84, 0.13, bone, 0.8);
+    armL.position.set(-0.32, 1.35, 0);
+    const armR = armL.clone();
+    armR.position.set(0.32, 1.35, 0.14);
+    const sword = partBox(0.1, 0.9, 0.1, 0x71717a, 0.55);
+    sword.position.set(0.32, 1.48, 0.42);
+    sword.rotation.x = Math.PI / 3;
+    limbs.push(armL, armR);
+    group.add(ribs, skull, eyeL, eyeR, armL, armR, sword);
+    return { group, limbs };
+  }
+
+  if (type === 'evoker' || type === 'vindicator') {
+    const isEvoker = type === 'evoker';
+    const robeCol = isEvoker ? 0x1f2937 : 0x334155;
+    const trimCol = isEvoker ? 0xeab308 : 0x64748b;
+    for (const lx of [-0.14, 0.14]) {
+      const leg = partBox(0.22, 0.68, 0.22, 0x1e293b, 0.85);
+      leg.position.set(lx, 0.34, 0);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    const robe = partBox(0.54, 0.78, 0.32, robeCol, 0.78);
+    robe.position.set(0, 1.04, 0);
+    const trim = partBox(0.56, 0.12, 0.34, trimCol, 0.5);
+    trim.position.set(0, 0.72, 0);
+    const head = partBox(0.48, 0.54, 0.48, 0x94a3b8, 0.7);
+    head.position.set(0, 1.68, 0);
+    const nose = partBox(0.12, 0.22, 0.14, 0x7e8d9f, 0.7);
+    nose.position.set(0, 1.56, 0.28);
+    const brow = partBox(0.42, 0.08, 0.06, 0x111827, 0.7);
+    brow.position.set(0, 1.78, 0.24);
+    const armL = partBox(0.2, 0.64, 0.2, robeCol, 0.8);
+    armL.position.set(-0.37, 1.12, 0.1);
+    const armR = armL.clone();
+    armR.position.set(0.37, 1.12, 0.18);
+    if (!isEvoker) {
+      const axe = partBox(0.08, 0.7, 0.22, 0xcbd5e1, 0.4);
+      axe.position.set(0.38, 1.24, 0.44);
+      axe.rotation.x = Math.PI / 4;
+      group.add(axe);
+    } else {
+      const orb = partBox(0.2, 0.2, 0.2, 0xfacc15, 0.2);
+      orb.position.set(0, 1.38, 0.42);
+      group.add(orb);
+    }
+    limbs.push(armL, armR);
+    group.add(robe, trim, head, nose, brow, armL, armR);
+    return { group, limbs };
+  }
+
+  if (type === 'guardian') {
+    const body = partBox(0.84, 0.84, 0.84, 0x5ba39f, 0.55);
+    body.position.set(0, 0.52, 0);
+    const eyeWhite = partBox(0.34, 0.24, 0.06, 0xf8fafc, 0.2);
+    eyeWhite.position.set(0, 0.54, 0.43);
+    const pupil = partBox(0.14, 0.16, 0.07, 0xf97316, 0.15);
+    pupil.position.set(0, 0.54, 0.45);
+    const tail = partBox(0.24, 0.28, 0.68, 0x4b8f8c, 0.6);
+    tail.position.set(0, 0.52, -0.68);
+    const fin = partBox(0.08, 0.48, 0.34, 0xd97706, 0.45);
+    fin.position.set(0, 0.52, -1.04);
+    for (const [sx, sy, sz] of [[0.48, 0.92, 0], [-0.48, 0.92, 0], [0.48, 0.14, 0], [-0.48, 0.14, 0], [0, 0.98, 0.28], [0, 0.98, -0.28]]) {
+      const spike = partBox(0.12, 0.24, 0.12, 0xf97316, 0.45);
+      spike.position.set(sx, sy, sz);
+      group.add(spike);
+    }
+    limbs.push(tail, fin);
+    group.add(body, eyeWhite, pupil, tail, fin);
+    return { group, limbs };
+  }
+
+  if (type === 'shulker') {
+    const baseShell = partBox(0.96, 0.44, 0.96, 0x8b5cf6, 0.62);
+    baseShell.position.set(0, 0.22, 0);
+    const topShell = partBox(0.96, 0.44, 0.96, 0xa855f7, 0.62);
+    topShell.position.set(0, 0.84, 0);
+    const coreHead = partBox(0.42, 0.42, 0.42, 0xfef3c7, 0.6);
+    coreHead.position.set(0, 0.54, 0);
+    const eyeL = partBox(0.09, 0.09, 0.06, 0x18181b, 0.2);
+    eyeL.position.set(-0.1, 0.58, 0.21);
+    const eyeR = eyeL.clone();
+    eyeR.position.x = 0.1;
+    limbs.push(topShell);
+    group.add(baseShell, topShell, coreHead, eyeL, eyeR);
+    return { group, limbs };
+  }
+
   const isCreeper = type === 'creeper';
   const isPiglin = type === 'piglin';
   const isZPiglin = type === 'zombified_piglin';
@@ -2000,7 +2114,7 @@ export function updateMobAI(
     dmg: number,
     mobName: string,
     explode?: { x: number; y: number; z: number },
-    inflictEffect?: 'slowness' | 'darkness',
+    inflictEffect?: 'slowness' | 'darkness' | 'levitation',
   ) => void,
 ): void {
   const spec = MOB_SPECS[mob.type];
@@ -2113,9 +2227,10 @@ export function updateMobAI(
     mob.limbs.forEach((l, idx) => {
       l.rotation.y = Math.sin(mob.walkPhase + idx * 0.6) * 0.38;
     });
-    if (isAggro && dist < 2.4 && Math.abs(dy) < 2.2 && mob.attackCooldown <= 0) {
-      mob.attackCooldown = 1.4;
-      onAttackPlayer(spec.damage, spec.nameVi);
+    if (isAggro && ((mob.type === 'guardian' && dist < 11) || (dist < 2.4 && Math.abs(dy) < 2.2)) && mob.attackCooldown <= 0) {
+      mob.attackCooldown = mob.type === 'guardian' ? 2.2 : 1.4;
+      const dmgScale = difficulty === 'hard' ? 1.4 : difficulty === 'easy' ? 0.65 : 1.0;
+      onAttackPlayer(Math.max(1, Math.round(spec.damage * dmgScale)), spec.nameVi);
     }
     return;
   }
@@ -2260,14 +2375,15 @@ export function updateMobAI(
     }
   }
 
-  // Ranged attacks (Skeleton Bow, Pillager Crossbow)
+  // Ranged attacks (Skeleton Bow, Pillager Crossbow, Evoker Fangs, Shulker Levitation Bullet, Guardian Beam)
   if (isAggro && spec.ranged && dist >= 2.2 && dist < 14 && Math.abs(dy) < 6 && mob.attackCooldown <= 0) {
-    mob.attackCooldown = 2.1;
+    mob.attackCooldown = mob.type === 'shulker' ? 2.6 : 2.1;
     const dmgScale = difficulty === 'hard' ? 1.4 : difficulty === 'easy' ? 0.65 : 1.0;
-    onAttackPlayer(Math.max(1, Math.round(spec.damage * dmgScale)), spec.nameVi);
+    const inflict = mob.type === 'shulker' ? 'levitation' : undefined;
+    onAttackPlayer(Math.max(1, Math.round(spec.damage * dmgScale)), spec.nameVi, undefined, inflict);
   }
 
-  // Creeper fuse & melee attack (plus Frostbite/Cold Sulfur Cube Slowness & Warden Darkness!)
+  // Creeper fuse & melee attack (plus Frostbite/Cold Sulfur Cube Slowness & Warden/Wither Skeleton Darkness!)
   if (isAggro && dist < 2.2 && Math.abs(dy) < 2.2) {
     if (mob.type === 'creeper') {
       mob.fuseTimer += dt;
@@ -2284,7 +2400,7 @@ export function updateMobAI(
       const inflict =
         mob.type === 'frostbite' || mob.type === 'cold_sulfur_cube'
           ? 'slowness'
-          : mob.type === 'warden'
+          : mob.type === 'warden' || mob.type === 'wither_skeleton'
             ? 'darkness'
             : undefined;
       onAttackPlayer(Math.max(1, Math.round(spec.damage * dmgScale)), spec.nameVi, undefined, inflict);

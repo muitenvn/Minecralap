@@ -333,3 +333,48 @@ export function saveVideoSettings(settings: VideoSettings): void {
     // ignore quota errors
   }
 }
+
+/**
+ * Deep-clones a 27-slot Shulker Box chest array into a portable ItemStack payload
+ * so breaking a Shulker Box preserves all items inside when carried in inventory.
+ */
+export function packShulkerBoxItem(slots: (ItemStack | null)[] | undefined): ItemStack {
+  const cloned = createEmptyChestSlots();
+  let nonEmpty = false;
+  if (Array.isArray(slots)) {
+    for (let i = 0; i < Math.min(27, slots.length); i++) {
+      const st = slots[i];
+      if (st && st.count > 0) {
+        cloned[i] = {
+          ...st,
+          enchants: st.enchants ? { ...st.enchants } : undefined,
+        };
+        nonEmpty = true;
+      }
+    }
+  }
+  return nonEmpty
+    ? { itemId: 'shulker_box', count: 1, shulkerItems: cloned }
+    : { itemId: 'shulker_box', count: 1 };
+}
+
+/**
+ * Restores a placed Shulker Box's 27-slot container array from its carried ItemStack payload.
+ */
+export function unpackShulkerBoxItem(stack: ItemStack | null | undefined): (ItemStack | null)[] {
+  const fresh = createEmptyChestSlots();
+  if (!stack?.shulkerItems || !Array.isArray(stack.shulkerItems)) {
+    return fresh;
+  }
+  for (let i = 0; i < Math.min(27, stack.shulkerItems.length); i++) {
+    const st = stack.shulkerItems[i];
+    if (st && st.count > 0) {
+      fresh[i] = {
+        ...st,
+        enchants: st.enchants ? { ...st.enchants } : undefined,
+      };
+    }
+  }
+  return fresh;
+}
+

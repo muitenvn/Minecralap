@@ -8,6 +8,10 @@ import {
   isBlockLiquid,
   isFullOpaqueCube,
 } from './blocks';
+import {
+  computeSubchunkLighting,
+  sampleCombinedVertexLight,
+} from './lighting';
 import { AtlasUV } from './resourcePack';
 import { CHUNK_SIZE } from './types';
 import { ChunkColumn, sectionIndex } from './worldGen';
@@ -112,98 +116,7 @@ function buildGeometryFromBuf(b: MeshBuf): THREE.BufferGeometry | null {
   return geo;
 }
 
-// Reused scratch buffers for fast local voxel block-light BFS (padded 16 + 2*PAD = 28^3)
-const LIGHT_PAD = 6;
-const LIGHT_DIM = 16 + LIGHT_PAD * 2; // 28
-const LIGHT_VOL = LIGHT_DIM * LIGHT_DIM * LIGHT_DIM;
-const lightLvlGrid = new Uint8Array(LIGHT_VOL);
-const lightRGrid = new Float32Array(LIGHT_VOL);
-const lightGGrid = new Float32Array(LIGHT_VOL);
-const lightBGrid = new Float32Array(LIGHT_VOL);
-const opaqueGrid = new Uint8Array(LIGHT_VOL);
-const bfsQueue = new Int32Array(LIGHT_VOL * 2);
-
-function lIdx(x: number, y: number, z: number): number {
-  return (y * LIGHT_DIM + z) * LIGHT_DIM + x;
-}
-
-function computeLocalBlockLight(
-  xBase: number,
-  yBase: number,
-  zBase: number,
-  getBlock: BlockGetter,
-): boolean {
-  let qHead = 0;
-  let qTail = 0;
-  let hasLights = false;
-
-  // Quick pre-scan padded volume for emitters
-  for (let py = 0; py < LIGHT_DIM; py++) {
-    const wy = yBase + py - LIGHT_PAD;
-    for (let pz = 0; pz < LIGHT_DIM; pz++) {
-      const wz = zBase + pz - LIGHT_PAD;
-      for (let px = 0; px < LIGHT_DIM; px++) {
-        const wx = xBase + px - LIGHT_PAD;
-        const idx = lIdx(px, py, pz);
-        const bid = getBlock(wx, wy, wz);
-        opaqueGrid[idx] = isFullOpaqueCube(bid) ? 1 : 0;
-        const em = getBlockLightEmission(bid);
-        if (em.level > 0) {
-          hasLights = true;
-          lightLvlGrid[idx] = em.level;
-          lightRGrid[idx] = em.r;
-          lightGGrid[idx] = em.g;
-          lightBGrid[idx] = em.b;
-          bfsQueue[qTail++] = idx;
-        } else {
-          lightLvlGrid[idx] = 0;
-        }
-      }
-    }
-  }
-
-  if (!hasLights) return false;
-
-  const D = LIGHT_DIM;
-  const D2 = D * D;
-  while (qHead < qTail) {
-    const cur = bfsQueue[qHead++];
-    const curLvl = lightLvlGrid[cur];
-    if (curLvl <= 2) continue;
-    const nextLvl = curLvl - 2; // crisp ~7-block warm radius
-
-    const py = Math.floor(cur / D2);
-    const rem = cur - py * D2;
-    const pz = Math.floor(rem / D);
-    const px = rem - pz * D;
-
-    const r = lightRGrid[cur];
-    const g = lightGGrid[cur];
-    const b = lightBGrid[cur];
-
-    const step = (nx: number, ny: number, nz: number) => {
-      if (nx < 0 || nx >= D || ny < 0 || ny >= D || nz < 0 || nz >= D) return;
-      const nIdx = lIdx(nx, ny, nz);
-      if (opaqueGrid[nIdx]) return;
-      if (nextLvl > lightLvlGrid[nIdx]) {
-        lightLvlGrid[nIdx] = nextLvl;
-        lightRGrid[nIdx] = r;
-        lightGGrid[nIdx] = g;
-        lightBGrid[nIdx] = b;
-        bfsQueue[qTail++] = nIdx;
-      }
-    };
-
-    step(px + 1, py, pz);
-    step(px - 1, py, pz);
-    step(px, py + 1, pz);
-    step(px, py - 1, pz);
-    step(px, py, pz + 1);
-    step(px, py, pz - 1);
-  }
-
-  return true;
-}
+// Voxel 15-level block-light & skylight propagation delegated to src/game/lighting.ts
 
 // Emits a custom pixel-sized sub-block box (coordinates in 0..16 Minecraft pixel units) with accurate cropped UVs!
 function emitSubBox(
@@ -408,7 +321,7 @@ export function buildSubChunkGeometry(
   const yBase = sy * 16;
   const zBase = col.cz * CHUNK_SIZE;
 
-  const hasLocalLights = computeLocalBlockLight(xBase, yBase, zBase, getBlock);
+  const lightState = computeSubchunkLighting(xBase, yBase, zBase, getBlock);
 
   const oBuf = makeBuf();
   const tBuf = makeBuf();
@@ -417,24 +330,14 @@ export function buildSubChunkGeometry(
   const fallbackTile = uvMap.stone || Object.values(uvMap)[0];
   const tileOf = (key: string): AtlasUV => uvMap[key] || fallbackTile;
 
-  // Helper to sample warm/colored block light at a local coordinate (lx, ly, lz) in 0..15
-  const sampleLightBoost = (
+  // Helper to sample combined 15-level Skylight + colored Block-Light at local coords (lx, ly, lz)
+  const sampleFaceLight = (
     gx: number,
     gy: number,
     gz: number,
-  ): [number, number, number] => {
-    if (!hasLocalLights) return [0, 0, 0];
-    const px = gx + LIGHT_PAD;
-    const py = gy + LIGHT_PAD;
-    const pz = gz + LIGHT_PAD;
-    if (px < 0 || px >= LIGHT_DIM || py < 0 || py >= LIGHT_DIM || pz < 0 || pz >= LIGHT_DIM) {
-      return [0, 0, 0];
-    }
-    const idx = lIdx(px, py, pz);
-    const lvl = lightLvlGrid[idx];
-    if (lvl <= 0) return [0, 0, 0];
-    const strength = (lvl / 15) * 0.58;
-    return [lightRGrid[idx] * strength, lightGGrid[idx] * strength, lightBGrid[idx] * strength];
+  ): [number, number, number, number] => {
+    const res = sampleCombinedVertexLight(gx, gy, gz, lightState);
+    return [res.skyScale, res.boostR, res.boostG, res.boostB];
   };
 
   for (let ly = 0; ly < 16; ly++) {
@@ -460,10 +363,10 @@ export function buildSubChunkGeometry(
         };
 
         // Compute base lighting tint for custom non-cube models
-        const [br, bg, bb] = sampleLightBoost(lx, ly, lz);
-        const subR = Math.min(1.35, 1.0 + br);
-        const subG = Math.min(1.35, 1.0 + bg);
-        const subB = Math.min(1.35, 1.0 + bb);
+        const [skyScaleSub, br, bg, bb] = sampleFaceLight(lx, ly, lz);
+        const subR = Math.min(1.35, skyScaleSub + br);
+        const subG = Math.min(1.35, skyScaleSub + bg);
+        const subB = Math.min(1.35, skyScaleSub + bb);
 
         // =====================================================================
         // CUSTOM NON-CUBE MINECRAFT 3D BLOCK GEOMETRY (SMALL & SHAPED BLOCKS!)
@@ -859,10 +762,10 @@ export function buildSubChunkGeometry(
           const vStart = targetBuf.pos.length / 3;
           const aoVals = [1, 1, 1, 1];
 
-          // Sample propagated voxel light in the empty neighbor air cell facing this quad!
-          const [lr, lg, lb] = useEmissiveBuf
-            ? [0, 0, 0]
-            : sampleLightBoost(lx + face.dir[0], ly + face.dir[1], lz + face.dir[2]);
+          // Sample propagated 15-level skylight + colored block-light in the empty neighbor cell facing this quad!
+          const [skyScaleFace, lr, lg, lb] = useEmissiveBuf
+            ? [1.0, 0, 0, 0]
+            : sampleFaceLight(lx + face.dir[0], ly + face.dir[1], lz + face.dir[2]);
 
           for (let k = 0; k < 4; k++) {
             const c = face.corners[k];
@@ -902,14 +805,14 @@ export function buildSubChunkGeometry(
               const s = 0.88 + face.shade * 0.12;
               targetBuf.col.push(s, s, s);
             } else if (id === BLOCK.WATER) {
-              const base = face.shade * ao;
+              const base = face.shade * ao * skyScaleFace;
               targetBuf.col.push(
                 Math.min(1.45, base * 0.78 + lr),
                 Math.min(1.45, base * 0.96 + lg),
                 Math.min(1.45, base * 1.24 + lb),
               );
             } else {
-              const base = face.shade * ao;
+              const base = face.shade * ao * skyScaleFace;
               targetBuf.col.push(
                 Math.min(1.45, base + lr),
                 Math.min(1.45, base + lg),

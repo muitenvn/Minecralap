@@ -15,9 +15,9 @@ export function getRaidWaveMobTypes(wave: number): MobType[] {
     return ['pillager', 'pillager', 'pillager'];
   }
   if (wave === 2) {
-    return ['pillager', 'pillager', 'pillager', 'skeleton'];
+    return ['pillager', 'pillager', 'vindicator', 'skeleton'];
   }
-  return ['pillager', 'pillager', 'pillager', 'pillager', 'skeleton'];
+  return ['pillager', 'pillager', 'vindicator', 'vindicator', 'evoker'];
 }
 
 export function createRaid(maxWaves = 3): RaidState {

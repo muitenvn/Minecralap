@@ -57,10 +57,10 @@ function createMockRedstoneWorld(): {
   return { world, blocks, states, chests, dispensed, ignitedTnt };
 }
 
-test('Wave 9: Java Advancements catalog has 22 unique advancements and unlocks idempotently', () => {
-  assert.equal(ADVANCEMENTS.length, 22);
+test('Wave 9: Java Advancements catalog has 25 unique advancements and unlocks idempotently', () => {
+  assert.equal(ADVANCEMENTS.length, 25);
   const ids = new Set(ADVANCEMENTS.map((a) => a.id));
-  assert.equal(ids.size, 22);
+  assert.equal(ids.size, 25);
 
   let map: Record<string, number> = {};
   const first = unlockAdvancement(map, 'mine_wood', 1000);
@@ -78,8 +78,8 @@ test('Wave 9: Java Advancements catalog has 22 unique advancements and unlocks i
   map = unlockAdvancement(map, 'wilderness_263', 4000).nextMap;
   const prog = getAdvancementProgress(map);
   assert.equal(prog.unlocked, 3);
-  assert.equal(prog.total, 22);
-  assert.equal(prog.percent, Math.round((3 / 22) * 100));
+  assert.equal(prog.total, 25);
+  assert.equal(prog.percent, Math.round((3 / 25) * 100));
 });
 
 test('Wave 9: Save Schema v3 initializes and migrates composterLevels, cauldronLevels, and advancements', () => {

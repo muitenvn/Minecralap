@@ -2,7 +2,7 @@
 
 **Phiên bản mục tiêu đã xác minh**: Minecraft: Java Edition **26.3 ("Wilderness Bound")** (kế thừa đầy đủ 1.16.5 → 1.21.11 → 26.1 "Tiny Takeover" → 26.3).
 
-## Trạng thái tổng thể các đợt triển khai (Waves 0–14)
+## Trạng thái tổng thể các đợt triển khai (Waves 0–18)
 
 | Đợt | Phạm vi triển khai | Trạng thái | Bằng chứng kiểm thử |
 | --- | --- | --- | --- |
@@ -18,10 +18,14 @@
 | **Wave 9** | Hệ thống Thành Tựu Java (lưu trong Save Schema v3, Toast vàng cổ điển + Bảng Thành Tựu trong Menu Tạm Dừng) + Redstone nâng cao (`observer` phát xung khi khối cạnh đổi, `dispenser` bắn tên/TNT/nước, `dropper` đẩy vật phẩm sang rương kế bên) | **VERIFIED** | `tests/wave9_advancements_redstone_v2.test.ts` (4/4 PASS) |
 | **Wave 10** | Kiểm thử hồi quy toàn phần Giai đoạn 2 (31/31 unit tests), `tsc --noEmit`, `vite build` & cập nhật đầy đủ 5 tài liệu quản lý dự án | **VERIFIED** | `npm test` (31/31 PASS), `compile_applet`, `lint_applet` |
 | **Wave 11** | Vật lý khối rơi trọng lực (`sand`, `red_sand`, `gravel`, `anvil`, `*_concrete_powder` hóa Bê Tông khi chạm Nước) + Lan truyền chất lỏng có giới hạn & hóa rắn Nước+Dung Nham (**Máy Tạo Đá Cuội Cobblestone Generator** & **Hắc Diện Thạch Obsidian**) | **VERIFIED** | `tests/wave11_physics_fluids.test.ts` (4/4 PASS) |
-| **Wave 12** | **Boss Wither** (300 máu, bay 3 đầu, BossBar tím, triệu hồi bằng bệ chữ T Cát/Đất Linh Hồn + Đầu Lâu Wither, rơi **Sao Nether**) + **Đèn Hiệu Beacon 4 Tầng** (kim tự tháp 3×3 → 9×9 Sắt/Vàng/Ngọc Lục Bảo/Kim Cương/Netherite mở khóa Speed/Haste/Resistance/Jump Boost/Strength/Regeneration & cấp II ở Tầng 4) + 2 Thành Tựu mới (`summon_wither`, `activate_beacon`, tổng **22 Thành Tựu**) | **VERIFIED** | `tests/wave12_wither_beacon.test.ts` (3/3 PASS) |
-| **Wave 13** | 3 Mob vòng lặp sinh tồn kinh điển có mô hình 3D & AI thật (`enderman` dịch chuyển tức thời khi trúng đòn & rơi Ngọc Ender, `spider` 8 chân nhảy vồ & rơi Tơ, `slime` trong suốt nảy bật & rơi Bóng Nhờn) + **Đền Thờ Đại Dương Ocean Monument** tại chunk `(-3, -3)` (Lăng Kính, Đèn Biển & Kho 8 khối Vàng) + mở rộng `/locate` & gợi ý lệnh | **VERIFIED** | `tests/wave13_structures_enderman_loop.test.ts` (3/3 PASS) |
-| **Wave 14** | Kiểm thử hồi quy toàn phần Giai đoạn 3 (**41/41 unit tests**), `tsc --noEmit`, `vite build` (`compile_applet` + `lint_applet`) & đồng bộ toàn bộ 5 tài liệu quản lý | **VERIFIED** | `npm test` (41/41 PASS), `compile_applet`, `lint_applet` |
+| **Wave 12** | **Boss Wither** (300 máu, bay 3 đầu, BossBar tím, triệu hồi bằng bệ chữ T Cát/Đất Linh Hồn + Đầu Lâu Wither, rơi **Sao Nether**) + **Đèn Hiệu Beacon 4 Tầng** (kim tự tháp 3×3 → 9×9 mở khóa 6 hiệu ứng & cấp II ở Tầng 4) + Thành Tựu `summon_wither`, `activate_beacon` | **VERIFIED** | `tests/wave12_wither_beacon.test.ts` (3/3 PASS) |
+| **Wave 13** | 3 Mob vòng lặp sinh tồn kinh điển (`enderman`, `spider`, `slime`) + **Đền Thờ Đại Dương Ocean Monument** tại chunk `(-3, -3)` (Lăng Kính, Đèn Biển & Kho 8 khối Vàng) + mở rộng `/locate` | **VERIFIED** | `tests/wave13_structures_enderman_loop.test.ts` (3/3 PASS) |
+| **Wave 14** | Kiểm thử hồi quy toàn phần Giai đoạn 3 (41/41 unit tests) & đồng bộ 5 tài liệu quản lý | **VERIFIED** | `npm test` (41/41 PASS), `compile_applet`, `lint_applet` |
+| **Wave 15** | 5 Mob tiến trình Endgame & Công trình (`wither_skeleton` rơi Đầu Wither, `evoker` rơi Vật Tổ Bất Tử, `vindicator` chiến binh rìu, `guardian` chùm tia đại dương, `shulker` đạn bay lơ lửng + rơi Vỏ Shulker), **Hòm Shulker di động 27 ô** giữ nguyên vật phẩm khi đào/đặt, nâng cấp Đột Kích Làng (Vindicator Đợt 2 + Evoker Đợt 3) & Máy Phát Nhạc Jukebox hỗ trợ đủ đĩa nhạc | **VERIFIED** | `tests/wave15_progression_mobs_shulker.test.ts` (3/3 PASS) |
+| **Wave 16** | **Biệt Thự Rừng Woodland Mansion** 2 tầng tại `(3, -3)` (Gỗ Sồi Đen, Thảm Đỏ, Thư viện Kệ Sách, Kho Kim Cương/Ngọc Lục Bảo) & **Kim Tự Tháp Sa Mạc Desert Pyramid** tại `(-3, 2)` (hầm bẫy Đĩa Áp Lực + 9 khối TNT + 4 Rương kho báu) + `/locate woodland_mansion`, `/locate desert_pyramid` | **VERIFIED** | `tests/wave16_mansion_pyramid.test.ts` (3/3 PASS) |
+| **Wave 17** | Động cơ **Chiếu sáng Voxel 15 bậc (`src/game/lighting.ts`)**: Lan truyền ánh sáng khối BFS 0–15 (suy hao 1/khối, trộn màu RGB, bị tường đá chắn) & Skylight 0–15 phân biệt bầu trời với hang tối/nội thất + 3 Thành Tựu mới (`shulker_box_pack`, `evoker_totem`, `mansion_explorer`, tổng **25 Thành Tựu**) | **VERIFIED** | `tests/wave17_voxel_lighting.test.ts` (3/3 PASS) |
+| **Wave 18** | Kiểm thử hồi quy toàn phần Giai đoạn 4 (**50/50 unit tests**), `tsc --noEmit`, `vite build` (`compile_applet` + `lint_applet`) & cập nhật đầy đủ 5 tài liệu quản lý | **VERIFIED** | `npm test` (50/50 PASS), `compile_applet`, `lint_applet` |
 
 ## Phạm vi ngoài kiến trúc trình duyệt thuần (Đã ghi nhận rõ ở `KNOWN_LIMITATIONS.md`)
-- Multiplayer LAN / Dedicated Server (cần máy chủ WebSocket/WebRTC ngoài phạm vi client-side static app).
-- Mô phỏng dòng chảy nước 7 bậc waterlogging toàn chunk (đã có lan truyền giới hạn + Máy Tạo Đá Cuội + Obsidian) và hệ thống chiếu sáng block-light 15 bậc đầy đủ toàn chiều cao (đang dùng ánh sáng động cục bộ để giữ ổn định WebGL2 trên điện thoại và máy yếu).
+- Multiplayer LAN / Dedicated Server (cần máy chủ WebSocket/WebRTC ngoài phạm vi ứng dụng tĩnh phía trình duyệt).
+- Mô phỏng dòng chảy nước 7 bậc đẩy thực thể & waterlogging cầu thang/phiến đá toàn chunk (đã có lan truyền cục bộ, Máy Tạo Đá Cuội và Obsidian).

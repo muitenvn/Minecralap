@@ -145,6 +145,11 @@ const VALID_MOBS: (MobType | 'lightning_bolt')[] = [
   'enderman',
   'spider',
   'slime',
+  'wither_skeleton',
+  'evoker',
+  'vindicator',
+  'guardian',
+  'shulker',
   'lightning_bolt',
 ];
 
@@ -180,6 +185,8 @@ export function autocompleteCommand(input: string): string[] {
       'stronghold',
       'end_city',
       'ocean_monument',
+      'woodland_mansion',
+      'desert_pyramid',
       'village',
       'nether_fortress',
       'abandoned_camp',
@@ -600,6 +607,10 @@ export function executeCommand(rawInput: string, ctx: CommandContext): void {
         ctx.reply('Thành Phố The End (End City Purpur) ở chiều The End tại (103, 64, 7) — dùng /tp 103 65 4', 'gold');
       } else if (target.includes('monument') || target.includes('ocean')) {
         ctx.reply('Đền Thờ Đại Dương (Ocean Monument) tại (-40, 56, -40) — dùng /tp -40 62 -40', 'gold');
+      } else if (target.includes('mansion') || target.includes('woodland')) {
+        ctx.reply('Biệt Thự Rừng (Woodland Mansion) tại (56, 72, -40) — dùng /tp 56 75 -40', 'gold');
+      } else if (target.includes('pyramid') || target.includes('desert_temple')) {
+        ctx.reply('Kim Tự Tháp Sa Mạc (Desert Pyramid) tại (-40, 72, 40) — dùng /tp -40 76 40', 'gold');
       } else if (target.includes('village')) {
         ctx.reply('Làng Dân Làng (Village) tại (38, 72, 22) — dùng /tp 38 74 22', 'gold');
       } else if (target.includes('fortress')) {
@@ -609,7 +620,7 @@ export function executeCommand(rawInput: string, ctx: CommandContext): void {
       } else if (target.includes('portal')) {
         ctx.reply('Tàn tích Cổng Nether tại (11, ~68, 10) ở Overworld!', 'gold');
       } else {
-        ctx.reply('Cấu trúc: /locate <village|ocean_monument|stronghold|trial_chamber|ancient_city|trail_ruins|abandoned_camp|nether_fortress|end_city|ruined_portal>', 'system');
+        ctx.reply('Cấu trúc: /locate <village|woodland_mansion|desert_pyramid|ocean_monument|stronghold|trial_chamber|ancient_city|trail_ruins|abandoned_camp|nether_fortress|end_city|ruined_portal>', 'system');
       }
       return;
     }

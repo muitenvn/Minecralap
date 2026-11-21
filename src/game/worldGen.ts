@@ -37,6 +37,22 @@ export function isOceanMonumentChunk(cx: number, cz: number): boolean {
   return gx === 13 && gz === 13;
 }
 
+/** Deterministic Woodland Mansion placement (includes chunk (3, -3) + periodic grid). */
+export function isWoodlandMansionChunk(cx: number, cz: number): boolean {
+  if (cx === 3 && cz === -3) return true;
+  const gx = ((cx % 18) + 18) % 18;
+  const gz = ((cz % 18) + 18) % 18;
+  return gx === 3 && gz === 15;
+}
+
+/** Deterministic Desert Pyramid placement (includes chunk (-3, 2) + periodic grid). */
+export function isDesertPyramidChunk(cx: number, cz: number): boolean {
+  if (cx === -3 && cz === 2) return true;
+  const gx = ((cx % 16) + 16) % 16;
+  const gz = ((cz % 16) + 16) % 16;
+  return gx === 13 && gz === 2;
+}
+
 export type OverworldBiome =
   | 'plains'
   | 'forest'
@@ -856,6 +872,169 @@ export class WorldGenerator {
       }
       setChunkBlock(col, 7, baseY + 3, 7, seaLantern);
       setChunkBlock(col, 8, baseY + 3, 8, seaLantern);
+    }
+
+    // --- STRUCTURE 5 (1.11+): WOODLAND MANSION (2-Story Dark Oak Hall + Library + Diamond Treasury) at chunk (3, -3) ---
+    if (isWoodlandMansionChunk(col.cx, col.cz)) {
+      const darkPlanks = BLOCK_BY_KEY['dark_oak_planks']?.id ?? BLOCK.OAK_PLANKS;
+      const darkLog = BLOCK_BY_KEY['dark_oak_log']?.id ?? BLOCK.OAK_LOG;
+      const cobble = BLOCK.COBBLESTONE;
+      const redCarpet = BLOCK_BY_KEY['red_carpet']?.id ?? BLOCK.NETHER_BRICKS;
+      const bookshelf = BLOCK_BY_KEY['bookshelf']?.id ?? BLOCK.BOOKSHELF;
+      const glassPane = BLOCK_BY_KEY['glass_pane']?.id ?? BLOCK.GLASS;
+      const chestId = BLOCK_BY_KEY['chest']?.id ?? BLOCK.CHEST;
+      const torchId = BLOCK.TORCH;
+      const diamondBlk = BLOCK_BY_KEY['diamond_block']?.id ?? BLOCK.DIAMOND_BLOCK;
+      const emeraldBlk = BLOCK_BY_KEY['emerald_block']?.id ?? BLOCK.EMERALD_BLOCK;
+
+      const baseY = Math.max(SEA_LEVEL + 4, this.getOverworldSurfaceY(xBase + 8, zBase + 8));
+      // Solid Cobblestone foundation & leveling
+      for (let x = 1; x <= 14; x++) {
+        for (let z = 1; z <= 14; z++) {
+          for (let y = baseY - 4; y <= baseY; y++) {
+            setChunkBlock(col, x, y, z, cobble);
+          }
+          // Clear interior up to roof
+          for (let y = baseY + 1; y <= baseY + 13; y++) {
+            setChunkBlock(col, x, y, z, BLOCK.AIR);
+          }
+        }
+      }
+      // 2-Story Mansion Shell (Floor 1: y+1..y+4, Floor 2: y+5..y+9, Roof: y+10..y+11)
+      for (let y = baseY + 1; y <= baseY + 9; y++) {
+        const isSecondFloor = y === baseY + 5;
+        for (let x = 1; x <= 14; x++) {
+          for (let z = 1; z <= 14; z++) {
+            const isCorner = (x === 1 || x === 14) && (z === 1 || z === 14);
+            const isWall = x === 1 || x === 14 || z === 1 || z === 14;
+            if (isCorner) {
+              setChunkBlock(col, x, y, z, darkLog);
+            } else if (isWall) {
+              const isWindow =
+                (y === baseY + 2 || y === baseY + 3 || y === baseY + 7 || y === baseY + 8) &&
+                ((x >= 4 && x <= 5) || (x >= 10 && x <= 11) || (z >= 4 && z <= 5) || (z >= 10 && z <= 11));
+              setChunkBlock(col, x, y, z, isWindow ? glassPane : darkPlanks);
+            } else if (isSecondFloor) {
+              // Leave central stairwell open at x=7..8, z=3..4
+              if (!(x >= 7 && x <= 8 && z >= 3 && z <= 4)) {
+                setChunkBlock(col, x, y, z, darkPlanks);
+              }
+            }
+          }
+        }
+      }
+      // Grand Entrance Doorway on +Z facade
+      for (let x = 7; x <= 8; x++) {
+        for (let y = baseY + 1; y <= baseY + 3; y++) {
+          setChunkBlock(col, x, y, 14, BLOCK.AIR);
+        }
+      }
+      // Red Carpet Grand Hall + Library Bookshelves (Floor 1)
+      for (let z = 5; z <= 13; z++) {
+        setChunkBlock(col, 7, baseY + 1, z, redCarpet);
+        setChunkBlock(col, 8, baseY + 1, z, redCarpet);
+      }
+      for (let z = 3; z <= 11; z++) {
+        setChunkBlock(col, 2, baseY + 1, z, bookshelf);
+        setChunkBlock(col, 2, baseY + 2, z, bookshelf);
+        setChunkBlock(col, 13, baseY + 1, z, bookshelf);
+        setChunkBlock(col, 13, baseY + 2, z, bookshelf);
+      }
+      // Interior Torch lighting on both floors
+      for (const [tx, tz] of [[5, 6], [10, 6], [5, 11], [10, 11]]) {
+        setChunkBlock(col, tx, baseY + 4, tz, torchId);
+        setChunkBlock(col, tx, baseY + 9, tz, torchId);
+      }
+      // 2nd Floor Treasury: Secret Diamond & Emerald Blocks + Loot Chest
+      setChunkBlock(col, 7, baseY + 6, 11, diamondBlk);
+      setChunkBlock(col, 8, baseY + 6, 11, emeraldBlk);
+      setChunkBlock(col, 7, baseY + 6, 12, chestId);
+      setChunkBlock(col, 8, baseY + 6, 12, chestId);
+      // Dark Oak gabled roof
+      for (let x = 1; x <= 14; x++) {
+        for (let z = 1; z <= 14; z++) {
+          setChunkBlock(col, x, baseY + 10, z, darkPlanks);
+        }
+      }
+      for (let x = 2; x <= 13; x++) {
+        for (let z = 2; z <= 13; z++) {
+          setChunkBlock(col, x, baseY + 11, z, darkLog);
+        }
+      }
+    }
+
+    // --- STRUCTURE 6 (1.3+): DESERT PYRAMID (Sandstone Temple + Hidden TNT Trap Vault) at chunk (-3, 2) ---
+    if (isDesertPyramidChunk(col.cx, col.cz)) {
+      const sandstone = BLOCK_BY_KEY['sandstone']?.id ?? BLOCK.SAND;
+      const chiseled = BLOCK_BY_KEY['chiseled_sandstone']?.id ?? sandstone;
+      const orangeTerr = BLOCK_BY_KEY['orange_terracotta']?.id ?? BLOCK.BRICKS;
+      const blueTerr = BLOCK_BY_KEY['blue_terracotta']?.id ?? BLOCK.LAPIS_BLOCK;
+      const plateId = BLOCK_BY_KEY['stone_pressure_plate']?.id ?? BLOCK.STONE;
+      const tntId = BLOCK.TNT;
+      const chestId = BLOCK_BY_KEY['chest']?.id ?? BLOCK.CHEST;
+      const goldBlk = BLOCK_BY_KEY['gold_block']?.id ?? BLOCK.GOLD_BLOCK;
+      const diamondBlk = BLOCK_BY_KEY['diamond_block']?.id ?? BLOCK.DIAMOND_BLOCK;
+
+      const baseY = Math.max(SEA_LEVEL + 2, this.getOverworldSurfaceY(xBase + 8, zBase + 8));
+      // Pyramid base + stepped exterior (7 layers)
+      for (let x = 1; x <= 14; x++) {
+        for (let z = 1; z <= 14; z++) {
+          for (let y = baseY - 10; y <= baseY; y++) {
+            setChunkBlock(col, x, y, z, sandstone);
+          }
+          for (let y = baseY + 1; y <= baseY + 9; y++) {
+            setChunkBlock(col, x, y, z, BLOCK.AIR);
+          }
+        }
+      }
+      for (let layer = 0; layer < 7; layer++) {
+        const min = 1 + layer;
+        const max = 14 - layer;
+        const y = baseY + 1 + layer;
+        for (let x = min; x <= max; x++) {
+          for (let z = min; z <= max; z++) {
+            const isEdge = x === min || x === max || z === min || z === max;
+            if (isEdge || layer === 6) {
+              const isTrim = layer === 2 && (x === 7 || x === 8 || z === 7 || z === 8);
+              setChunkBlock(col, x, y, z, isTrim ? orangeTerr : layer % 2 === 1 ? chiseled : sandstone);
+            }
+          }
+        }
+      }
+      // Entrance arch on +Z side
+      for (let y = baseY + 1; y <= baseY + 3; y++) {
+        setChunkBlock(col, 7, y, 14, BLOCK.AIR);
+        setChunkBlock(col, 8, y, 14, BLOCK.AIR);
+        setChunkBlock(col, 7, y, 13, BLOCK.AIR);
+        setChunkBlock(col, 8, y, 13, BLOCK.AIR);
+      }
+      // Iconic floor terracotta emblem (blue center + orange cross)
+      setChunkBlock(col, 7, baseY, 7, blueTerr);
+      setChunkBlock(col, 8, baseY, 8, blueTerr);
+      setChunkBlock(col, 7, baseY, 8, orangeTerr);
+      setChunkBlock(col, 8, baseY, 7, orangeTerr);
+      // Hidden Subterranean Treasury Shaft (y = baseY - 8 .. baseY - 1)
+      for (let y = baseY - 8; y <= baseY - 1; y++) {
+        for (let x = 6; x <= 9; x++) {
+          for (let z = 6; z <= 9; z++) {
+            setChunkBlock(col, x, y, z, BLOCK.AIR);
+          }
+        }
+      }
+      // Iconic Stone Pressure Plate + 3x3 TNT Trap directly under shaft floor!
+      setChunkBlock(col, 7, baseY - 8, 7, plateId);
+      for (let x = 6; x <= 8; x++) {
+        for (let z = 6; z <= 8; z++) {
+          setChunkBlock(col, x, baseY - 9, z, tntId);
+        }
+      }
+      // 4 Loot Chests + Gold/Diamond treasure blocks around trap
+      setChunkBlock(col, 6, baseY - 8, 6, chestId);
+      setChunkBlock(col, 9, baseY - 8, 6, chestId);
+      setChunkBlock(col, 6, baseY - 8, 9, chestId);
+      setChunkBlock(col, 9, baseY - 8, 9, chestId);
+      setChunkBlock(col, 8, baseY - 8, 8, goldBlk);
+      setChunkBlock(col, 9, baseY - 8, 8, diamondBlk);
     }
   }
 

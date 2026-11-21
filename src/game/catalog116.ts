@@ -845,6 +845,11 @@ export const EXT_ITEMS: ItemDef[] = [
   { id: 'enderman_spawn_egg', nameVi: 'Trứng Enderman', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#111113', iconAccent: '#e879f9' },
   { id: 'spider_spawn_egg', nameVi: 'Trứng Nhện (Spider)', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#27272a', iconAccent: '#ef4444' },
   { id: 'slime_spawn_egg', nameVi: 'Trứng Slime', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#84cc16', iconAccent: '#4d7c0f' },
+  { id: 'wither_skeleton_spawn_egg', nameVi: 'Trứng Bộ Xương Wither', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#18181b', iconAccent: '#71717a' },
+  { id: 'evoker_spawn_egg', nameVi: 'Trứng Pháp Sư Evoker', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#334155', iconAccent: '#eab308' },
+  { id: 'vindicator_spawn_egg', nameVi: 'Trứng Vindicator', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#475569', iconAccent: '#cbd5e1' },
+  { id: 'guardian_spawn_egg', nameVi: 'Trứng Vệ Binh Đại Dương', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#5ba39f', iconAccent: '#f97316' },
+  { id: 'shulker_spawn_egg', nameVi: 'Trứng Shulker', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#9333ea', iconAccent: '#f3e8ff' },
 
   // =========================================================================
   // MINECRAFT 1.17 – 26.3 MODERN WEAPONS, TOOLS, ARMOR & ITEMS

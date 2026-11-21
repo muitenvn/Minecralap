@@ -191,6 +191,30 @@ export const ADVANCEMENTS: AdvancementDef[] = [
     iconColor: '#38bdf8',
     xpReward: 30,
   },
+  {
+    id: 'shulker_box_pack',
+    category: 'end',
+    titleVi: 'Balo Hòm Shulker',
+    descVi: 'Mở hoặc mang theo Hòm Shulker giữ nguyên toàn bộ vật phẩm bên trong.',
+    iconColor: '#a855f7',
+    xpReward: 25,
+  },
+  {
+    id: 'evoker_totem',
+    category: 'adventure',
+    titleVi: 'Vượt Qua Tử Thần (Totem)',
+    descVi: 'Hạ gục Pháp Sư Evoker hoặc kích hoạt Vật Tổ Bất Tử thoát chết.',
+    iconColor: '#facc15',
+    xpReward: 35,
+  },
+  {
+    id: 'mansion_explorer',
+    category: 'adventure',
+    titleVi: 'Thám Hiểm Biệt Thự & Kim Tự Tháp',
+    descVi: 'Tìm thấy Biệt Thự Rừng Woodland Mansion hoặc Kim Tự Tháp Sa Mạc.',
+    iconColor: '#92400e',
+    xpReward: 25,
+  },
 ];
 
 export const ADVANCEMENT_BY_ID: Record<string, AdvancementDef> = Object.fromEntries(

@@ -94,6 +94,8 @@ export interface ItemStack {
   durability?: number;
   enchants?: Partial<Record<EnchantmentId, number>>;
   trim?: string;
+  /** Preserved 27-slot contents carried inside a mined Shulker Box item. */
+  shulkerItems?: (ItemStack | null)[];
 }
 
 export interface GameRules {
