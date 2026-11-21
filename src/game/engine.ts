@@ -12,7 +12,9 @@ import {
   isBlockSolid,
   isBlockTransparent,
 } from './blocks';
+import { stepBrewingStand } from './brewing';
 import { buildSubChunkGeometry } from './chunkMesher';
+import { computeJavaMeleeAttack, stepAttackCooldown } from './combat';
 import { executeCommand } from './commands';
 import {
   buildMobMesh,
@@ -32,10 +34,31 @@ import {
   updateRigArmorVisuals,
 } from './playerSkin';
 import { SMELTING_RECIPES } from './recipes';
+import {
+  activatePiston,
+  makeCoordKey,
+  playNoteBlock,
+  RedstoneWorldAccessor,
+  stepHopperTransfer,
+  toggleLever,
+  updateRedstoneNetworkAround,
+} from './redstone';
 import { CompiledResourcePack } from './resourcePack';
-import { saveWorld } from './storage';
+import {
+  createEmptyBrewingState,
+  createEmptyChestSlots,
+  migrateWorldSave,
+  saveWorld,
+} from './storage';
+import {
+  executeVillagerTrade,
+  generateVillagerOffers,
+  VILLAGER_PROFESSION_LABELS,
+  VILLAGER_PROFESSIONS,
+} from './trading';
 import {
   ActiveEffect,
+  BrewingStandState,
   CameraMode,
   CHUNK_SIZE,
   ContainerType,
@@ -220,6 +243,13 @@ export class NetherCraftEngine {
   private mountDashCooldown = 0;
   private wardenNoiseCooldown = 0;
   private enchantBookshelves = 0;
+  private activeChestKey: string | null = null;
+  private activeBrewingKey: string | null = null;
+  private activeTradingMobId: string | null = null;
+  private redstoneTickAccum = 0;
+  private randomTickAccum = 0;
+  private playerAttackCooldown = 1.0;
+  private lastPlateKey: string | null = null;
 
   // Touch-anywhere direct block break/tap + PC mouse free-look fallback
   private touchScreenBreakPos: { x: number; y: number } | null = null;
@@ -1136,7 +1166,10 @@ export class NetherCraftEngine {
 
   public loadWorld(world: WorldSave): void {
     this.clearWorldScene();
-    this.world = structuredClone(world);
+    this.world = migrateWorldSave(structuredClone(world));
+    this.activeChestKey = null;
+    this.activeBrewingKey = null;
+    this.activeTradingMobId = null;
     this.generator = new WorldGenerator(this.world.seed);
     this.mode = 'playing';
     this.paused = false;
@@ -1317,6 +1350,7 @@ export class NetherCraftEngine {
     inventory: (ItemStack | null)[],
     armor?: (ItemStack | null)[],
     furnace?: WorldSave['furnace'],
+    offhand?: ItemStack | null,
   ): void {
     if (!this.world) return;
     this.world.player.inventory = inventory;
@@ -1325,6 +1359,85 @@ export class NetherCraftEngine {
       if (this.playerRig) updateRigArmorVisuals(this.playerRig, armor);
     }
     if (furnace) this.world.furnace = furnace;
+    if (offhand !== undefined) this.world.player.offhand = offhand;
+    this.updateFirstPersonHeldVisual();
+    this.emitHud();
+  }
+
+  public applyChestUpdate(slots: (ItemStack | null)[], isEnderChest = false): void {
+    if (!this.world) return;
+    if (isEnderChest) {
+      this.world.enderChest = slots;
+    } else if (this.activeChestKey) {
+      if (!this.world.chests) this.world.chests = {};
+      this.world.chests[this.activeChestKey] = slots;
+    }
+    this.emitHud();
+  }
+
+  public applyBrewingUpdate(nextState: BrewingStandState): void {
+    if (!this.world || !this.activeBrewingKey) return;
+    if (!this.world.brewingStands) this.world.brewingStands = {};
+    this.world.brewingStands[this.activeBrewingKey] = nextState;
+    this.emitHud();
+  }
+
+  public executeActiveVillagerTrade(offerId: string): void {
+    if (!this.world || !this.activeTradingMobId) return;
+    const villager = this.mobs.find((m) => m.id === this.activeTradingMobId && m.type === 'villager');
+    if (!villager || !villager.tradeOffers || !villager.profession) return;
+    const idx = villager.tradeOffers.findIndex((o) => o.id === offerId);
+    if (idx === -1) return;
+
+    const res = executeVillagerTrade(
+      this.world.player.inventory,
+      villager.tradeOffers[idx],
+      villager.tradeXp ?? 0,
+      villager.tradeLevel ?? 1,
+    );
+    if (!res.ok) {
+      this.showItemToast(res.error || 'Không thể giao dịch!');
+      this.emitHud();
+      return;
+    }
+
+    this.world.player.inventory = res.inventory;
+    villager.tradeOffers[idx] = res.offer;
+    villager.tradeXp = res.villagerXp;
+    if (res.leveledUp) {
+      villager.tradeLevel = res.villagerLevel;
+      const expanded = generateVillagerOffers(
+        villager.profession,
+        villager.tradeSeed ?? 1,
+        villager.tradeLevel,
+      );
+      // Preserve existing uses for previously unlocked offers
+      const prevById = new Map(villager.tradeOffers.map((o) => [o.id, o]));
+      villager.tradeOffers = expanded.map((o) => prevById.get(o.id) ?? o);
+      soundEngine.playLevelUp();
+      this.showItemToast(`Dân Làng thăng cấp ${villager.tradeLevel}! Mở khóa thêm hàng mới!`);
+    } else {
+      soundEngine.playXpOrb();
+      this.showItemToast(`Giao dịch thành công với ${VILLAGER_PROFESSION_LABELS[villager.profession]}!`);
+    }
+    this.grantPlayerXp(3);
+    this.updateFirstPersonHeldVisual();
+    this.emitHud();
+  }
+
+  public swapOffhand(): void {
+    if (!this.world || this.paused) return;
+    const slot = this.world.player.selectedSlot;
+    const main = this.world.player.inventory[slot];
+    const off = this.world.player.offhand ?? null;
+    this.world.player.inventory[slot] = off;
+    this.world.player.offhand = main;
+    soundEngine.playClick();
+    this.showItemToast(
+      this.world.player.offhand
+        ? `Tay trái: ${ITEM_DEFS[this.world.player.offhand.itemId]?.nameVi || this.world.player.offhand.itemId}`
+        : 'Đã đổi tay trái (F)',
+    );
     this.updateFirstPersonHeldVisual();
     this.emitHud();
   }
@@ -1993,10 +2106,11 @@ export class NetherCraftEngine {
     if (isFire && (!this.world.gamerules.fireDamage || this.getEffectLevel('fire_resistance') > 0)) return;
     if (this.hurtImmunity > 0 && rawAmount < 100) return;
 
-    // Shield block while holding Shield and sneaking
+    // Shield block while holding Shield (mainhand OR offhand!) and sneaking
     const held = this.world.player.inventory[this.world.player.selectedSlot];
+    const offhand = this.world.player.offhand ?? null;
     const sneaking = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || this.touchSneak;
-    if (!isFire && rawAmount < 100 && held?.itemId === 'shield' && sneaking) {
+    if (!isFire && rawAmount < 100 && (held?.itemId === 'shield' || offhand?.itemId === 'shield') && sneaking) {
       soundEngine.playShieldBlock();
       this.hurtImmunity = 0.4;
       this.showItemToast('Khiên đã đỡ đòn!');
@@ -2036,14 +2150,22 @@ export class NetherCraftEngine {
     soundEngine.playHurt();
 
     if (this.world.player.hp <= 0) {
-      // Totem of Undying saves the player from death!
-      const totemSlot = this.world.player.inventory.findIndex(
-        (st, idx) => idx < 9 && st?.itemId === 'totem_of_undying',
-      );
-      if (totemSlot >= 0) {
-        const st = this.world.player.inventory[totemSlot]!;
-        st.count -= 1;
-        if (st.count <= 0) this.world.player.inventory[totemSlot] = null;
+      // Totem of Undying saves the player from death (Offhand OR Hotbar)!
+      const offhandTotem = this.world.player.offhand?.itemId === 'totem_of_undying';
+      const totemSlot = offhandTotem
+        ? -2
+        : this.world.player.inventory.findIndex(
+            (st, idx) => idx < 9 && st?.itemId === 'totem_of_undying',
+          );
+      if (offhandTotem || totemSlot >= 0) {
+        if (offhandTotem && this.world.player.offhand) {
+          this.world.player.offhand.count -= 1;
+          if (this.world.player.offhand.count <= 0) this.world.player.offhand = null;
+        } else if (totemSlot >= 0) {
+          const st = this.world.player.inventory[totemSlot]!;
+          st.count -= 1;
+          if (st.count <= 0) this.world.player.inventory[totemSlot] = null;
+        }
         this.world.player.hp = 8;
         this.world.player.effects = [
           ...this.world.player.effects.filter((e) => e.id !== 'regeneration' && e.id !== 'fire_resistance'),
@@ -2061,6 +2183,7 @@ export class NetherCraftEngine {
 
       if (!this.world.gamerules.keepInventory) {
         this.world.player.inventory = new Array(36).fill(null);
+        this.world.player.offhand = null;
       }
       this.exitPointerLock();
       this.callbacks.onChatMessage(`Người chơi đã bị hạ gục (${reason}).`, 'error');
@@ -2078,7 +2201,7 @@ export class NetherCraftEngine {
     }
     const types: MobType[] =
       this.world.dimension === 'overworld'
-        ? ['pig', 'sheep', 'camel', 'allay', 'copper_golem', 'zombie', 'creeper']
+        ? ['pig', 'sheep', 'villager', 'villager', 'camel', 'allay', 'copper_golem', 'zombie', 'creeper']
         : ['piglin', 'strider', 'zombified_piglin', 'piglin', 'ghast', 'ghastling'];
     for (let i = 0; i < types.length; i++) {
       const ang = (i / types.length) * Math.PI * 2 + 0.5;
@@ -2091,13 +2214,21 @@ export class NetherCraftEngine {
     }
   }
 
-  private spawnMob(type: MobType, x: number, y: number, z: number): void {
+  private spawnMob(type: MobType, x: number, y: number, z: number, options?: { isBaby?: boolean }): void {
     if (!this.world) return;
     const spec = MOB_SPECS[type];
     if (spec.hostile && this.world.difficulty === 'peaceful') return;
     const { group, limbs } = buildMobMesh(type, this.pack?.entityTextures);
+    if (options?.isBaby) {
+      group.scale.setScalar(0.55);
+    }
     group.position.set(x - this.originCX * CHUNK_SIZE, y, z - this.originCZ * CHUNK_SIZE);
     this.worldGroup.add(group);
+    const seed = Math.abs(Math.floor(x * 73 + z * 139 + this.mobs.length * 31));
+    const profession =
+      type === 'villager'
+        ? VILLAGER_PROFESSIONS[seed % VILLAGER_PROFESSIONS.length]
+        : undefined;
     this.mobs.push({
       id: `m_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       type,
@@ -2114,6 +2245,13 @@ export class NetherCraftEngine {
       wanderAngle: Math.random() * Math.PI * 2,
       walkPhase: 0,
       fuseTimer: 0,
+      isBaby: options?.isBaby,
+      babyAgeSec: 0,
+      profession,
+      tradeSeed: seed,
+      tradeLevel: 1,
+      tradeXp: 0,
+      tradeOffers: profession ? generateVillagerOffers(profession, seed, 1) : undefined,
       mesh: group,
       limbs,
     });
@@ -2191,17 +2329,59 @@ export class NetherCraftEngine {
     }
 
     const kbMult = 1 + (held?.enchants?.knockback || 0) * 0.65;
-    hitMob.hp -= dmg;
+    const inLiquid =
+      this.getWorldBlock(Math.floor(this.px), Math.floor(this.py + 0.1), Math.floor(this.pz)) === BLOCK.WATER;
+    const sprinting = this.keys.has('ControlLeft');
+    const melee = computeJavaMeleeAttack({
+      baseDamage: dmg,
+      cooldown: this.playerAttackCooldown,
+      onGround: this.onGround,
+      vy: this.vy,
+      sprinting,
+      inLiquid,
+      itemId: held?.itemId,
+      sweepingLevel: held?.enchants?.sharpness ? 1 : 0,
+    });
+    // Reset Java attack cooldown after swing!
+    this.playerAttackCooldown = 0;
+    const finalDmg = isMaceSmash ? dmg : melee.damage;
+    const isCrit = !isMaceSmash && melee.isCritical;
+
+    hitMob.hp -= finalDmg;
     hitMob.hurtTimer = 0.25;
     hitMob.vy = isMaceSmash ? 8.2 : 5.2 + (held?.enchants?.knockback || 0) * 1.1;
     hitMob.vx += _camDir.x * (isMaceSmash ? 11 : isSpear ? 8.5 : 7) * kbMult;
     hitMob.vz += _camDir.z * (isMaceSmash ? 11 : isSpear ? 8.5 : 7) * kbMult;
     if (hitMob.type === 'zombified_piglin') hitMob.hostile = true;
+
+    // Sword Sweeping Attack: splash damage to nearby mobs within 2.5m!
+    if (melee.isSweep && melee.sweepDamage > 0) {
+      for (const other of this.mobs) {
+        if (other === hitMob || other.type === 'villager') continue;
+        const odist = Math.hypot(other.x - hitMob.x, other.y - hitMob.y, other.z - hitMob.z);
+        if (odist <= 2.5) {
+          other.hp -= melee.sweepDamage;
+          other.hurtTimer = 0.25;
+          other.vy = Math.max(other.vy, 3.5);
+          this.spawnBreakParticles(other.x, other.y + 0.9, other.z, 0xf8fafc, 5);
+        }
+      }
+    }
+
+    if (isCrit) {
+      this.showItemToast(`Đòn Chí Mạng! (${finalDmg.toFixed(1)} sát thương)`);
+    }
     this.handSwing = 1.0;
-    this.hitstopTimer = isMaceSmash ? 0.07 : 0.035;
-    soundEngine.playAttack(!this.onGround && this.vy < -0.5);
+    this.hitstopTimer = isMaceSmash ? 0.07 : isCrit ? 0.045 : 0.03;
+    soundEngine.playAttack(isCrit);
     soundEngine.playHurt();
-    this.spawnBreakParticles(hitMob.x, hitMob.y + 1, hitMob.z, isMaceSmash ? 0xfacc15 : 0xef4444, isMaceSmash ? 12 : 6);
+    this.spawnBreakParticles(
+      hitMob.x,
+      hitMob.y + 1,
+      hitMob.z,
+      isMaceSmash || isCrit ? 0xfacc15 : 0xef4444,
+      isMaceSmash ? 12 : isCrit ? 10 : 6,
+    );
 
     if (hitMob.hp <= 0) {
       const spec = MOB_SPECS[hitMob.type];
@@ -2484,6 +2664,7 @@ export class NetherCraftEngine {
     // Mending enchantment automatically repairs damaged held/equipped gear on XP pickup!
     const repairable: (ItemStack | null)[] = [
       this.world.player.inventory[this.world.player.selectedSlot],
+      this.world.player.offhand ?? null,
       ...this.world.player.armor,
     ];
     for (const st of repairable) {
@@ -3049,6 +3230,87 @@ export class NetherCraftEngine {
 
     const held = this.world.player.inventory[this.world.player.selectedSlot];
     const itemDef = held ? ITEM_DEFS[held.itemId] : null;
+
+    // 1.1 Villager Trading, Animal Breeding, 26.1 Golden Dandelion Age-Lock & Name Tag!
+    {
+      this.camera.getWorldDirection(_camDir);
+      const eyeY = this.py + 1.62;
+      let aimedMob: MobEntity | null = null;
+      let bestMobDist = 4.6;
+      for (const mob of this.mobs) {
+        const mSpec = MOB_SPECS[mob.type];
+        const dx = mob.x - this.px;
+        const dy = mob.y + mSpec.height * 0.5 - eyeY;
+        const dz = mob.z - this.pz;
+        const dist = Math.hypot(dx, dy, dz);
+        if (dist > bestMobDist) continue;
+        const dot = (dx * _camDir.x + dy * _camDir.y + dz * _camDir.z) / dist;
+        if (dot > 0.86) {
+          bestMobDist = dist;
+          aimedMob = mob;
+        }
+      }
+
+      if (aimedMob) {
+        // Name Tag naming
+        if (held?.itemId === 'name_tag') {
+          aimedMob.customName = `${MOB_SPECS[aimedMob.type].nameVi} ★`;
+          this.spawnBreakParticles(aimedMob.x, aimedMob.y + 1.2, aimedMob.z, 0xfacc15, 10);
+          soundEngine.playXpOrb();
+          this.consumeHeldItem();
+          this.showItemToast(`Đã gắn Thẻ Tên cho ${aimedMob.customName}!`);
+          this.emitHud();
+          return;
+        }
+        // Java 26.1 Golden Dandelion: freeze baby mob growth forever!
+        if (held?.itemId === 'golden_dandelion' && aimedMob.isBaby) {
+          aimedMob.ageLocked = true;
+          this.spawnBreakParticles(aimedMob.x, aimedMob.y + 0.8, aimedMob.z, 0xfde047, 14);
+          soundEngine.playLevelUp();
+          this.consumeHeldItem();
+          this.showItemToast('Bồ Công Anh Vàng (26.1): Đã khóa tuổi thú non!');
+          this.emitHud();
+          return;
+        }
+        // Villager Trading UI!
+        if (aimedMob.type === 'villager') {
+          if (!aimedMob.profession) {
+            aimedMob.profession = VILLAGER_PROFESSIONS[0];
+            aimedMob.tradeSeed = 17;
+            aimedMob.tradeLevel = 1;
+            aimedMob.tradeXp = 0;
+            aimedMob.tradeOffers = generateVillagerOffers(aimedMob.profession, 17, 1);
+          }
+          this.activeTradingMobId = aimedMob.id;
+          this.exitPointerLock();
+          this.callbacks.onOpenContainer('trading');
+          this.emitHud();
+          return;
+        }
+        // Animal Breeding -> spawns a Baby Mob!
+        const breedable =
+          (aimedMob.type === 'sheep' && held?.itemId === 'wheat') ||
+          (aimedMob.type === 'pig' && (held?.itemId === 'carrot' || held?.itemId === 'potato' || held?.itemId === 'wheat')) ||
+          (aimedMob.type === 'camel' && held?.itemId === 'cactus') ||
+          (aimedMob.type === 'goat' && held?.itemId === 'wheat');
+        if (breedable && !aimedMob.isBaby) {
+          if (aimedMob.breedCooldownSec && aimedMob.breedCooldownSec > 0) {
+            this.showItemToast(`Thú cần nghỉ ${Math.ceil(aimedMob.breedCooldownSec)}s trước khi sinh sản lại!`);
+            this.emitHud();
+            return;
+          }
+          aimedMob.breedCooldownSec = 60;
+          this.spawnMob(aimedMob.type, aimedMob.x + 0.7, aimedMob.y + 0.1, aimedMob.z + 0.7, { isBaby: true });
+          this.spawnBreakParticles(aimedMob.x, aimedMob.y + 1.0, aimedMob.z, 0xf43f5e, 14);
+          soundEngine.playXpOrb();
+          this.grantPlayerXp(5);
+          this.consumeHeldItem();
+          this.showItemToast(`Đã nhân giống! Một bé ${MOB_SPECS[aimedMob.type].nameVi} con vừa chào đời!`);
+          this.emitHud();
+          return;
+        }
+      }
+    }
 
     // 1.2 Mount Rideable Mobs (Happy Ghast, Camel, Nautilus, Zombie Horse, Strider!)
     if (!this.mountedMobId && (!held || held.itemId === 'saddle' || held.itemId.endsWith('_harness'))) {
@@ -3757,10 +4019,49 @@ export class NetherCraftEngine {
         }
         return;
       }
+      if (targetKey === 'chest' || targetKey === 'trapped_chest' || targetKey === 'barrel' || targetKey === 'copper_chest') {
+        if (!this.world.chests) this.world.chests = {};
+        const key = `${this.world.dimension}:${tb.x},${tb.y},${tb.z}`;
+        if (!this.world.chests[key]) {
+          const fresh = createEmptyChestSlots();
+          if (targetKey === 'copper_chest') {
+            fresh[0] = { itemId: 'copper_ingot', count: 6 };
+            fresh[1] = { itemId: 'copper_lantern', count: 2 };
+            fresh[2] = { itemId: 'honeycomb', count: 3 };
+          }
+          this.world.chests[key] = fresh;
+        }
+        this.activeChestKey = key;
+        this.exitPointerLock();
+        soundEngine.playBlock('wood', 'place');
+        this.emitHud();
+        this.callbacks.onOpenContainer('chest');
+        return;
+      }
+      if (targetKey === 'ender_chest') {
+        if (!this.world.enderChest) this.world.enderChest = createEmptyChestSlots();
+        this.exitPointerLock();
+        soundEngine.playPortal();
+        this.emitHud();
+        this.callbacks.onOpenContainer('ender_chest');
+        return;
+      }
+      if (targetKey === 'brewing_stand') {
+        if (!this.world.brewingStands) this.world.brewingStands = {};
+        const key = `${this.world.dimension}:${tb.x},${tb.y},${tb.z}`;
+        if (!this.world.brewingStands[key]) {
+          this.world.brewingStands[key] = createEmptyBrewingState();
+        }
+        this.activeBrewingKey = key;
+        this.exitPointerLock();
+        soundEngine.playClick();
+        this.emitHud();
+        this.callbacks.onOpenContainer('brewing');
+        return;
+      }
       if (
         tb.blockId === BLOCK.CRAFTING_TABLE ||
         targetKey === 'crafter' ||
-        targetKey === 'brewing_stand' ||
         targetKey === 'stonecutter' ||
         targetKey === 'loom' ||
         targetKey === 'cartography_table' ||
@@ -3819,16 +4120,6 @@ export class NetherCraftEngine {
         soundEngine.playClick();
         this.spawnBreakParticles(tb.x + 0.5, tb.y + 0.8, tb.z + 0.5, 0xb45309, 10);
         this.showItemToast(`Bình Gốm Trang Trí: Tìm thấy ${ITEM_DEFS[pick]?.nameVi || pick}!`);
-        this.emitHud();
-        return;
-      }
-      if (targetKey === 'copper_chest') {
-        const cLoot = ['copper_ingot', 'copper_lantern', 'copper_chain', 'copper_sword', 'honeycomb', 'raw_copper'];
-        const pick = cLoot[Math.floor(Math.random() * cLoot.length)];
-        this.addItemToInventory(pick, pick === 'copper_ingot' ? 4 : 1);
-        soundEngine.playClick();
-        this.spawnBreakParticles(tb.x + 0.5, tb.y + 0.9, tb.z + 0.5, 0xea580c, 12);
-        this.showItemToast(`Rương Đồng (Copper Age): Nhận ${ITEM_DEFS[pick]?.nameVi || pick}!`);
         this.emitHud();
         return;
       }
@@ -3902,8 +4193,46 @@ export class NetherCraftEngine {
         return;
       }
       if (targetKey === 'note_block') {
-        soundEngine.playXpOrb();
-        this.spawnBreakParticles(tb.x + 0.5, tb.y + 1.1, tb.z + 0.5, 0x4ade80, 6);
+        const res = playNoteBlock(this.createRedstoneAccessor(), tb.x, tb.y, tb.z, true);
+        this.spawnBreakParticles(
+          tb.x + 0.5,
+          tb.y + 1.1,
+          tb.z + 0.5,
+          res.instrument === 'trumpet' ? 0xf97316 : 0x4ade80,
+          8,
+        );
+        this.showItemToast(`Đá Nhạc: ${res.labelVi} (Nốt #${res.pitch})`);
+        this.emitHud();
+        return;
+      }
+      if (targetKey === 'lever') {
+        const res = toggleLever(this.createRedstoneAccessor(), tb.x, tb.y, tb.z);
+        soundEngine.playClick();
+        this.handSwing = 0.7;
+        this.showItemToast(res.active ? 'Cần Gạt: BẬT (Tín hiệu 15)' : 'Cần Gạt: TẮT');
+        this.emitHud();
+        return;
+      }
+      if (targetKey === 'piston' || targetKey === 'sticky_piston') {
+        // Push away from clicked face
+        const dx = -tb.face[0];
+        const dy = -tb.face[1];
+        const dz = -tb.face[2];
+        const ok = activatePiston(
+          this.createRedstoneAccessor(),
+          tb.x,
+          tb.y,
+          tb.z,
+          dx,
+          dy,
+          dz,
+          targetKey === 'sticky_piston',
+          false,
+        );
+        soundEngine.playClick();
+        this.handSwing = 0.8;
+        this.showItemToast(ok ? 'Piston đã đẩy khối!' : 'Piston bị chặn hoặc không có khối đẩy');
+        this.emitHud();
         return;
       }
       if (targetKey === 'bell') {
@@ -3921,7 +4250,7 @@ export class NetherCraftEngine {
         this.emitHud();
         return;
       }
-      if (tb.blockId === BLOCK.BED) {
+      if (tb.blockId === BLOCK.BED || targetKey === 'straw_bed') {
         if (this.world.dimension === 'overworld') {
           this.world.player.spawnPoint = [tb.x + 0.5, tb.y + 1.1, tb.z + 0.5];
           this.world.player.spawnDimension = 'overworld';
@@ -3929,7 +4258,12 @@ export class NetherCraftEngine {
           this.world.weather = 'clear';
           this.world.player.hp = Math.min(this.world.player.maxHp, this.world.player.hp + 4);
           soundEngine.playLevelUp();
-          this.callbacks.onChatMessage('Đã ngủ qua đêm & đặt điểm hồi sinh tại Giường!', 'success');
+          this.callbacks.onChatMessage(
+            targetKey === 'straw_bed'
+              ? 'Đã ngủ qua đêm & đặt điểm hồi sinh tại Giường Rơm (26.3)!'
+              : 'Đã ngủ qua đêm & đặt điểm hồi sinh tại Giường!',
+            'success',
+          );
           this.emitHud();
           return;
         } else {
@@ -4193,6 +4527,20 @@ export class NetherCraftEngine {
       return;
     }
 
+    // 4.5 Place Redstone Dust as Redstone Wire!
+    if (held.itemId === 'redstone') {
+      const wireDef = BLOCK_BY_KEY['redstone_wire'];
+      if (wireDef && this.getWorldBlock(placeX, placeY, placeZ) === BLOCK.AIR) {
+        this.setWorldBlock(placeX, placeY, placeZ, wireDef.id, true);
+        soundEngine.playBlock('stone', 'place');
+        this.handSwing = 0.8;
+        this.consumeHeldItem();
+        updateRedstoneNetworkAround(this.createRedstoneAccessor(), placeX, placeY, placeZ);
+        this.emitHud();
+        return;
+      }
+    }
+
     // 5. Place block
     if (itemDef.blockId !== undefined) {
       // Prevent placing solid block inside player AABB
@@ -4216,8 +4564,57 @@ export class NetherCraftEngine {
         if (held.count <= 0) this.world.player.inventory[this.world.player.selectedSlot] = null;
         this.updateFirstPersonHeldVisual();
       }
+      const pk = def.key;
+      if (
+        pk === 'redstone_block' ||
+        pk === 'redstone_torch' ||
+        pk === 'redstone_wire' ||
+        pk === 'repeater' ||
+        pk === 'lever' ||
+        pk === 'daylight_detector' ||
+        pk === 'redstone_lamp' ||
+        pk === 'tnt' ||
+        pk === 'piston' ||
+        pk === 'sticky_piston' ||
+        pk === 'note_block' ||
+        pk === 'iron_door' ||
+        pk === 'iron_trapdoor' ||
+        pk === 'copper_bulb'
+      ) {
+        updateRedstoneNetworkAround(this.createRedstoneAccessor(), placeX, placeY, placeZ);
+      }
       this.emitHud();
     }
+  }
+
+  private createRedstoneAccessor(): RedstoneWorldAccessor {
+    return {
+      getBlock: (x, y, z) => this.getWorldBlock(x, y, z),
+      setBlock: (x, y, z, blockId) => this.setWorldBlock(x, y, z, blockId, true),
+      getState: (key) => this.world?.redstoneStates?.[key] ?? 0,
+      setState: (key, value) => {
+        if (!this.world) return;
+        if (!this.world.redstoneStates) this.world.redstoneStates = {};
+        if (value === 0) delete this.world.redstoneStates[key];
+        else this.world.redstoneStates[key] = value;
+      },
+      getTimeOfDay: () => this.world?.timeOfDay ?? 6000,
+      igniteTnt: (x, y, z) => {
+        this.detonateExplosion(x + 0.5, y + 0.5, z + 0.5, 2, 0xf97316, 12);
+      },
+      playNote: (_x, _y, _z, pitch, instrument) => {
+        soundEngine.playNoteBlockSound(pitch, instrument);
+      },
+      getChestSlots: (key) => {
+        if (!this.world) return null;
+        return this.world.chests?.[key] ?? null;
+      },
+      setChestSlots: (key, slots) => {
+        if (!this.world) return;
+        if (!this.world.chests) this.world.chests = {};
+        this.world.chests[key] = slots;
+      },
+    };
   }
 
   // --- Player Physics & Environment Tick ---
@@ -4230,6 +4627,12 @@ export class NetherCraftEngine {
     const inWater = footBlock === BLOCK.WATER || headBlock === BLOCK.WATER;
     const inLava = footBlock === BLOCK.LAVA || headBlock === BLOCK.LAVA;
     const inPortal = footBlock === BLOCK.NETHER_PORTAL || headBlock === BLOCK.NETHER_PORTAL;
+
+    // Recharge Java Edition melee attack cooldown (0..1)
+    const heldForCd = this.world.player.inventory[this.world.player.selectedSlot];
+    if (this.playerAttackCooldown < 1) {
+      this.playerAttackCooldown = stepAttackCooldown(this.playerAttackCooldown, dt, heldForCd?.itemId);
+    }
 
     // Input direction in XZ
     let forward = 0;
@@ -4588,6 +4991,144 @@ export class NetherCraftEngine {
       }
     } else if (!canAcceptOutput) {
       f.cookProgress = 0;
+    }
+
+    // 2.5 Live Brewing Stands tick (Java Edition potion matrix)
+    if (this.world.brewingStands) {
+      let activeBrewChanged = false;
+      for (const [bKey, st] of Object.entries(this.world.brewingStands)) {
+        if (!st) continue;
+        const res = stepBrewingStand(st, dt);
+        if (res.changed) {
+          this.world.brewingStands[bKey] = res.state;
+          if (bKey === this.activeBrewingKey) {
+            activeBrewChanged = true;
+          }
+          if (res.completed) {
+            soundEngine.playSplash();
+            if (bKey === this.activeBrewingKey) {
+              this.showItemToast('Ủ thuốc hoàn tất!');
+            }
+          }
+        }
+      }
+      if (activeBrewChanged) {
+        this.emitHud();
+      }
+    }
+
+    // 2.6 Redstone Pressure Plates & Lockable Hopper Transfer tick
+    const fx = Math.floor(this.px);
+    const fy = Math.floor(this.py + 0.1);
+    const fz = Math.floor(this.pz);
+    const footKey = BLOCK_DEFS[this.getWorldBlock(fx, fy, fz)]?.key;
+    const standingPlateKey =
+      footKey === 'oak_pressure_plate' || footKey === 'stone_pressure_plate'
+        ? makeCoordKey(fx, fy, fz)
+        : null;
+    if (standingPlateKey !== this.lastPlateKey) {
+      const acc = this.createRedstoneAccessor();
+      if (this.lastPlateKey) {
+        acc.setState(this.lastPlateKey, 0);
+        const [ox, oy, oz] = this.lastPlateKey.split(',').map(Number);
+        updateRedstoneNetworkAround(acc, ox, oy, oz);
+      }
+      if (standingPlateKey) {
+        acc.setState(standingPlateKey, 1);
+        soundEngine.playClick();
+        updateRedstoneNetworkAround(acc, fx, fy, fz);
+      }
+      this.lastPlateKey = standingPlateKey;
+    }
+
+    this.redstoneTickAccum += dt;
+    if (this.redstoneTickAccum >= 0.4) {
+      this.redstoneTickAccum = 0;
+      const hopperId = BLOCK_BY_KEY['hopper']?.id;
+      if (hopperId !== undefined && this.world.chests) {
+        const acc = this.createRedstoneAccessor();
+        const checkedHoppers = new Set<string>();
+        for (const cKey of Object.keys(this.world.chests)) {
+          const [cx, cy, cz] = cKey.split(',').map(Number);
+          // Check hopper right below this chest
+          const hx = cx;
+          const hy = cy - 1;
+          const hz = cz;
+          const hKey = makeCoordKey(hx, hy, hz);
+          if (!checkedHoppers.has(hKey) && this.getWorldBlock(hx, hy, hz) === hopperId) {
+            checkedHoppers.add(hKey);
+            if (stepHopperTransfer(acc, hx, hy, hz) && this.activeChestKey) {
+              this.emitHud();
+            }
+          }
+        }
+      }
+    }
+
+    // 2.7 Natural Random-Tick Crop & Sapling Growth (Overworld)
+    this.randomTickAccum += dt;
+    if (this.randomTickAccum >= 0.65 && this.world.dimension === 'overworld') {
+      this.randomTickAccum = 0;
+      const caneId = BLOCK_BY_KEY['sugar_cane']?.id;
+      const oakSapId = BLOCK_BY_KEY['oak_sapling']?.id;
+      const cherrySapId = BLOCK_BY_KEY['cherry_sapling']?.id;
+      const poplarSapId = BLOCK_BY_KEY['poplar_sapling']?.id;
+      const poplarLogId = BLOCK_BY_KEY['poplar_log']?.id ?? BLOCK.OAK_LOG;
+      const poplarLeafId = BLOCK_BY_KEY['poplar_leaves']?.id ?? BLOCK.OAK_LEAVES;
+
+      // Sample 10 random blocks within 14m around the player
+      for (let s = 0; s < 10; s++) {
+        const rx = Math.floor(this.px + (Math.random() - 0.5) * 28);
+        const ry = Math.max(2, Math.min(WORLD_HEIGHT_MAX - 8, Math.floor(this.py + (Math.random() - 0.5) * 8)));
+        const rz = Math.floor(this.pz + (Math.random() - 0.5) * 28);
+        const b = this.getWorldBlock(rx, ry, rz);
+
+        if (caneId !== undefined && b === caneId) {
+          // Grow Sugar Cane naturally up to 3 blocks tall
+          if (
+            this.getWorldBlock(rx, ry + 1, rz) === BLOCK.AIR &&
+            !(this.getWorldBlock(rx, ry - 1, rz) === caneId && this.getWorldBlock(rx, ry - 2, rz) === caneId)
+          ) {
+            this.setWorldBlock(rx, ry + 1, rz, caneId, true);
+          }
+        } else if (
+          (oakSapId !== undefined && b === oakSapId) ||
+          (cherrySapId !== undefined && b === cherrySapId) ||
+          (poplarSapId !== undefined && b === poplarSapId)
+        ) {
+          // Natural sapling tree growth (15% per hit sample)
+          if (Math.random() < 0.15 && this.getWorldBlock(rx, ry + 4, rz) === BLOCK.AIR) {
+            const logId =
+              b === poplarSapId
+                ? poplarLogId
+                : b === cherrySapId
+                  ? (BLOCK_BY_KEY['cherry_log']?.id ?? BLOCK.OAK_LOG)
+                  : BLOCK.OAK_LOG;
+            const leafId =
+              b === poplarSapId
+                ? poplarLeafId
+                : b === cherrySapId
+                  ? (BLOCK_BY_KEY['cherry_leaves']?.id ?? BLOCK.OAK_LEAVES)
+                  : BLOCK.OAK_LEAVES;
+            const h = b === poplarSapId ? 6 : 5;
+            for (let ty = 0; ty < h; ty++) {
+              this.setWorldBlock(rx, ry + ty, rz, logId, true);
+            }
+            for (let dy = -2; dy <= 1; dy++) {
+              const rad = dy <= -1 ? 2 : 1;
+              for (let dx = -rad; dx <= rad; dx++) {
+                for (let dz = -rad; dz <= rad; dz++) {
+                  if (dx === 0 && dz === 0 && dy <= 0) continue;
+                  if (Math.abs(dx) === rad && Math.abs(dz) === rad && dy === 1) continue;
+                  if (this.getWorldBlock(rx + dx, ry + h - 1 + dy, rz + dz) === BLOCK.AIR) {
+                    this.setWorldBlock(rx + dx, ry + h - 1 + dy, rz + dz, leafId, true);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
 
     // 3. Daylight & Weather
@@ -5239,6 +5780,8 @@ export class NetherCraftEngine {
       this.world.dimension === 'overworld'
         ? [
             { label: 'Cổng Nether', x: 11, z: 10, color: '#c084fc' },
+            { label: 'Làng Dân Làng', x: 39, z: 23, color: '#4ade80' },
+            { label: 'Trại Bỏ Hoang 26.3', x: -24, z: 40, color: '#fbbf24' },
             { label: 'Trial Chamber', x: 39, z: 7, color: '#f97316' },
             { label: 'Ancient City', x: -25, z: 7, color: '#2dd4bf' },
             { label: 'Trail Ruins', x: 7, z: 39, color: '#facc15' },
@@ -5250,7 +5793,10 @@ export class NetherCraftEngine {
               { label: 'Gateway', x: 32, z: 0, color: '#c084fc' },
               { label: 'End City', x: 103, z: 7, color: '#e879f9' },
             ]
-          : [{ label: 'Điểm Đến', x: 0, z: 0, color: '#ef4444' }];
+          : [
+              { label: 'Điểm Đến', x: 0, z: 0, color: '#ef4444' },
+              { label: 'Pháo Đài Nether', x: 24, z: 24, color: '#fb923c' },
+            ];
 
     if (bossMob) {
       rawLandmarks.push({ label: MOB_SPECS[bossMob.type].nameVi.split(' ')[0], x: bossMob.x, z: bossMob.z, color: '#f43f5e' });
@@ -5342,6 +5888,37 @@ export class NetherCraftEngine {
               progress: Math.max(0, Math.min(1, this.miningProgress)),
             }
           : null,
+      offhand: this.world.player.offhand ? { ...this.world.player.offhand } : null,
+      attackCooldown: this.playerAttackCooldown,
+      activeChestKey: this.activeChestKey,
+      activeChestSlots:
+        this.activeChestKey && this.world.chests?.[this.activeChestKey]
+          ? this.world.chests[this.activeChestKey].map((s) => (s ? { ...s } : null))
+          : null,
+      enderChestSlots: (this.world.enderChest || createEmptyChestSlots()).map((s) => (s ? { ...s } : null)),
+      activeBrewingKey: this.activeBrewingKey,
+      activeBrewingState:
+        this.activeBrewingKey && this.world.brewingStands?.[this.activeBrewingKey]
+          ? {
+              ...this.world.brewingStands[this.activeBrewingKey],
+              bottles: this.world.brewingStands[this.activeBrewingKey].bottles.map((b) =>
+                b ? { ...b } : null,
+              ),
+            }
+          : null,
+      activeTradingVillager: (() => {
+        if (!this.activeTradingMobId) return null;
+        const v = this.mobs.find((m) => m.id === this.activeTradingMobId && m.type === 'villager');
+        if (!v || !v.profession || !v.tradeOffers) return null;
+        return {
+          mobId: v.id,
+          profession: v.profession,
+          nameVi: VILLAGER_PROFESSION_LABELS[v.profession],
+          level: v.tradeLevel ?? 1,
+          xp: v.tradeXp ?? 0,
+          offers: v.tradeOffers.map((o) => ({ ...o })),
+        };
+      })(),
     });
   }
 
@@ -5422,6 +5999,11 @@ export class NetherCraftEngine {
     }
     if (this.paused || !this.world || this.world.player.hp <= 0) return;
 
+    if (code === 'KeyF') {
+      e.preventDefault();
+      this.swapOffhand();
+      return;
+    }
     if (code === 'KeyE') {
       e.preventDefault();
       this.pcFreeLookActive = false;

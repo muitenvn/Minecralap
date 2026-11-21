@@ -699,6 +699,7 @@ export default function App() {
               setContainerType('inventory');
               engineRef.current?.setPaused(true);
             }}
+            onSwapOffhand={() => engineRef.current?.swapOffhand()}
             onCycleCamera={() => engineRef.current?.cycleCameraMode()}
             onToggleFullscreen={handleToggleFullscreen}
             onOpenPause={() => {
@@ -748,20 +749,37 @@ export default function App() {
               />
             )}
 
-          {/* Inventory / Crafting Table / Furnace / Smithing Table / Enchanting Table / Anvil */}
+          {/* Inventory / Crafting / Furnace / Smithing / Enchanting / Anvil / Chest / Ender Chest / Brewing / Trading */}
           {containerType !== 'none' && !hud.dead && (
             <ContainerModal
               type={containerType}
               gameMode={hud.gameMode}
               inventory={hud.inventory}
               armor={hud.armor}
+              offhand={hud.offhand ?? null}
               furnace={hud.furnace}
+              chestSlots={
+                containerType === 'ender_chest'
+                  ? hud.enderChestSlots ?? null
+                  : hud.activeChestSlots ?? null
+              }
+              brewingState={hud.activeBrewingState ?? null}
+              tradingVillager={hud.activeTradingVillager ?? null}
               playerLevel={hud.level}
               enchantBookshelves={hud.enchantBookshelves ?? 0}
               pack={compiledPack}
               playerSkin={playerSkin}
-              onUpdateInventory={(inv, arm, furn) =>
-                engineRef.current?.applyInventoryUpdate(inv, arm, furn)
+              onUpdateInventory={(inv, arm, furn, off) =>
+                engineRef.current?.applyInventoryUpdate(inv, arm, furn, off)
+              }
+              onUpdateChest={(slots, isEnder) =>
+                engineRef.current?.applyChestUpdate(slots, isEnder)
+              }
+              onUpdateBrewing={(nextState) =>
+                engineRef.current?.applyBrewingUpdate(nextState)
+              }
+              onExecuteTrade={(offerId) =>
+                engineRef.current?.executeActiveVillagerTrade(offerId)
               }
               onSpendLevels={(lv) => engineRef.current?.spendPlayerLevels(lv)}
               onClose={handleCloseContainer}

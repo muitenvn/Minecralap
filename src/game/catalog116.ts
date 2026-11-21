@@ -573,6 +573,25 @@ for (const c of MC_COLORS) {
   });
 }
 
+// Wave 3 Redstone blocks (appended at end to preserve all saved block IDs)
+addBlock({ key: 'redstone_wire', nameVi: 'Dây Redstone', category: 'redstone', hardness: 0.05, tool: 'none', dropItem: 'redstone', sound: 'stone', transparent: true, nonSolid: true, emissive: true, texStyle: 'flat', base: '#991b1b', accent: '#ef4444' });
+addBlock({ key: 'redstone_lamp_on', nameVi: 'Đèn Redstone (Bật)', category: 'redstone', hardness: 0.6, tool: 'none', dropItem: 'redstone_lamp', sound: 'glass', emissive: true, texStyle: 'station', base: '#f59e0b', accent: '#fef08a', trim: '#b45309' });
+
+// Wave 5 Official Java 26.1 (Tiny Takeover) & 26.3 (Wilderness Bound) Blocks (appended at end to preserve saved IDs)
+addBlock({ key: 'golden_dandelion', nameVi: 'Bồ Công Anh Vàng (26.1)', category: 'decor_brew', hardness: 0.1, tool: 'none', sound: 'grass', transparent: true, nonSolid: true, emissive: true, texStyle: 'plant', base: '#facc15', accent: '#fef08a' });
+addBlock({ key: 'poplar_log', nameVi: 'Gỗ Dương (Poplar 26.3)', category: 'building', hardness: 2.0, tool: 'axe', sound: 'wood', texStyle: 'log', base: '#b5a27e', accent: '#75664c' });
+addBlock({ key: 'poplar_planks', nameVi: 'Ván Gỗ Dương (26.3)', category: 'building', hardness: 2.0, tool: 'axe', sound: 'wood', texStyle: 'planks', base: '#d9c698', accent: '#b8a274' });
+addBlock({ key: 'poplar_leaves', nameVi: 'Lá Dương Vàng Thu (26.3)', category: 'decor_brew', hardness: 0.25, tool: 'none', sound: 'grass', transparent: true, texStyle: 'stone', base: '#d9a432', accent: '#facc15' });
+addBlock({ key: 'poplar_sapling', nameVi: 'Cây Non Gỗ Dương (26.3)', category: 'decor_brew', hardness: 0.1, tool: 'none', sound: 'grass', transparent: true, nonSolid: true, texStyle: 'plant', base: '#d9a432', accent: '#9a7b4f' });
+addBlock({ key: 'poplar_slab', nameVi: 'Phiến Gỗ Dương (26.3)', category: 'building', hardness: 2.0, tool: 'axe', sound: 'wood', texStyle: 'planks', base: '#d9c698', accent: '#b8a274' });
+addBlock({ key: 'poplar_stairs', nameVi: 'Cầu Thang Gỗ Dương (26.3)', category: 'building', hardness: 2.0, tool: 'axe', sound: 'wood', texStyle: 'planks', base: '#d9c698', accent: '#b8a274' });
+addBlock({ key: 'poplar_fence', nameVi: 'Hàng Rào Gỗ Dương (26.3)', category: 'building', hardness: 2.0, tool: 'axe', sound: 'wood', texStyle: 'planks', base: '#d9c698', accent: '#b8a274' });
+addBlock({ key: 'shelf_mushroom', nameVi: 'Nấm Thân Cây (Shelf Mushroom 26.3)', category: 'decor_brew', hardness: 0.2, tool: 'none', sound: 'grass', transparent: true, nonSolid: true, texStyle: 'plant', base: '#d49a52', accent: '#f5e1b9' });
+addBlock({ key: 'straw_bed', nameVi: 'Giường Rơm (Straw Bed 26.3)', category: 'decor_brew', hardness: 0.4, tool: 'none', sound: 'grass', texStyle: 'wool', base: '#d9b54a', accent: '#a8842a' });
+addBlock({ key: 'cushion', nameVi: 'Đệm Ngồi Len (Cushion 26.3)', category: 'decor_brew', hardness: 0.4, tool: 'none', sound: 'grass', texStyle: 'wool', base: '#e26a5c', accent: '#f8fafc' });
+addBlock({ key: 'white_wool_slab', nameVi: 'Phiến Len Trắng (26.3)', category: 'building', hardness: 0.6, tool: 'none', sound: 'grass', texStyle: 'wool', base: '#f4f4f5', accent: '#d4d4d8' });
+addBlock({ key: 'red_wool_slab', nameVi: 'Phiến Len Đỏ (26.3)', category: 'building', hardness: 0.6, tool: 'none', sound: 'grass', texStyle: 'wool', base: '#c53030', accent: '#9b2c2c' });
+
 // =========================================================================
 // 5. ALL EXTENDED NON-BLOCK ITEMS (Sections A, B, C, D, G, H, J, K, L)
 // =========================================================================
@@ -816,6 +835,7 @@ export const EXT_ITEMS: ItemDef[] = [
   { id: 'cold_sulfur_cube_spawn_egg', nameVi: 'Trứng Khối Lưu Huỳnh Băng', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#7dd3fc', iconAccent: '#fde047' },
   { id: 'frostbite_spawn_egg', nameVi: 'Trứng Thây Ma Băng Giá', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#38bdf8', iconAccent: '#1e3a8a' },
   { id: 'ender_dragon_spawn_egg', nameVi: 'Trứng Rồng Ender (Boss)', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#18181b', iconAccent: '#c084fc' },
+  { id: 'villager_spawn_egg', nameVi: 'Trứng Dân Làng (Villager)', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#7c4a2d', iconAccent: '#16a34a' },
 
   // =========================================================================
   // MINECRAFT 1.17 – 26.3 MODERN WEAPONS, TOOLS, ARMOR & ITEMS
@@ -1263,6 +1283,19 @@ export const EXT_CRAFTING_RECIPES: CraftingRecipe[] = [
   { id: 'calcite_bricks_craft', nameVi: 'Gạch Calcite', pattern: [['polished_calcite', 'polished_calcite'], ['polished_calcite', 'polished_calcite']], output: { itemId: 'calcite_bricks', count: 4 } },
   { id: 'blue_harness_craft', nameVi: 'Yên Ghast Xanh', pattern: [['leather', 'leather', 'leather'], ['glass', 'blue_wool', 'glass']], output: { itemId: 'blue_harness', count: 1 } },
   { id: 'red_harness_craft', nameVi: 'Yên Ghast Đỏ', pattern: [['leather', 'leather', 'leather'], ['glass', 'red_wool', 'glass']], output: { itemId: 'red_harness', count: 1 } },
+  // Wave 5 — Java Edition 26.1 Tiny Takeover & 26.3 Wilderness Bound Recipes!
+  { id: 'name_tag_261_craft', nameVi: 'Thẻ Tên (26.1)', shapeless: ['paper', 'iron_nugget'], output: { itemId: 'name_tag', count: 1 } },
+  { id: 'name_tag_gold_261_craft', nameVi: 'Thẻ Tên Vàng (26.1)', shapeless: ['paper', 'gold_nugget'], output: { itemId: 'name_tag', count: 1 } },
+  { id: 'golden_dandelion_261_craft', nameVi: 'Bồ Công Anh Vàng (26.1)', pattern: [['gold_nugget', 'gold_nugget', 'gold_nugget'], ['gold_nugget', 'dandelion', 'gold_nugget'], ['gold_nugget', 'gold_nugget', 'gold_nugget']], output: { itemId: 'golden_dandelion', count: 1 } },
+  { id: 'poplar_planks_263_craft', nameVi: 'Ván Gỗ Dương (26.3)', shapeless: ['poplar_log'], output: { itemId: 'poplar_planks', count: 4 } },
+  { id: 'poplar_slab_263_craft', nameVi: 'Phiến Gỗ Dương (26.3)', pattern: [['poplar_planks', 'poplar_planks', 'poplar_planks']], output: { itemId: 'poplar_slab', count: 6 } },
+  { id: 'poplar_stairs_263_craft', nameVi: 'Cầu Thang Gỗ Dương (26.3)', pattern: [['poplar_planks', null, null], ['poplar_planks', 'poplar_planks', null], ['poplar_planks', 'poplar_planks', 'poplar_planks']], output: { itemId: 'poplar_stairs', count: 4 } },
+  { id: 'poplar_fence_263_craft', nameVi: 'Hàng Rào Gỗ Dương (26.3)', pattern: [['poplar_planks', 'stick', 'poplar_planks'], ['poplar_planks', 'stick', 'poplar_planks']], output: { itemId: 'poplar_fence', count: 3 } },
+  { id: 'straw_bed_263_craft', nameVi: 'Giường Rơm (26.3)', pattern: [['wheat', 'wheat', 'wheat'], ['poplar_planks', 'poplar_planks', 'poplar_planks']], output: { itemId: 'straw_bed', count: 1 } },
+  { id: 'straw_bed_oak_263_craft', nameVi: 'Giường Rơm Gỗ Sồi (26.3)', pattern: [['wheat', 'wheat', 'wheat'], ['oak_planks', 'oak_planks', 'oak_planks']], output: { itemId: 'straw_bed', count: 1 } },
+  { id: 'cushion_263_craft', nameVi: 'Đệm Ngồi Len (26.3)', pattern: [['red_wool', 'feather', 'red_wool']], output: { itemId: 'cushion', count: 2 } },
+  { id: 'white_wool_slab_263_craft', nameVi: 'Phiến Len Trắng (26.3)', pattern: [['white_wool', 'white_wool', 'white_wool']], output: { itemId: 'white_wool_slab', count: 6 } },
+  { id: 'red_wool_slab_263_craft', nameVi: 'Phiến Len Đỏ (26.3)', pattern: [['red_wool', 'red_wool', 'red_wool']], output: { itemId: 'red_wool_slab', count: 6 } },
 ];
 
 // =========================================================================
@@ -1283,6 +1316,7 @@ export const EXT_SMELTING_RECIPES: Record<string, string> = {
   cherry_log: 'charcoal',
   mangrove_log: 'charcoal',
   pale_oak_log: 'charcoal',
+  poplar_log: 'charcoal',
   stone: 'smooth_stone',
   sandstone: 'smooth_sandstone',
   red_sand: 'glass',

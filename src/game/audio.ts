@@ -901,6 +901,72 @@ class SoundEngine {
     }, delayMs);
   }
 
+  playNoteBlockSound(pitchSemitones: number, instrument: string = 'harp'): void {
+    const ctx = this.ensureCtx();
+    if (!ctx || this.muted) return;
+    const now = ctx.currentTime;
+    // Minecraft Note Block base frequency F#3 (185 Hz) to F#5 (740 Hz) across 0..24 semitones
+    const freq = 185 * Math.pow(2, Math.max(0, Math.min(24, pitchSemitones)) / 12);
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    let wave: OscillatorType = 'triangle';
+    let duration = 0.35;
+    let peak = 0.22;
+    if (instrument === 'trumpet') {
+      // Java 26.1 Copper Trumpet: bright brassy sawtooth with filter envelope
+      wave = 'sawtooth';
+      duration = 0.45;
+      peak = 0.2;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(freq * 4.5, now);
+      filter.frequency.exponentialRampToValueAtTime(Math.max(400, freq * 1.8), now + duration);
+      osc.type = wave;
+      osc.frequency.setValueAtTime(freq, now);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(peak, now + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + duration + 0.02);
+      return;
+    } else if (instrument === 'bass') {
+      wave = 'triangle';
+      osc.frequency.setValueAtTime(freq * 0.5, now);
+      duration = 0.38;
+    } else if (instrument === 'basedrum') {
+      wave = 'sine';
+      osc.frequency.setValueAtTime(110, now);
+      osc.frequency.exponentialRampToValueAtTime(42, now + 0.16);
+      duration = 0.18;
+      peak = 0.3;
+    } else if (instrument === 'bell' || instrument === 'chime') {
+      wave = 'sine';
+      osc.frequency.setValueAtTime(freq * 2, now);
+      duration = 0.55;
+      peak = 0.2;
+    } else if (instrument === 'bit') {
+      wave = 'square';
+      osc.frequency.setValueAtTime(freq, now);
+      duration = 0.28;
+      peak = 0.15;
+    } else {
+      osc.frequency.setValueAtTime(freq, now);
+    }
+
+    osc.type = wave;
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(peak, now + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + duration + 0.02);
+  }
+
   playByName(name: string): void {
     switch (name) {
       case 'portal': this.playPortal(); break;

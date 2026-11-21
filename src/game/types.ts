@@ -9,7 +9,37 @@ export type ContainerType =
   | 'furnace'
   | 'smithing'
   | 'enchanting'
-  | 'anvil';
+  | 'anvil'
+  | 'chest'
+  | 'ender_chest'
+  | 'brewing'
+  | 'trading';
+
+export type VillagerProfession =
+  | 'farmer'
+  | 'librarian'
+  | 'weaponsmith'
+  | 'armorer'
+  | 'cleric'
+  | 'toolsmith';
+
+export interface VillagerTradeOffer {
+  id: string;
+  buyA: ItemStack;
+  buyB?: ItemStack;
+  sell: ItemStack;
+  maxUses: number;
+  uses: number;
+  xpReward: number;
+}
+
+export interface BrewingStandState {
+  ingredient: ItemStack | null;
+  fuel: ItemStack | null;
+  bottles: (ItemStack | null)[]; // 3 bottle slots
+  fuelCharges: number; // 0..20 (1 blaze powder = 20 charges)
+  brewProgress: number; // 0..1
+}
 
 export type EnchantmentId =
   | 'efficiency'
@@ -185,6 +215,7 @@ export interface FurnaceState {
 }
 
 export interface WorldSave {
+  schemaVersion?: number;
   id: string;
   name: string;
   seed: number;
@@ -216,6 +247,7 @@ export interface WorldSave {
     worldSpawn: [number, number, number];
     inventory: (ItemStack | null)[]; // 36 slots (0..8 hotbar, 9..35 main)
     armor: (ItemStack | null)[]; // 4 slots: helmet, chestplate, leggings, boots
+    offhand?: ItemStack | null;
     effects: ActiveEffect[];
   };
   gamerules: GameRules;
@@ -225,6 +257,11 @@ export interface WorldSave {
   netherMods: Record<string, number>;
   endMods?: Record<string, number>;
   chiseledBookshelves?: Record<string, string[]>;
+  // Persistent container states keyed by "dim:x,y,z"
+  chests?: Record<string, (ItemStack | null)[]>;
+  enderChest?: (ItemStack | null)[];
+  brewingStands?: Record<string, BrewingStandState>;
+  redstoneStates?: Record<string, number>;
 }
 
 export interface ChatMessage {
@@ -315,6 +352,21 @@ export interface HudSnapshot {
   enchantBookshelves?: number; // 0..15 bookshelves around last opened Enchanting Table
   spyglassZoom?: boolean;
   touchBreakCircle?: { x: number; y: number; progress: number } | null;
+  offhand?: ItemStack | null;
+  attackCooldown?: number; // 0..1 Java Edition weapon cooldown readiness
+  activeChestKey?: string | null;
+  activeChestSlots?: (ItemStack | null)[] | null;
+  enderChestSlots?: (ItemStack | null)[];
+  activeBrewingKey?: string | null;
+  activeBrewingState?: BrewingStandState | null;
+  activeTradingVillager?: {
+    mobId: string;
+    profession: VillagerProfession;
+    nameVi: string;
+    level: number;
+    xp: number;
+    offers: VillagerTradeOffer[];
+  } | null;
 }
 
 export interface PackManifestFile {

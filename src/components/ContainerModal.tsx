@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Flame, Hammer, Search, Shield, Sparkles, Trash2, X } from 'lucide-react';
+import { Flame, FlaskConical, Hammer, Search, Shield, Sparkles, Trash2, X } from 'lucide-react';
 import { soundEngine } from '../game/audio';
 import { CreativeCategory, ITEM_DEFS } from '../game/blocks';
+import { isBrewableBottle, isBrewingIngredient } from '../game/brewing';
 import {
   applyEnchantOffer,
   combineAnvilItems,
@@ -18,7 +19,17 @@ import {
   matchSmithing,
 } from '../game/recipes';
 import { CompiledResourcePack } from '../game/resourcePack';
-import { ContainerType, FurnaceState, GameMode, ItemStack, PlayerSkinConfig } from '../game/types';
+import { canAffordTrade, VILLAGER_LEVEL_LABELS } from '../game/trading';
+import {
+  BrewingStandState,
+  ContainerType,
+  FurnaceState,
+  GameMode,
+  ItemStack,
+  PlayerSkinConfig,
+  VillagerProfession,
+  VillagerTradeOffer,
+} from '../game/types';
 import { McButton, McItemSlot, McSpriteSlice } from './McSprites';
 import { SkinPreview3D } from './SkinPreview3D';
 
@@ -27,7 +38,18 @@ interface ContainerModalProps {
   gameMode: GameMode;
   inventory: (ItemStack | null)[];
   armor: (ItemStack | null)[];
+  offhand?: ItemStack | null;
   furnace: FurnaceState;
+  chestSlots?: (ItemStack | null)[] | null;
+  brewingState?: BrewingStandState | null;
+  tradingVillager?: {
+    mobId: string;
+    profession: VillagerProfession;
+    nameVi: string;
+    level: number;
+    xp: number;
+    offers: VillagerTradeOffer[];
+  } | null;
   playerLevel?: number;
   enchantBookshelves?: number;
   pack: CompiledResourcePack;
@@ -36,7 +58,11 @@ interface ContainerModalProps {
     inventory: (ItemStack | null)[],
     armor?: (ItemStack | null)[],
     furnace?: FurnaceState,
+    offhand?: ItemStack | null,
   ) => void;
+  onUpdateChest?: (slots: (ItemStack | null)[], isEnderChest: boolean) => void;
+  onUpdateBrewing?: (next: BrewingStandState) => void;
+  onExecuteTrade?: (offerId: string) => void;
   onSpendLevels?: (levels: number) => void;
   onClose: () => void;
 }
@@ -103,12 +129,19 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
   gameMode,
   inventory,
   armor,
+  offhand = null,
   furnace,
+  chestSlots = null,
+  brewingState = null,
+  tradingVillager = null,
   playerLevel = 0,
   enchantBookshelves = 0,
   pack,
   playerSkin,
   onUpdateInventory,
+  onUpdateChest,
+  onUpdateBrewing,
+  onExecuteTrade,
   onSpendLevels,
   onClose,
 }) => {
@@ -516,6 +549,33 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
     0,
   );
 
+  const activeStorageSlots = useMemo(
+    () => (chestSlots && chestSlots.length === 27 ? chestSlots : new Array<ItemStack | null>(27).fill(null)),
+    [chestSlots],
+  );
+
+  const setChestSlot = (idx: number, next: ItemStack | null) => {
+    const copy = activeStorageSlots.map(cloneStack);
+    copy[idx] = next;
+    onUpdateChest?.(copy, type === 'ender_chest');
+  };
+
+  const handleChestSlotClick = (idx: number, e?: React.MouseEvent) => {
+    const cur = activeStorageSlots[idx];
+    if (e?.shiftKey && cur && !cursor) {
+      const nextInv = inventory.map(cloneStack);
+      if (addStackToArray(nextInv, cur)) {
+        const nextChest = activeStorageSlots.map(cloneStack);
+        nextChest[idx] = null;
+        onUpdateInventory(nextInv);
+        onUpdateChest?.(nextChest, type === 'ender_chest');
+        soundEngine.playClick();
+        return;
+      }
+    }
+    interactSlot(cur, (n) => setChestSlot(idx, n));
+  };
+
   const titleMap: Record<Exclude<ContainerType, 'none'>, string> = {
     inventory: isCreativeCatalog ? 'Kho Sáng Tạo' : 'Túi Đồ',
     crafting: 'Bàn Chế Tạo',
@@ -523,6 +583,10 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
     smithing: 'Bàn Rèn',
     enchanting: 'Bàn Phù Phép',
     anvil: 'Đe Rèn',
+    chest: 'Rương Đồ',
+    ender_chest: 'Rương Ender',
+    brewing: 'Giá Ủ Thuốc',
+    trading: 'Giao Dịch Dân Làng',
   };
 
   const relevantRecipes = useMemo(() => {
@@ -610,6 +674,15 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                     onClick={(e) => handleArmorSlotClick(idx, e)}
                   />
                 ))}
+                <McItemSlot
+                  stack={offhand}
+                  pack={pack}
+                  size={38}
+                  placeholder="Tay trái"
+                  onClick={() =>
+                    interactSlot(offhand, (n) => onUpdateInventory(inventory, undefined, undefined, n))
+                  }
+                />
               </div>
             </div>
 
@@ -680,6 +753,25 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                   <div className="text-[10px] font-mono-num text-zinc-300">
                     Giáp: {totalDefense}/20
                   </div>
+                </div>
+                <div className="flex flex-col items-center gap-1 self-end">
+                  <span className="text-[10px] font-mc text-[#333]">Tay trái</span>
+                  <McItemSlot
+                    stack={offhand}
+                    pack={pack}
+                    size={40}
+                    placeholder="F"
+                    onClick={() =>
+                      interactSlot(offhand, (n) => onUpdateInventory(inventory, undefined, undefined, n))
+                    }
+                    onContextMenu={() =>
+                      interactSlot(
+                        offhand,
+                        (n) => onUpdateInventory(inventory, undefined, undefined, n),
+                        true,
+                      )
+                    }
+                  />
                 </div>
               </div>
 
@@ -1249,6 +1341,253 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                   Ghép Sách Phù Phép vào vũ khí/giáp, ghép 2 đồ giống nhau lên cấp cao hơn, hoặc sửa độ bền bằng phôi/kim cương.
                 </span>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* --- CHEST & ENDER CHEST (27-SLOT PERSISTENT STORAGE) --- */}
+        {(type === 'chest' || type === 'ender_chest') && (
+          <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-3 mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-mc font-bold text-[#222]">
+                {type === 'ender_chest'
+                  ? 'Rương Ender (27 ô · Dùng chung mọi chiều không gian)'
+                  : 'Rương Đồ (27 ô · Shift+Click để chuyển nhanh)'}
+              </span>
+            </div>
+            <div className="grid grid-cols-9 gap-1 justify-items-center">
+              {activeStorageSlots.map((st, idx) => (
+                <McItemSlot
+                  key={idx}
+                  stack={st}
+                  pack={pack}
+                  size={invSlotSize}
+                  onClick={(e) => handleChestSlotClick(idx, e)}
+                  onContextMenu={() => interactSlot(st, (n) => setChestSlot(idx, n), true)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* --- BREWING STAND (GIÁ Ủ THUỐC JAVA EDITION) --- */}
+        {type === 'brewing' && (() => {
+          const st: BrewingStandState = brewingState ?? {
+            ingredient: null,
+            fuel: null,
+            fuelCharges: 0,
+            bottles: [null, null, null],
+            brewProgress: 0,
+          };
+          const updateBrew = (patch: Partial<BrewingStandState>) => {
+            onUpdateBrewing?.({
+              ...st,
+              ...patch,
+              bottles: patch.bottles ? [...patch.bottles] : st.bottles.map(cloneStack),
+            });
+          };
+          const setBottleSlot = (bIdx: number, next: ItemStack | null) => {
+            const nextBottles = st.bottles.map(cloneStack);
+            nextBottles[bIdx] = next;
+            updateBrew({ bottles: nextBottles });
+          };
+          const fuelPct = Math.min(100, Math.max(0, (st.fuelCharges / 20) * 100));
+          const brewPct = Math.min(100, Math.max(0, Math.round(st.brewProgress * 100)));
+
+          return (
+            <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-3 sm:p-4 mb-3 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mc font-bold text-[#222]">
+                <div className="flex items-center gap-1.5">
+                  <FlaskConical className="w-4 h-4 text-purple-800" />
+                  <span>Giá Ủ Thuốc · Hệ thống pha chế Java Edition</span>
+                </div>
+                <span className="font-mono-num text-[11px] bg-[#2a2a2a] text-amber-300 px-2 py-0.5 border border-black">
+                  Nhiên liệu Quỷ Lửa: {st.fuelCharges}/20
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_1.4fr] gap-3 items-center">
+                {/* Left: Fuel + Ingredient + 3 Bottles */}
+                <div className="bg-[#a6a6a6] border-2 border-[#787878] p-3 flex flex-col items-center gap-3">
+                  <div className="flex items-center justify-center gap-5 w-full">
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[10px] font-mc font-bold text-[#2f2f2f]">Bột Quỷ Lửa</span>
+                      <McItemSlot
+                        stack={st.fuel}
+                        pack={pack}
+                        size={46}
+                        placeholder="Lửa"
+                        onClick={() =>
+                          interactSlot(
+                            st.fuel,
+                            (n) => updateBrew({ fuel: n }),
+                            false,
+                            (s) => s.itemId === 'blaze_powder',
+                          )
+                        }
+                        onContextMenu={() =>
+                          interactSlot(
+                            st.fuel,
+                            (n) => updateBrew({ fuel: n }),
+                            true,
+                            (s) => s.itemId === 'blaze_powder',
+                          )
+                        }
+                      />
+                      <div className="w-12 h-2 bg-[#373737] border border-black overflow-hidden">
+                        <div className="h-full bg-amber-400" style={{ width: `${fuelPct}%` }} />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[10px] font-mc font-bold text-[#2f2f2f]">Nguyên liệu</span>
+                      <McItemSlot
+                        stack={st.ingredient}
+                        pack={pack}
+                        size={48}
+                        placeholder="N.Liệu"
+                        onClick={() =>
+                          interactSlot(
+                            st.ingredient,
+                            (n) => updateBrew({ ingredient: n }),
+                            false,
+                            (s) => isBrewingIngredient(s.itemId),
+                          )
+                        }
+                        onContextMenu={() =>
+                          interactSlot(
+                            st.ingredient,
+                            (n) => updateBrew({ ingredient: n }),
+                            true,
+                            (s) => isBrewingIngredient(s.itemId),
+                          )
+                        }
+                      />
+                      <div className="w-16 h-2 bg-[#373737] border border-black overflow-hidden">
+                        <div className="h-full bg-purple-400" style={{ width: `${brewPct}%` }} />
+                      </div>
+                      <span className="text-[10px] font-mono-num text-[#262626] font-bold">
+                        {brewPct > 0 ? `${brewPct}%` : 'Chờ ủ'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 3 Bottle Slots */}
+                  <div className="flex items-center justify-center gap-3 pt-1">
+                    {[0, 1, 2].map((bIdx) => (
+                      <McItemSlot
+                        key={bIdx}
+                        stack={st.bottles[bIdx]}
+                        pack={pack}
+                        size={48}
+                        placeholder={`Chai ${bIdx + 1}`}
+                        onClick={() =>
+                          interactSlot(
+                            st.bottles[bIdx],
+                            (n) => setBottleSlot(bIdx, n),
+                            false,
+                            (s) => isBrewableBottle(s.itemId),
+                          )
+                        }
+                        onContextMenu={() =>
+                          interactSlot(
+                            st.bottles[bIdx],
+                            (n) => setBottleSlot(bIdx, n),
+                            true,
+                            (s) => isBrewableBottle(s.itemId),
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Right: Compact Brewing Formula Guide */}
+                <div className="bg-[#2c2533] border-2 border-black p-2.5 text-[11px] text-zinc-200 space-y-1.5">
+                  <div className="font-mc font-bold text-amber-300 border-b border-zinc-700 pb-1">
+                    Công thức ủ thuốc chuẩn Java
+                  </div>
+                  <div><strong className="text-purple-300">Bước 1:</strong> Chai Nước + Bướu Nether → <strong>Thuốc Vụng Về</strong></div>
+                  <div><strong className="text-emerald-300">Bước 2:</strong> Thuốc Vụng Về +</div>
+                  <ul className="pl-3 space-y-0.5 text-[10px] text-zinc-300 list-disc">
+                    <li>Đường → Nhanh Nhẹn · Bột Quỷ Lửa → Sức Mạnh</li>
+                    <li>Kem Dung Nham → Kháng Lửa · Cà Rốt Vàng → Nhìn Đêm</li>
+                    <li>Dưa Hấu → Hồi Máu · Nước Mắt Ma → Hồi Phục</li>
+                    <li>Chân Thỏ → Nhảy Cao · Màng Phantom → Rơi Chậm</li>
+                    <li>Mắt Nhện → Độc · Cá Nóc → Thở Dưới Nước</li>
+                  </ul>
+                  <div>
+                    <strong className="text-sky-300">Bước 3:</strong> + Thuốc Súng → <strong>Thuốc Ném</strong> · + Hơi Rồng → <strong>Thuốc Lưu Lại</strong> · + Mắt Nhện Lên Men → <strong>Đảo hiệu ứng</strong> (Tàng Hình / Sát Thương / Chậm)
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* --- VILLAGER TRADING (GIAO DỊCH DÂN LÀNG JAVA EDITION) --- */}
+        {type === 'trading' && tradingVillager && (
+          <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-3 sm:p-4 mb-3 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mc font-bold text-[#222]">
+              <div className="flex items-center gap-2">
+                <span className="bg-emerald-700 text-white px-2 py-0.5 border border-black">
+                  {tradingVillager.nameVi}
+                </span>
+                <span>
+                  Cấp {tradingVillager.level} · {VILLAGER_LEVEL_LABELS[tradingVillager.level] || 'Tập Sự'}
+                </span>
+              </div>
+              <span className="font-mono-num text-[11px] bg-[#2a2a2a] text-emerald-300 px-2 py-0.5 border border-black">
+                XP Dân Làng: {tradingVillager.xp}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-1">
+              {tradingVillager.offers.map((offer) => {
+                const affordable = canAffordTrade(inventory, offer);
+                const soldOut = offer.uses >= offer.maxUses;
+                const sellEnchants = offer.sell.enchants
+                  ? formatItemEnchants(offer.sell.enchants).join(' · ')
+                  : '';
+                return (
+                  <button
+                    key={offer.id}
+                    type="button"
+                    disabled={!affordable || soldOut}
+                    onClick={() => onExecuteTrade?.(offer.id)}
+                    className={`flex items-center justify-between gap-2 p-2 border-2 border-black text-left transition-colors ${
+                      affordable && !soldOut
+                        ? 'bg-[#d6d6d6] hover:bg-[#e5f5e0] cursor-pointer shadow-[inset_2px_2px_0_#fff]'
+                        : 'bg-[#9b9b9b] opacity-75 cursor-not-allowed'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <McItemSlot stack={offer.buyA} pack={pack} size={36} />
+                      {offer.buyB && (
+                        <>
+                          <span className="text-xs font-bold text-[#333]">+</span>
+                          <McItemSlot stack={offer.buyB} pack={pack} size={36} />
+                        </>
+                      )}
+                      <span className="text-sm font-bold text-[#222] px-1">→</span>
+                      <McItemSlot stack={offer.sell} pack={pack} size={36} />
+                    </div>
+                    <div className="flex flex-col items-end min-w-0 text-[10px]">
+                      <span className="font-mc font-bold text-[#1f1f1f] truncate max-w-[120px]">
+                        {ITEM_DEFS[offer.sell.itemId]?.nameVi || offer.sell.itemId}
+                      </span>
+                      {sellEnchants && (
+                        <span className="text-purple-800 font-bold truncate max-w-[120px]">
+                          {sellEnchants}
+                        </span>
+                      )}
+                      <span className={soldOut ? 'text-red-700 font-bold' : 'text-[#444] font-mono-num'}>
+                        {soldOut ? 'Hết hàng' : `Còn ${offer.maxUses - offer.uses}/${offer.maxUses}`}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

@@ -32,6 +32,7 @@ interface HudOverlayProps {
   onCloseChat: () => void;
   onRequestLock: () => void;
   onOpenInventory: () => void;
+  onSwapOffhand?: () => void;
   onCycleCamera: () => void;
   onToggleFullscreen: () => void;
   onOpenPause: () => void;
@@ -57,6 +58,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   onCloseChat,
   onRequestLock,
   onOpenInventory,
+  onSwapOffhand,
   onCycleCamera,
   onToggleFullscreen,
   onOpenPause,
@@ -303,13 +305,21 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
         );
       })()}
 
-      {/* Authentic Classic Minecraft Center Crosshair (hidden in PE Touch-Anywhere mode) */}
+      {/* Authentic Classic Minecraft Center Crosshair + Java Combat Cooldown Bar */}
       {!hud.dead && !chatOpen && !(touchVisible && touchControlStyle === 'touch_screen') && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           <div className="relative w-[18px] h-[18px] mix-blend-difference opacity-95">
             <span className="absolute left-1/2 top-0 -translate-x-1/2 w-[2px] h-full bg-white" />
             <span className="absolute top-1/2 left-0 -translate-y-1/2 h-[2px] w-full bg-white" />
           </div>
+          {hud.attackCooldown !== undefined && hud.attackCooldown < 0.99 && (
+            <div className="mt-1.5 w-[28px] h-[3px] bg-black/70 border border-black/80 overflow-hidden">
+              <div
+                className="h-full bg-white"
+                style={{ width: `${Math.round(Math.max(0, Math.min(1, hud.attackCooldown)) * 100)}%` }}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -666,11 +676,30 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
           </div>
         )}
 
-        {/* Authentic Resource Pack 9-Slot Hotbar (widgets.png 0,0 182x22) + Mobile Inventory Button */}
+        {/* Authentic Resource Pack 9-Slot Hotbar + Offhand Slot (F) + Mobile Inventory Button */}
         <div
-          className="flex items-center gap-1 pointer-events-auto"
+          className="flex items-center gap-1.5 pointer-events-auto"
           onPointerDown={(e) => e.stopPropagation()}
         >
+          {(hud.offhand || !touchVisible) && (
+            <McItemSlot
+              stack={hud.offhand ?? null}
+              pack={pack}
+              size={slotSize}
+              placeholder="F"
+              title={
+                hud.offhand
+                  ? `Tay trái (F): ${hud.offhand.itemId}`
+                  : 'Tay trái (Nhấn F để đổi nhanh Khiên / Vật Tổ / Đuốc)'
+              }
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                onSwapOffhand?.();
+              }}
+              onClick={() => onSwapOffhand?.()}
+            />
+          )}
+
           <div
             style={
               widgetsUrl

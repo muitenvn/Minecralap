@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BLOCK, isBlockSolid } from './blocks';
-import { Difficulty, DimensionId } from './types';
+import { Difficulty, DimensionId, VillagerProfession, VillagerTradeOffer } from './types';
 
 export type MobType =
   | 'pig'
@@ -35,7 +35,8 @@ export type MobType =
   | 'sulfur_cube'
   | 'cold_sulfur_cube'
   | 'frostbite'
-  | 'ender_dragon';
+  | 'ender_dragon'
+  | 'villager';
 
 export interface MobEntity {
   id: string;
@@ -61,6 +62,16 @@ export interface MobEntity {
   armored?: boolean; // Wolf/Mount armor
   riddenByPlayer?: boolean;
   specialTick?: number;
+  isBaby?: boolean;
+  babyAgeSec?: number;
+  ageLocked?: boolean; // Java 26.1 Golden Dandelion freezes baby growth!
+  customName?: string; // Name Tag
+  breedCooldownSec?: number;
+  profession?: VillagerProfession;
+  tradeSeed?: number;
+  tradeLevel?: number;
+  tradeXp?: number;
+  tradeOffers?: VillagerTradeOffer[];
   mesh: THREE.Group;
   limbs: THREE.Object3D[];
 }
@@ -115,6 +126,7 @@ export const MOB_SPECS: Record<MobType, MobSpec> = {
   cold_sulfur_cube: { nameVi: 'Cold Sulfur Cube (26.4 Băng)', hp: 24, hostile: true, speed: 2.6, damage: 4, drop: 'ice_crystal', dropCount: 2, width: 1.0, height: 1.0 },
   frostbite: { nameVi: 'Frostbite (Xác Băng 26.4)', hp: 22, hostile: true, speed: 2.7, damage: 4, drop: 'snow_bricks', dropCount: 2, width: 0.65, height: 1.9 },
   ender_dragon: { nameVi: 'Rồng Ender (Ender Dragon)', hp: 200, hostile: true, speed: 7.5, damage: 8, drop: 'dragon_egg', dropCount: 1, width: 4.5, height: 3.2, flying: true, boss: true },
+  villager: { nameVi: 'Dân Làng (Villager)', hp: 20, hostile: false, speed: 1.9, damage: 0, drop: 'emerald', dropCount: 1, width: 0.65, height: 1.95 },
 };
 
 const PX = 1 / 16;
@@ -894,6 +906,48 @@ function buildFallbackProceduralMob(type: MobType): { group: THREE.Group; limbs:
   const group = new THREE.Group();
   const limbs: THREE.Object3D[] = [];
 
+  if (type === 'villager') {
+    // Classic Java Edition Villager silhouette: tall head, nose, crossed arms, brown robe
+    const robe = partBox(0.56, 0.92, 0.38, 0x7c4a2d, 0.85);
+    robe.position.set(0, 0.86, 0);
+    group.add(robe);
+
+    const apron = partBox(0.58, 0.34, 0.4, 0x16a34a, 0.8);
+    apron.position.set(0, 0.54, 0.01);
+    group.add(apron);
+
+    const head = partBox(0.48, 0.58, 0.48, 0xd8a888, 0.78);
+    head.position.set(0, 1.61, 0);
+    group.add(head);
+
+    // Iconic villager nose
+    const nose = partBox(0.12, 0.24, 0.14, 0xc79272, 0.78);
+    nose.position.set(0, 1.48, 0.29);
+    group.add(nose);
+
+    // Unibrow + emerald eyes
+    const brow = partBox(0.4, 0.06, 0.04, 0x452715, 0.9);
+    brow.position.set(0, 1.66, 0.25);
+    const eyeL = partBox(0.08, 0.08, 0.04, 0x15803d, 0.3);
+    eyeL.position.set(-0.12, 1.58, 0.25);
+    const eyeR = eyeL.clone();
+    eyeR.position.x = 0.12;
+    group.add(brow, eyeL, eyeR);
+
+    // Crossed arms
+    const arms = partBox(0.68, 0.22, 0.24, 0x6b3e24, 0.85);
+    arms.position.set(0, 0.98, 0.22);
+    group.add(arms);
+
+    for (const lx of [-0.14, 0.14]) {
+      const leg = partBox(0.22, 0.44, 0.24, 0x4b2e1c, 0.85);
+      leg.position.set(lx, 0.22, 0);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    return { group, limbs };
+  }
+
   if (type === 'pig' || type === 'sheep') {
     const isPig = type === 'pig';
     const bodyCol = isPig ? 0xf2a1a1 : 0xe9e6df;
@@ -1620,6 +1674,32 @@ export function disposeMobMesh(mesh: THREE.Group): void {
   });
 }
 
+export const BABY_GROWTH_DURATION_SEC = 120;
+
+/**
+ * Advances baby mob growth toward adulthood unless locked by Java 26.1 Golden Dandelion.
+ * Returns true if the mob transitioned to adult during this tick.
+ */
+export function stepBabyMobAging(mob: MobEntity, dt: number): boolean {
+  if (mob.breedCooldownSec && mob.breedCooldownSec > 0) {
+    mob.breedCooldownSec = Math.max(0, mob.breedCooldownSec - dt);
+  }
+  if (!mob.isBaby) return false;
+  if (mob.ageLocked) {
+    if (mob.mesh) mob.mesh.scale.setScalar(0.55);
+    return false;
+  }
+  mob.babyAgeSec = (mob.babyAgeSec ?? 0) + dt;
+  if (mob.babyAgeSec >= BABY_GROWTH_DURATION_SEC) {
+    mob.isBaby = false;
+    mob.babyAgeSec = 0;
+    if (mob.mesh) mob.mesh.scale.setScalar(1.0);
+    return true;
+  }
+  if (mob.mesh) mob.mesh.scale.setScalar(0.55);
+  return false;
+}
+
 export function updateMobAI(
   mob: MobEntity,
   dt: number,
@@ -1637,6 +1717,7 @@ export function updateMobAI(
 ): void {
   const spec = MOB_SPECS[mob.type];
   mob.attackCooldown = Math.max(0, mob.attackCooldown - dt);
+  stepBabyMobAging(mob, dt);
 
   if (mob.hurtTimer > 0) {
     mob.hurtTimer = Math.max(0, mob.hurtTimer - dt);

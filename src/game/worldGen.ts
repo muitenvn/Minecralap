@@ -5,9 +5,34 @@ import { CHUNK_SIZE, DimensionId, SUBCHUNK_COUNT, WORLD_HEIGHT_MAX } from './typ
 export const SEA_LEVEL = 62;
 export const NETHER_LAVA_LEVEL = 31;
 
+/** Deterministic Village placement (includes chunk (2, 1) near spawn + periodic grid). */
+export function isVillageChunk(cx: number, cz: number): boolean {
+  if (cx === 2 && cz === 1) return true;
+  const gx = ((cx % 14) + 14) % 14;
+  const gz = ((cz % 14) + 14) % 14;
+  return gx === 2 && gz === 1;
+}
+
+/** Deterministic Java 26.3 Abandoned Camp placement (includes chunk (-2, 2) + periodic grid). */
+export function isAbandonedCampChunk(cx: number, cz: number): boolean {
+  if (cx === -2 && cz === 2) return true;
+  const gx = ((cx % 13) + 13) % 13;
+  const gz = ((cz % 13) + 13) % 13;
+  return gx === 11 && gz === 2;
+}
+
+/** Deterministic Nether Fortress placement (includes chunk (1, 1) + periodic grid). */
+export function isNetherFortressChunk(cx: number, cz: number): boolean {
+  if (cx === 1 && cz === 1) return true;
+  const gx = ((cx % 12) + 12) % 12;
+  const gz = ((cz % 12) + 12) % 12;
+  return gx === 1 && gz === 1;
+}
+
 export type OverworldBiome =
   | 'plains'
   | 'forest'
+  | 'dappled_forest'
   | 'cherry_grove'
   | 'pale_garden'
   | 'mangrove_swamp'
@@ -33,6 +58,7 @@ export type AnyBiome = OverworldBiome | NetherBiome | EndBiome;
 export const BIOME_LABELS: Record<AnyBiome, string> = {
   plains: 'Đồng Bằng (Plains)',
   forest: 'Rừng Sồi (Forest)',
+  dappled_forest: 'Rừng Nắng Đốm (Dappled Forest 26.3)',
   cherry_grove: 'Rừng Hoa Anh Đào (Cherry Grove)',
   pale_garden: 'Vườn Nhợt Nhạt (Pale Garden)',
   mangrove_swamp: 'Đầm Lầy Đước (Mangrove Swamp)',
@@ -120,6 +146,8 @@ export class WorldGenerator {
     if (temp > 0.14 && moist > 0.32) return 'mangrove_swamp';
     if (temp > 0.34 && moist < 0.08) return 'desert';
     if (temp < -0.35) return 'snowy_tundra';
+    // Java 26.3 Wilderness Bound: Dappled Forest (temperate autumnal poplar forest)
+    if (moist > 0.12 && temp > 0.06 && temp <= 0.34) return 'dappled_forest';
     if (moist > 0.12) return 'forest';
     return 'plains';
   }
@@ -387,6 +415,7 @@ export class WorldGenerator {
           lx >= 2 && lx <= 13 && lz >= 2 && lz <= 13 &&
           surfY >= SEA_LEVEL + 1 &&
           (biome === 'forest' ||
+            biome === 'dappled_forest' ||
             biome === 'plains' ||
             biome === 'cherry_grove' ||
             biome === 'pale_garden' ||
@@ -398,7 +427,7 @@ export class WorldGenerator {
               ? 0.948
               : biome === 'mangrove_swamp'
                 ? 0.954
-                : biome === 'forest'
+                : biome === 'forest' || biome === 'dappled_forest'
                   ? 0.962
                   : biome === 'cherry_grove'
                     ? 0.968
@@ -411,7 +440,9 @@ export class WorldGenerator {
                   ? BLOCK_BY_KEY['pale_oak_log']?.id ?? BLOCK.OAK_LOG
                   : biome === 'mangrove_swamp'
                     ? BLOCK_BY_KEY['mangrove_log']?.id ?? BLOCK.OAK_LOG
-                    : BLOCK.OAK_LOG;
+                    : biome === 'dappled_forest'
+                      ? BLOCK_BY_KEY['poplar_log']?.id ?? BLOCK.OAK_LOG
+                      : BLOCK.OAK_LOG;
             const leafId =
               biome === 'cherry_grove'
                 ? BLOCK_BY_KEY['cherry_leaves']?.id ?? BLOCK.OAK_LEAVES
@@ -419,11 +450,14 @@ export class WorldGenerator {
                   ? BLOCK_BY_KEY['pale_oak_leaves']?.id ?? BLOCK.OAK_LEAVES
                   : biome === 'mangrove_swamp'
                     ? BLOCK_BY_KEY['mangrove_leaves']?.id ?? BLOCK.OAK_LEAVES
-                    : BLOCK.OAK_LEAVES;
+                    : biome === 'dappled_forest'
+                      ? BLOCK_BY_KEY['poplar_leaves']?.id ?? BLOCK.OAK_LEAVES
+                      : BLOCK.OAK_LEAVES;
             const heartId = BLOCK_BY_KEY['creaking_heart']?.id ?? logId;
             const rootsId = BLOCK_BY_KEY['mangrove_roots']?.id ?? logId;
+            const shelfMushroomId = BLOCK_BY_KEY['shelf_mushroom']?.id;
 
-            const trunkH = 4 + Math.floor(this.noise.rand2(wx, wz, 778) * 3);
+            const trunkH = (biome === 'dappled_forest' ? 6 : 4) + Math.floor(this.noise.rand2(wx, wz, 778) * 3);
             if (biome === 'mangrove_swamp') {
               // Stilt mangrove roots around base!
               setChunkBlock(col, lx + 1, surfY + 1, lz, rootsId);
@@ -434,6 +468,9 @@ export class WorldGenerator {
             for (let ty = 1; ty <= trunkH; ty++) {
               const isHeart = biome === 'pale_garden' && ty === 2 && this.noise.rand2(wx, wz, 808) > 0.65;
               setChunkBlock(col, lx, surfY + ty, lz, isHeart ? heartId : logId);
+            }
+            if (biome === 'dappled_forest' && shelfMushroomId && this.noise.rand2(wx, wz, 811) > 0.55) {
+              setChunkBlock(col, lx + 1, surfY + 2, lz, shelfMushroomId);
             }
             const topY = surfY + trunkH;
             // Authentic 4-layer Minecraft Tree canopy
@@ -659,6 +696,104 @@ export class WorldGenerator {
       setChunkBlock(col, 6, surf + 2, 3, BLOCK.TORCH);
       setChunkBlock(col, 8, surf + 2, 3, BLOCK.TORCH);
     }
+
+    // --- PROCEDURAL VILLAGE COTTAGE & FARM (Wave 4) ---
+    if (isVillageChunk(col.cx, col.cz)) {
+      const centerBiome = this.getOverworldBiome(xBase + 8, zBase + 8);
+      const isSpawnVillage = col.cx === 2 && col.cz === 1;
+      if (isSpawnVillage || (centerBiome !== 'jagged_peaks' && centerBiome !== 'frozen_peaks' && centerBiome !== 'stony_peaks')) {
+        const surfY = Math.max(SEA_LEVEL + 1, this.getOverworldSurfaceY(xBase + 7, zBase + 7));
+        const isDesert = centerBiome === 'desert';
+        const wallBlock = isDesert ? (BLOCK_BY_KEY['sandstone']?.id ?? BLOCK.SAND) : BLOCK.OAK_PLANKS;
+        const pillarBlock = isDesert ? (BLOCK_BY_KEY['cut_sandstone']?.id ?? wallBlock) : BLOCK.OAK_LOG;
+        const floorBlock = isDesert ? wallBlock : BLOCK.COBBLESTONE;
+        const chestId = BLOCK_BY_KEY['chest']?.id ?? BLOCK.CRAFTING_TABLE;
+        const wheatId = BLOCK_BY_KEY['wheat_crop']?.id ?? BLOCK.GRASS;
+        const farmlandId = BLOCK_BY_KEY['farmland']?.id ?? BLOCK.DIRT;
+        const fenceId = BLOCK_BY_KEY['oak_fence']?.id ?? BLOCK.OAK_PLANKS;
+
+        // Flatten foundation (3..12, 3..12)
+        for (let x = 3; x <= 12; x++) {
+          for (let z = 3; z <= 12; z++) {
+            for (let fy = surfY - 3; fy <= surfY; fy++) {
+              setChunkBlock(col, x, fy, z, floorBlock);
+            }
+            for (let ay = surfY + 1; ay <= surfY + 7; ay++) {
+              setChunkBlock(col, x, ay, z, BLOCK.AIR);
+            }
+          }
+        }
+        // Cottage walls (3..9, 3..9, height 4)
+        for (let x = 3; x <= 9; x++) {
+          for (let z = 3; z <= 9; z++) {
+            const edgeX = x === 3 || x === 9;
+            const edgeZ = z === 3 || z === 9;
+            for (let dy = 1; dy <= 4; dy++) {
+              if (edgeX && edgeZ) {
+                setChunkBlock(col, x, surfY + dy, z, pillarBlock);
+              } else if (edgeX || edgeZ) {
+                const isDoor = z === 9 && x === 6 && dy <= 2;
+                const isWin = dy === 2 && ((edgeX && z === 6) || (z === 3 && x === 6));
+                if (isDoor) setChunkBlock(col, x, surfY + dy, z, BLOCK.AIR);
+                else if (isWin) setChunkBlock(col, x, surfY + dy, z, BLOCK.GLASS);
+                else setChunkBlock(col, x, surfY + dy, z, wallBlock);
+              }
+            }
+            // Roof
+            setChunkBlock(col, x, surfY + 5, z, pillarBlock);
+          }
+        }
+        // Interior amenities: Crafting Table, Chest, Bed, Torches
+        setChunkBlock(col, 4, surfY + 1, 4, BLOCK.CRAFTING_TABLE);
+        setChunkBlock(col, 8, surfY + 1, 4, chestId);
+        setChunkBlock(col, 4, surfY + 1, 7, BLOCK.BED);
+        setChunkBlock(col, 5, surfY + 3, 4, BLOCK.TORCH);
+        setChunkBlock(col, 7, surfY + 3, 8, BLOCK.TORCH);
+
+        // Adjacent irrigated Village Wheat Farm (10..12, 4..9)
+        for (let x = 10; x <= 12; x++) {
+          for (let z = 4; z <= 9; z++) {
+            if (x === 11 && z === 6) {
+              setChunkBlock(col, x, surfY, z, BLOCK.WATER);
+            } else {
+              setChunkBlock(col, x, surfY, z, farmlandId);
+              setChunkBlock(col, x, surfY + 1, z, wheatId);
+            }
+          }
+        }
+        setChunkBlock(col, 12, surfY + 1, 3, fenceId);
+        setChunkBlock(col, 12, surfY + 2, 3, BLOCK.TORCH);
+      }
+    }
+
+    // --- JAVA 26.3 ABANDONED CAMP (Wave 4) ---
+    if (isAbandonedCampChunk(col.cx, col.cz)) {
+      const surfY = Math.max(SEA_LEVEL + 1, this.getOverworldSurfaceY(xBase + 8, zBase + 8));
+      const campfireId = BLOCK_BY_KEY['campfire']?.id ?? BLOCK.TORCH;
+      const chestId = BLOCK_BY_KEY['chest']?.id ?? BLOCK.CRAFTING_TABLE;
+      const strawBedId = BLOCK_BY_KEY['straw_bed']?.id ?? BLOCK.BED;
+      const fenceId = BLOCK_BY_KEY['oak_fence']?.id ?? BLOCK.OAK_LOG;
+      const woolId = BLOCK_BY_KEY['white_wool']?.id ?? BLOCK.OAK_PLANKS;
+
+      for (let x = 5; x <= 11; x++) {
+        for (let z = 5; z <= 11; z++) {
+          setChunkBlock(col, x, surfY, z, BLOCK.GRASS);
+          for (let ay = 1; ay <= 4; ay++) setChunkBlock(col, x, surfY + ay, z, BLOCK.AIR);
+        }
+      }
+      // Campfire + Chest + Straw Bed + Tent canopy
+      setChunkBlock(col, 8, surfY + 1, 8, campfireId);
+      setChunkBlock(col, 6, surfY + 1, 7, chestId);
+      setChunkBlock(col, 10, surfY + 1, 7, strawBedId);
+      for (const [fx, fz] of [[5, 5], [11, 5], [5, 11], [11, 11]]) {
+        setChunkBlock(col, fx, surfY + 1, fz, fenceId);
+        setChunkBlock(col, fx, surfY + 2, fz, fenceId);
+      }
+      for (let x = 6; x <= 10; x++) {
+        setChunkBlock(col, x, surfY + 3, 6, woolId);
+        setChunkBlock(col, x, surfY + 3, 7, woolId);
+      }
+    }
   }
 
   private fillNetherChunk(col: ChunkColumn): void {
@@ -761,6 +896,45 @@ export class WorldGenerator {
           }
         }
       }
+    }
+
+    // --- PROCEDURAL NETHER FORTRESS BRIDGE & WART GARDEN (Wave 4) ---
+    if (isNetherFortressChunk(col.cx, col.cz)) {
+      const bridgeY = 54;
+      const nb = BLOCK.NETHER_BRICKS;
+      const nbFence = BLOCK_BY_KEY['nether_brick_fence']?.id ?? nb;
+      const wartCrop = BLOCK_BY_KEY['nether_wart_crop']?.id ?? BLOCK.NETHER_WART_BLOCK;
+      const chestId = BLOCK_BY_KEY['chest']?.id ?? BLOCK.GOLD_BLOCK;
+
+      // Support pillars down to floor/lava
+      for (const [px, pz] of [[3, 3], [12, 3], [3, 12], [12, 12]]) {
+        for (let y = 26; y <= bridgeY; y++) {
+          setChunkBlock(col, px, y, pz, nb);
+          setChunkBlock(col, px + 1, y, pz, nb);
+        }
+      }
+      // Fortress platform & clear air overhead
+      for (let x = 2; x <= 13; x++) {
+        for (let z = 2; z <= 13; z++) {
+          setChunkBlock(col, x, bridgeY, z, nb);
+          for (let ay = 1; ay <= 6; ay++) {
+            setChunkBlock(col, x, bridgeY + ay, z, BLOCK.AIR);
+          }
+          if (x === 2 || x === 13 || z === 2 || z === 13) {
+            if ((x + z) % 2 === 0) setChunkBlock(col, x, bridgeY + 1, z, nbFence);
+          }
+        }
+      }
+      // Soul Sand + Nether Wart garden & Fortress Treasure Chest
+      for (let x = 5; x <= 10; x++) {
+        setChunkBlock(col, x, bridgeY, 6, BLOCK.SOUL_SAND);
+        setChunkBlock(col, x, bridgeY + 1, 6, wartCrop);
+        setChunkBlock(col, x, bridgeY, 9, BLOCK.SOUL_SAND);
+        setChunkBlock(col, x, bridgeY + 1, 9, wartCrop);
+      }
+      setChunkBlock(col, 8, bridgeY + 1, 4, chestId);
+      setChunkBlock(col, 7, bridgeY + 1, 4, BLOCK.SOUL_TORCH);
+      setChunkBlock(col, 9, bridgeY + 1, 4, BLOCK.SOUL_TORCH);
     }
   }
 

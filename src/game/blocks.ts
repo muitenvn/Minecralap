@@ -1052,7 +1052,8 @@ function classifyBlockShape(def: BlockDef): BlockShape {
     k === 'wildflowers' ||
     k === 'leaf_litter' ||
     k === 'sculk_vein' ||
-    k === 'end_portal'
+    k === 'end_portal' ||
+    k === 'redstone_wire'
   ) {
     return 'carpet';
   }
@@ -1097,7 +1098,7 @@ function classifyLightEmission(def: BlockDef): LightEmission {
     k === 'jack_o_lantern' ||
     k === 'lantern' ||
     k === 'campfire' ||
-    k === 'redstone_lamp' ||
+    k === 'redstone_lamp_on' ||
     k === 'lava' ||
     k === 'ochre_froglight' ||
     k === 'copper_bulb'

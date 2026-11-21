@@ -1,4 +1,5 @@
 import {
+  BrewingStandState,
   CachedResourcePack,
   DEFAULT_GAMERULES,
   DEFAULT_VIDEO_SETTINGS,
@@ -8,6 +9,81 @@ import {
   WORLD_BORDER_DEFAULT,
   WorldSave,
 } from './types';
+
+export const CURRENT_SAVE_SCHEMA_VERSION = 2;
+
+export function createEmptyChestSlots(): (ItemStack | null)[] {
+  return new Array(27).fill(null);
+}
+
+export function createEmptyBrewingState(): BrewingStandState {
+  return {
+    ingredient: null,
+    fuel: null,
+    bottles: [null, null, null],
+    fuelCharges: 0,
+    brewProgress: 0,
+  };
+}
+
+function normalizeSlotArray(arr: unknown, length: number): (ItemStack | null)[] {
+  const out: (ItemStack | null)[] = new Array(length).fill(null);
+  if (Array.isArray(arr)) {
+    for (let i = 0; i < Math.min(length, arr.length); i++) {
+      const s = arr[i] as ItemStack | null;
+      if (s && typeof s.itemId === 'string' && typeof s.count === 'number' && s.count > 0) {
+        out[i] = { ...s, enchants: s.enchants ? { ...s.enchants } : undefined };
+      }
+    }
+  }
+  return out;
+}
+
+export function migrateWorldSave(raw: WorldSave): WorldSave {
+  const chests: Record<string, (ItemStack | null)[]> = {};
+  if (raw.chests && typeof raw.chests === 'object') {
+    for (const [k, v] of Object.entries(raw.chests)) {
+      chests[k] = normalizeSlotArray(v, 27);
+    }
+  }
+  const brewingStands: Record<string, BrewingStandState> = {};
+  if (raw.brewingStands && typeof raw.brewingStands === 'object') {
+    for (const [k, v] of Object.entries(raw.brewingStands)) {
+      if (v && typeof v === 'object') {
+        brewingStands[k] = {
+          ingredient: v.ingredient ? { ...v.ingredient } : null,
+          fuel: v.fuel ? { ...v.fuel } : null,
+          bottles: normalizeSlotArray(v.bottles, 3),
+          fuelCharges: typeof v.fuelCharges === 'number' ? Math.max(0, v.fuelCharges) : 0,
+          brewProgress: typeof v.brewProgress === 'number' ? Math.max(0, Math.min(1, v.brewProgress)) : 0,
+        };
+      }
+    }
+  }
+
+  return {
+    ...raw,
+    schemaVersion: CURRENT_SAVE_SCHEMA_VERSION,
+    gamerules: { ...DEFAULT_GAMERULES, ...(raw.gamerules || {}) },
+    worldBorderSize: raw.worldBorderSize || WORLD_BORDER_DEFAULT,
+    worldBorderCenter: raw.worldBorderCenter || [0, 0],
+    player: {
+      ...raw.player,
+      inventory: normalizeSlotArray(raw.player?.inventory, 36),
+      armor: normalizeSlotArray(raw.player?.armor, 4),
+      offhand: raw.player?.offhand ? { ...raw.player.offhand } : null,
+      effects: Array.isArray(raw.player?.effects) ? [...raw.player.effects] : [],
+    },
+    overworldMods: raw.overworldMods || {},
+    netherMods: raw.netherMods || {},
+    endMods: raw.endMods || {},
+    chiseledBookshelves: raw.chiseledBookshelves || {},
+    chests,
+    enderChest: normalizeSlotArray(raw.enderChest, 27),
+    brewingStands,
+    redstoneStates: raw.redstoneStates || {},
+  };
+}
 
 const DB_NAME = 'nethercraft_116_db';
 const DB_VERSION = 1;
@@ -77,7 +153,7 @@ export async function listWorlds(): Promise<WorldSave[]> {
       const tx = db.transaction(STORE_WORLDS, 'readonly');
       const req = tx.objectStore(STORE_WORLDS).getAll();
       req.onsuccess = () => {
-        const list = (req.result as WorldSave[]) || [];
+        const list = ((req.result as WorldSave[]) || []).map(migrateWorldSave);
         list.sort((a, b) => b.updatedAt - a.updatedAt);
         resolve(list);
       };
@@ -146,8 +222,9 @@ export function createNewWorldRecord(opts: {
     : Math.floor(Math.random() * 2_000_000_000) - 1_000_000_000;
   const now = Date.now();
   return {
+    schemaVersion: CURRENT_SAVE_SCHEMA_VERSION,
     id: `w_${now}_${Math.random().toString(36).slice(2, 7)}`,
-    name: opts.name.trim() || 'Thế Giới 1.16 Mới',
+    name: opts.name.trim() || 'Thế Giới Minecraft 26.3',
     seed,
     gameMode: opts.gameMode,
     difficulty: 'normal',
@@ -177,6 +254,7 @@ export function createNewWorldRecord(opts: {
       worldSpawn: [2.5, 80, 2.5],
       inventory: createStarterInventory(opts.gameMode),
       armor: [null, null, null, null],
+      offhand: null,
       effects: [],
     },
     gamerules: { ...DEFAULT_GAMERULES },
@@ -192,17 +270,25 @@ export function createNewWorldRecord(opts: {
     netherMods: {},
     endMods: {},
     chiseledBookshelves: {},
+    chests: {},
+    enderChest: createEmptyChestSlots(),
+    brewingStands: {},
+    redstoneStates: {},
   };
 }
 
 export function exportWorldToFile(world: WorldSave): void {
-  const payload = JSON.stringify({ format: 'nethercraft-1.16-world', version: 1, world }, null, 2);
+  const payload = JSON.stringify(
+    { format: 'nethercraft-26.3-world', version: CURRENT_SAVE_SCHEMA_VERSION, world: migrateWorldSave(world) },
+    null,
+    2,
+  );
   const blob = new Blob([payload], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const safeName = world.name.replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 32) || 'world_116';
+  const safeName = world.name.replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 32) || 'world_263';
   a.href = url;
-  a.download = `${safeName}.mc116.json`;
+  a.download = `${safeName}.mc263.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -214,19 +300,14 @@ export async function parseImportedWorldFile(file: File): Promise<WorldSave> {
   const parsed = JSON.parse(text);
   const w: WorldSave = parsed?.world ?? parsed;
   if (!w || typeof w.seed !== 'number' || !w.player || !Array.isArray(w.player.inventory)) {
-    throw new Error('File không đúng định dạng thế giới .mc116.json');
+    throw new Error('File không đúng định dạng thế giới Minecraft (.json)');
   }
   const now = Date.now();
-  return {
+  return migrateWorldSave({
     ...w,
     id: `w_imp_${now}_${Math.random().toString(36).slice(2, 6)}`,
     updatedAt: now,
-    gamerules: { ...DEFAULT_GAMERULES, ...(w.gamerules || {}) },
-    worldBorderSize: w.worldBorderSize || WORLD_BORDER_DEFAULT,
-    worldBorderCenter: w.worldBorderCenter || [0, 0],
-    endMods: w.endMods || {},
-    chiseledBookshelves: w.chiseledBookshelves || {},
-  };
+  });
 }
 
 export function loadVideoSettings(): VideoSettings {
