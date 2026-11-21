@@ -142,15 +142,96 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
       {/* Underwater Blue Tint */}
       {hud.underwater && <div className="absolute inset-0 bg-blue-900/35" />}
 
-      {/* Purple Nether Portal Warp Overlay */}
+      {/* Deep Dark Warden / Sculk Darkness Vignette */}
+      {(hud.darknessIntensity ?? 0) > 0.02 && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle, transparent 22%, rgba(2,6,14,0.96) 82%)',
+            opacity: Math.min(0.95, hud.darknessIntensity ?? 0),
+          }}
+        />
+      )}
+
+      {/* Purple Nether / End Portal Warp Overlay */}
       {hud.portalProgress > 0.02 && (
         <div
           className="absolute inset-0 mc-portal-overlay flex items-center justify-center"
           style={{ opacity: Math.min(0.9, hud.portalProgress) }}
         >
           <div className="font-mc text-xl sm:text-2xl text-purple-100 mc-text-shadow">
-            {hud.dimension === 'overworld' ? 'Đang vào The Nether...' : 'Đang về Overworld...'}
+            {hud.dimension === 'overworld'
+              ? 'Đang dịch chuyển cổng...'
+              : hud.dimension === 'end'
+                ? 'Đang rời The End...'
+                : 'Đang về Overworld...'}
           </div>
+        </div>
+      )}
+
+      {/* Top-Center Boss Health Bar (Ender Dragon / Warden) + Chase the Skies Locator Bar */}
+      {!showF3 && !hud.dead && (hud.bossBar || (hud.locatorMarkers && hud.locatorMarkers.length > 0)) && (
+        <div
+          className={`absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 pointer-events-none ${
+            touchVisible ? 'top-[54px]' : 'top-2'
+          }`}
+        >
+          {hud.bossBar && (
+            <div className="w-[min(320px,62vw)] flex flex-col items-center gap-0.5">
+              <div className="font-mc text-xs sm:text-sm font-bold text-white mc-text-shadow-sm flex items-center gap-2">
+                <span>{hud.bossBar.name}</span>
+                <span className="text-[10px] font-mono-num text-zinc-300">
+                  {Math.max(0, Math.ceil(hud.bossBar.hp))}/{hud.bossBar.maxHp}
+                </span>
+              </div>
+              <div className="w-full h-2.5 bg-black/75 border border-black p-[1px]">
+                <div
+                  className="h-full transition-all duration-100"
+                  style={{
+                    width: `${Math.max(0, Math.min(100, (hud.bossBar.hp / Math.max(1, hud.bossBar.maxHp)) * 100))}%`,
+                    backgroundColor: hud.bossBar.color === 'teal' ? '#0d9488' : '#c026d3',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {hud.locatorMarkers && hud.locatorMarkers.length > 0 && (() => {
+            const frontMarker = hud.locatorMarkers
+              .filter((m) => Math.abs(m.relAngle) < 0.45)
+              .sort((a, b) => Math.abs(a.relAngle) - Math.abs(b.relAngle))[0];
+            return (
+              <div className="flex flex-col items-center gap-0.5">
+                <div className="relative w-[min(256px,52vw)] h-4 bg-black/55 border border-white/25 overflow-hidden">
+                  <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-white/35" />
+                  <div className="absolute left-[25%] top-0 h-1 w-[1px] bg-white/20" />
+                  <div className="absolute left-[75%] top-0 h-1 w-[1px] bg-white/20" />
+                  {hud.locatorMarkers.map((m, idx) => {
+                    const norm = Math.max(-1, Math.min(1, m.relAngle / (Math.PI * 0.65)));
+                    const leftPct = 50 + norm * 46;
+                    const sizePx = m.dist < 40 ? 7 : m.dist < 100 ? 6 : 5;
+                    return (
+                      <span
+                        key={`${m.label}-${idx}`}
+                        style={{
+                          left: `${leftPct}%`,
+                          width: sizePx,
+                          height: sizePx,
+                          backgroundColor: m.color,
+                        }}
+                        className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 border border-black/80"
+                      />
+                    );
+                  })}
+                </div>
+                {frontMarker && (
+                  <div className="text-[10px] font-mono-num text-zinc-100 bg-black/50 px-1.5 py-[1px] mc-text-shadow-sm">
+                    {frontMarker.label} · {Math.round(frontMarker.dist)}m
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -218,7 +299,14 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
               Chunk: {Math.floor(hud.x / 16)}, {Math.floor(hud.y / 16)}, {Math.floor(hud.z / 16)}
             </div>
             <div>Hướng: {dirLabel} ({deg.toFixed(0)}°)</div>
-            <div>Chiều: {hud.dimension === 'nether' ? 'minecraft:the_nether' : 'minecraft:overworld'}</div>
+            <div>
+              Chiều:{' '}
+              {hud.dimension === 'nether'
+                ? 'minecraft:the_nether'
+                : hud.dimension === 'end'
+                  ? 'minecraft:the_end'
+                  : 'minecraft:overworld'}
+            </div>
             <div>Quần xã: {hud.biome}</div>
           </div>
 
@@ -364,6 +452,23 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
         {showToast && (
           <div className="text-xs sm:text-sm font-mc text-white mc-text-shadow-sm mb-0.5">
             {hud.heldItemToast}
+          </div>
+        )}
+
+        {hud.mountedMob && !hud.dead && (
+          <div className="bg-black/70 border border-white/25 px-2.5 py-0.5 mb-0.5 flex items-center gap-2 text-[11px] font-mc text-amber-200 mc-text-shadow-sm pointer-events-none">
+            <span>
+              Đang cưỡi: {hud.mountedMob.nameVi} · HP {Math.max(0, Math.ceil(hud.mountedMob.hp))}/{hud.mountedMob.maxHp}
+            </span>
+            <span className="text-[10px] font-mono-num text-zinc-300">
+              {hud.mountedMob.canFly
+                ? 'Space: Bay · Shift: Xuống'
+                : hud.mountedMob.canDash
+                  ? 'Space: Lướt · Shift: Xuống'
+                  : hud.mountedMob.underwater
+                    ? 'Bơi · Shift: Xuống'
+                    : 'WASD: Chạy · Shift: Xuống'}
+            </span>
           </div>
         )}
 

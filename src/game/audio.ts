@@ -187,10 +187,42 @@ class SoundEngine {
       music_disc_ward: [220, 262, 330, 392, 440, 392, 330, 220],
       music_disc_wait: [392, 494, 587, 784, 659, 587, 494, 392],
     };
-    const notes = scales[discId] || [392, 440, 523, 587, 659, 587, 523, 440];
+    const notes =
+      discId === 'music_disc_flurry'
+        ? [523, 659, 784, 1046, 880, 784, 659, 587, 523]
+        : discId === 'music_disc_creator'
+          ? [330, 392, 494, 587, 659, 587, 494, 392]
+          : discId === 'music_disc_otherside'
+            ? [293, 349, 440, 523, 440, 392, 349, 330]
+            : scales[discId] || [392, 440, 523, 587, 659, 587, 523, 440];
     notes.forEach((freq, idx) => {
       setTimeout(() => this.tone('triangle', freq, freq * 1.005, 0.17, 0.13), idx * 140);
     });
+  }
+
+  playWardenHeartbeat(): void {
+    this.tone('sine', 75, 42, 0.18, 0.34);
+    setTimeout(() => this.tone('sine', 64, 36, 0.22, 0.28), 220);
+  }
+
+  playSculkVibration(): void {
+    this.tone('sine', 420, 960, 0.14, 0.14);
+    setTimeout(() => this.tone('triangle', 840, 340, 0.16, 0.11), 90);
+  }
+
+  playDragonRoar(): void {
+    this.tone('sawtooth', 145, 58, 0.52, 0.32);
+    this.noiseBurst(0.45, 380, 1.0, 0.22);
+  }
+
+  playDash(): void {
+    this.tone('triangle', 260, 640, 0.18, 0.2);
+    this.noiseBurst(0.14, 1600, 1.4, 0.12);
+  }
+
+  playCopperScrape(): void {
+    this.tone('square', 680, 920, 0.08, 0.11);
+    setTimeout(() => this.tone('triangle', 920, 1280, 0.09, 0.09), 65);
   }
 
   playByName(name: string): void {
@@ -204,6 +236,8 @@ class SoundEngine {
       case 'xp': this.playXpOrb(); break;
       case 'splash': this.playSplash(); break;
       case 'firework': this.playFirework(); break;
+      case 'warden': this.playWardenHeartbeat(); break;
+      case 'dragon': this.playDragonRoar(); break;
       default: this.playClick(); break;
     }
   }

@@ -190,6 +190,8 @@ export function createNewWorldRecord(opts: {
     },
     overworldMods: {},
     netherMods: {},
+    endMods: {},
+    chiseledBookshelves: {},
   };
 }
 
@@ -222,6 +224,8 @@ export async function parseImportedWorldFile(file: File): Promise<WorldSave> {
     gamerules: { ...DEFAULT_GAMERULES, ...(w.gamerules || {}) },
     worldBorderSize: w.worldBorderSize || WORLD_BORDER_DEFAULT,
     worldBorderCenter: w.worldBorderCenter || [0, 0],
+    endMods: w.endMods || {},
+    chiseledBookshelves: w.chiseledBookshelves || {},
   };
 }
 

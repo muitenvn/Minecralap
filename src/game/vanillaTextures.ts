@@ -1193,11 +1193,11 @@ const LEGACY_FAITHFUL_GUI_MIRROR =
 const LEGACY_OFFICIAL_GUI_MIRROR =
   'https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@1.16.5/assets/minecraft/textures';
 
-const FAITHFUL_CACHE_ID = 'faithful_32x_hd_plus_26_3_v1';
-const FAITHFUL_CACHE_VERSION = '26.3-faithful32-hdplus-v1';
+const FAITHFUL_CACHE_ID = 'faithful_32x_hd_plus_26_3_v2';
+const FAITHFUL_CACHE_VERSION = '26.3-faithful32-hdplus-v2';
 
-const ORIGINAL_CACHE_ID = 'original_mc26_3_cache_v1';
-const ORIGINAL_CACHE_VERSION = '26.3-official-v1';
+const ORIGINAL_CACHE_ID = 'original_mc26_3_cache_v2';
+const ORIGINAL_CACHE_VERSION = '26.3-official-v2';
 
 // Map internal texture keys to exact official Minecraft Java Edition 1.16.5 block filenames
 function mapKeyToOfficialMc116Block(key: string): string {
@@ -1329,6 +1329,23 @@ function mapKeyToOfficialMc116Block(key: string): string {
     suspicious_gravel: 'suspicious_gravel_0',
     copper_door: 'copper_door_bottom',
     moss_carpet: 'moss_block',
+    cut_copper_stairs: 'cut_copper',
+    cut_copper_slab: 'cut_copper',
+    waxed_copper_block: 'copper_block',
+    waxed_exposed_copper: 'exposed_copper',
+    waxed_weathered_copper: 'weathered_copper',
+    waxed_oxidized_copper: 'oxidized_copper',
+    bamboo_stairs: 'bamboo_planks',
+    bamboo_slab: 'bamboo_planks',
+    pitcher_plant: 'pitcher_crop_top_stage_4',
+    ominous_vault: 'vault_front_on',
+    ominous_trial_spawner: 'trial_spawner_side_active_ominous',
+    copper_chest: 'copper_block',
+    copper_shelf: 'cut_copper',
+    decorated_pot: 'terracotta',
+    polished_calcite: 'calcite',
+    calcite_bricks: 'calcite',
+    snow_bricks: 'snow',
   };
   if (exactMap[key]) return exactMap[key];
   if (key.endsWith('_carpet')) return key.replace('_carpet', '_wool');

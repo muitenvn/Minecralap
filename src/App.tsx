@@ -380,14 +380,14 @@ export default function App() {
           cachedPack.sourceType === 'github-default' ||
           cachedPack.sourceType === 'hd-32' ||
           (cachedPack.sourceType === 'faithful-32x' &&
-            cachedPack.version !== '26.3-faithful32-hdplus-v1')
+            cachedPack.version !== '26.3-faithful32-hdplus-v2')
         ) {
           setBootStatus('Đang nạp gói chính thức HD+ Faithful 32x (Minecraft 26.3)...');
           cachedPack = await buildFaithfulHdPlusPack(cachedPack?.guiBlobs);
           if (!alive) return;
         } else if (
           cachedPack.sourceType === 'original-classic' &&
-          cachedPack.version !== '26.3-official-v1'
+          cachedPack.version !== '26.3-official-v2'
         ) {
           setBootStatus('Đang cập nhật Minecraft 26.3 Chính Gốc (Block, Vật phẩm, Mob, UI & Bản đồ)...');
           cachedPack = await buildOriginalMinecraftPack(cachedPack.guiBlobs);

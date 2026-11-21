@@ -43,12 +43,14 @@ export interface CommandContext {
   killTarget: (selector: string) => string;
   showTitle: (kind: 'title' | 'subtitle' | 'actionbar', text: string) => void;
   playSound: (name: string) => void;
+  switchDimension?: (dim: DimensionId) => void;
   reply: (text: string, tone?: 'system' | 'chat' | 'success' | 'error' | 'gold') => void;
 }
 
 export const ALL_COMMAND_NAMES = [
   '/tp',
   '/teleport',
+  '/dimension',
   '/spawnpoint',
   '/setworldspawn',
   '/worldborder',
@@ -90,7 +92,7 @@ function parseCoord(token: string, base: number): number | null {
 
 const VALID_EFFECTS: EffectId[] = [
   'speed', 'slowness', 'haste', 'strength', 'jump_boost', 'regeneration',
-  'resistance', 'fire_resistance', 'water_breathing', 'night_vision', 'levitation', 'slow_falling',
+  'resistance', 'fire_resistance', 'water_breathing', 'night_vision', 'levitation', 'slow_falling', 'darkness',
 ];
 
 const VALID_ENCHANTS: EnchantmentId[] = [
@@ -114,6 +116,23 @@ const VALID_MOBS: (MobType | 'lightning_bolt')[] = [
   'bogged',
   'happy_ghast',
   'copper_golem',
+  'axolotl',
+  'goat',
+  'glow_squid',
+  'tadpole',
+  'sniffer',
+  'camel',
+  'armadillo',
+  'ghastling',
+  'nautilus',
+  'zombie_nautilus',
+  'camel_husk',
+  'parched',
+  'zombie_horse',
+  'sulfur_cube',
+  'cold_sulfur_cube',
+  'frostbite',
+  'ender_dragon',
   'lightning_bolt',
 ];
 
@@ -140,6 +159,8 @@ export function autocompleteCommand(input: string): string[] {
       .filter((r) => r.toLowerCase().startsWith(last));
   }
   if (cmd === '/locatebiome') return Object.keys(BIOME_LABELS).filter((b) => b.startsWith(last));
+  if (cmd === '/locate') return ['ruined_portal', 'trial_chamber', 'ancient_city', 'trail_ruins', 'stronghold', 'end_city'].filter((s) => s.startsWith(last));
+  if (cmd === '/dimension') return ['overworld', 'nether', 'end'].filter((d) => d.startsWith(last));
   return [];
 }
 
@@ -527,12 +548,35 @@ export function executeCommand(rawInput: string, ctx: CommandContext): void {
       return;
     }
 
+    case 'dimension': {
+      const dim = (args[0] || '').toLowerCase() as DimensionId;
+      if (dim !== 'overworld' && dim !== 'nether' && dim !== 'end') {
+        ctx.reply('Cú pháp: /dimension <overworld|nether|end>', 'error');
+        return;
+      }
+      if (ctx.switchDimension) {
+        ctx.switchDimension(dim);
+        ctx.reply(`Đã dịch chuyển sang chiều không gian: ${dim.toUpperCase()}`, 'gold');
+      }
+      return;
+    }
+
     case 'locate': {
-      const target = (args[0] || 'ruined_portal').toLowerCase();
-      if (target.includes('portal')) {
-        ctx.reply('Tàn tích Cổng Nether 1.16 nằm tại tọa độ (11, ~68, 10) ở Overworld!', 'gold');
+      const target = (args[0] || '').toLowerCase();
+      if (target.includes('trial')) {
+        ctx.reply('Phòng Thử Thách (Trial Chamber 1.21) tại (39, 30, 7) — dùng /tp 39 30 7', 'gold');
+      } else if (target.includes('ancient') || target.includes('deep')) {
+        ctx.reply('Đền Cổ Deep Dark (Ancient City 1.19) tại (-25, 16, 7) — dùng /tp -25 16 7', 'gold');
+      } else if (target.includes('ruin') && target.includes('trail')) {
+        ctx.reply('Di Tích Khảo Cổ (Trail Ruins 1.20) tại (7, 72, 39) — dùng /tp 7 75 39', 'gold');
+      } else if (target.includes('stronghold') || target.includes('end_portal')) {
+        ctx.reply('Pháo Đài Cổng The End (Stronghold) tại (7, 26, -25) — dùng /tp 7 27 -29', 'gold');
+      } else if (target.includes('end_city')) {
+        ctx.reply('Thành Phố The End (End City Purpur) ở chiều The End tại (103, 64, 7) — dùng /tp 103 65 4', 'gold');
+      } else if (target.includes('portal')) {
+        ctx.reply('Tàn tích Cổng Nether tại (11, ~68, 10) ở Overworld!', 'gold');
       } else {
-        ctx.reply('Cấu trúc hỗ trợ: /locate ruined_portal (hoặc dùng /locatebiome)', 'system');
+        ctx.reply('Cấu trúc: /locate <ruined_portal|trial_chamber|ancient_city|trail_ruins|stronghold|end_city>', 'system');
       }
       return;
     }
@@ -540,7 +584,7 @@ export function executeCommand(rawInput: string, ctx: CommandContext): void {
     case 'locatebiome': {
       const b = (args[0] || '').replace(/^minecraft:/, '').toLowerCase() as AnyBiome;
       if (!(b in BIOME_LABELS)) {
-        ctx.reply(`Quần xã 1.16: ${Object.keys(BIOME_LABELS).join(', ')}`, 'error');
+        ctx.reply(`Quần xã: ${Object.keys(BIOME_LABELS).join(', ')}`, 'error');
         return;
       }
       const found = ctx.locateBiome(b);

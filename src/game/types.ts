@@ -1,4 +1,4 @@
-export type DimensionId = 'overworld' | 'nether';
+export type DimensionId = 'overworld' | 'nether' | 'end';
 export type GameMode = 'survival' | 'creative' | 'adventure' | 'spectator';
 export type Difficulty = 'peaceful' | 'easy' | 'normal' | 'hard';
 export type WeatherType = 'clear' | 'rain' | 'thunder';
@@ -24,7 +24,8 @@ export type EffectId =
   | 'water_breathing'
   | 'night_vision'
   | 'levitation'
-  | 'slow_falling';
+  | 'slow_falling'
+  | 'darkness';
 
 export interface ActiveEffect {
   id: EffectId;
@@ -37,6 +38,7 @@ export interface ItemStack {
   count: number;
   durability?: number;
   enchants?: Partial<Record<EnchantmentId, number>>;
+  trim?: string;
 }
 
 export interface GameRules {
@@ -195,6 +197,8 @@ export interface WorldSave {
   // Sparse block modifications keyed by "x,y,z" -> blockId
   overworldMods: Record<string, number>;
   netherMods: Record<string, number>;
+  endMods?: Record<string, number>;
+  chiseledBookshelves?: Record<string, string[]>;
 }
 
 export interface ChatMessage {
@@ -260,6 +264,28 @@ export interface HudSnapshot {
   furnace: FurnaceState;
   heldItemToast: string;
   heldItemToastAt: number;
+  mountedMob?: {
+    type: string;
+    nameVi: string;
+    hp: number;
+    maxHp: number;
+    canFly: boolean;
+    canDash: boolean;
+    underwater: boolean;
+  } | null;
+  bossBar?: {
+    name: string;
+    hp: number;
+    maxHp: number;
+    color: 'purple' | 'teal';
+  } | null;
+  locatorMarkers?: {
+    label: string;
+    relAngle: number; // -PI..PI relative to player facing
+    dist: number;
+    color: string;
+  }[];
+  darknessIntensity?: number; // 0..1
 }
 
 export interface PackManifestFile {

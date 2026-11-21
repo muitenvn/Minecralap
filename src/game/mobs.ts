@@ -18,7 +18,24 @@ export type MobType =
   | 'frog'
   | 'bogged'
   | 'happy_ghast'
-  | 'copper_golem';
+  | 'copper_golem'
+  | 'axolotl'
+  | 'goat'
+  | 'glow_squid'
+  | 'tadpole'
+  | 'sniffer'
+  | 'camel'
+  | 'armadillo'
+  | 'ghastling'
+  | 'nautilus'
+  | 'zombie_nautilus'
+  | 'camel_husk'
+  | 'parched'
+  | 'zombie_horse'
+  | 'sulfur_cube'
+  | 'cold_sulfur_cube'
+  | 'frostbite'
+  | 'ender_dragon';
 
 export interface MobEntity {
   id: string;
@@ -40,30 +57,64 @@ export interface MobEntity {
   wanderAngle: number;
   walkPhase: number;
   fuseTimer: number; // for Creeper
+  absorbedBlockId?: number; // for 2026 Sulfur Cube block absorption
+  armored?: boolean; // Wolf/Mount armor
+  riddenByPlayer?: boolean;
+  specialTick?: number;
   mesh: THREE.Group;
   limbs: THREE.Object3D[];
 }
 
-export const MOB_SPECS: Record<
-  MobType,
-  { nameVi: string; hp: number; hostile: boolean; speed: number; damage: number; drop: string; dropCount: number; width: number; height: number }
-> = {
+export interface MobSpec {
+  nameVi: string;
+  hp: number;
+  hostile: boolean;
+  speed: number;
+  damage: number;
+  drop: string;
+  dropCount: number;
+  width: number;
+  height: number;
+  rideable?: boolean;
+  flying?: boolean;
+  aquatic?: boolean;
+  boss?: boolean;
+}
+
+export const MOB_SPECS: Record<MobType, MobSpec> = {
   pig: { nameVi: 'Heo', hp: 10, hostile: false, speed: 2.2, damage: 0, drop: 'raw_porkchop', dropCount: 2, width: 0.7, height: 0.9 },
   sheep: { nameVi: 'Cừu', hp: 8, hostile: false, speed: 2.1, damage: 0, drop: 'raw_porkchop', dropCount: 1, width: 0.7, height: 1.2 },
   zombie: { nameVi: 'Thây Ma (Zombie)', hp: 20, hostile: true, speed: 2.7, damage: 3, drop: 'iron_ingot', dropCount: 1, width: 0.65, height: 1.85 },
   creeper: { nameVi: 'Creeper', hp: 20, hostile: true, speed: 2.6, damage: 8, drop: 'coal', dropCount: 2, width: 0.65, height: 1.75 },
   piglin: { nameVi: 'Piglin', hp: 16, hostile: true, speed: 3.1, damage: 4, drop: 'gold_ingot', dropCount: 1, width: 0.65, height: 1.9 },
-  strider: { nameVi: 'Strider', hp: 20, hostile: false, speed: 2.4, damage: 0, drop: 'obsidian', dropCount: 1, width: 0.85, height: 1.65 },
+  strider: { nameVi: 'Strider', hp: 20, hostile: false, speed: 2.4, damage: 0, drop: 'obsidian', dropCount: 1, width: 0.85, height: 1.65, rideable: true },
   zombified_piglin: { nameVi: 'Zombified Piglin', hp: 20, hostile: false, speed: 2.6, damage: 5, drop: 'gold_ingot', dropCount: 1, width: 0.65, height: 1.9 },
-  ghast: { nameVi: 'Ghast Nether', hp: 12, hostile: true, speed: 2.2, damage: 5, drop: 'quartz', dropCount: 3, width: 2.6, height: 2.6 },
-  warden: { nameVi: 'Warden (Deep Dark)', hp: 85, hostile: true, speed: 3.3, damage: 10, drop: 'echo_shard', dropCount: 2, width: 1.1, height: 2.9 },
+  ghast: { nameVi: 'Ghast Nether', hp: 12, hostile: true, speed: 2.2, damage: 5, drop: 'quartz', dropCount: 3, width: 2.6, height: 2.6, flying: true },
+  warden: { nameVi: 'Warden (Deep Dark)', hp: 85, hostile: true, speed: 3.3, damage: 10, drop: 'echo_shard', dropCount: 2, width: 1.1, height: 2.9, boss: true },
   breeze: { nameVi: 'Breeze (Phòng Thử Thách)', hp: 24, hostile: true, speed: 3.5, damage: 4, drop: 'breeze_rod', dropCount: 2, width: 0.75, height: 1.8 },
   creaking: { nameVi: 'Creaking (Vườn Nhợt Nhạt)', hp: 30, hostile: true, speed: 3.4, damage: 5, drop: 'resin_clump', dropCount: 3, width: 0.8, height: 2.65 },
-  allay: { nameVi: 'Allay (Tiên Nhặt Đồ)', hp: 20, hostile: false, speed: 3.4, damage: 0, drop: 'amethyst_shard', dropCount: 1, width: 0.5, height: 0.7 },
+  allay: { nameVi: 'Allay (Tiên Nhặt Đồ)', hp: 20, hostile: false, speed: 3.4, damage: 0, drop: 'amethyst_shard', dropCount: 1, width: 0.5, height: 0.7, flying: true },
   frog: { nameVi: 'Ếch (Frog)', hp: 10, hostile: false, speed: 2.3, damage: 0, drop: 'ochre_froglight', dropCount: 1, width: 0.6, height: 0.55 },
   bogged: { nameVi: 'Bogged (Xương Rêu Đầm Lầy)', hp: 16, hostile: true, speed: 2.6, damage: 4, drop: 'arrow', dropCount: 3, width: 0.65, height: 1.9 },
-  happy_ghast: { nameVi: 'Happy Ghast (Ghast Vui Vẻ)', hp: 30, hostile: false, speed: 2.8, damage: 0, drop: 'dried_ghast', dropCount: 1, width: 2.6, height: 2.6 },
+  happy_ghast: { nameVi: 'Happy Ghast (Ghast Vui Vẻ)', hp: 30, hostile: false, speed: 3.4, damage: 0, drop: 'dried_ghast', dropCount: 1, width: 2.6, height: 2.6, rideable: true, flying: true },
   copper_golem: { nameVi: 'Copper Golem (Người Máy Đồng)', hp: 24, hostile: false, speed: 2.2, damage: 0, drop: 'copper_ingot', dropCount: 2, width: 0.65, height: 1.15 },
+  axolotl: { nameVi: 'Axolotl (Kỳ Nhông Hang Động)', hp: 14, hostile: false, speed: 2.5, damage: 0, drop: 'tropical_fish', dropCount: 1, width: 0.75, height: 0.45, aquatic: true },
+  goat: { nameVi: 'Dê Núi (Goat)', hp: 10, hostile: false, speed: 2.8, damage: 2, drop: 'goat_horn', dropCount: 1, width: 0.9, height: 1.3 },
+  glow_squid: { nameVi: 'Mực Phát Sáng (Glow Squid)', hp: 10, hostile: false, speed: 2.2, damage: 0, drop: 'glow_lichen', dropCount: 2, width: 0.8, height: 0.9, aquatic: true },
+  tadpole: { nameVi: 'Nòng Nọc (Tadpole)', hp: 6, hostile: false, speed: 2.4, damage: 0, drop: 'slime_ball', dropCount: 1, width: 0.4, height: 0.35, aquatic: true },
+  sniffer: { nameVi: 'Sniffer (Quái Thú Cổ Đại)', hp: 28, hostile: false, speed: 1.7, damage: 0, drop: 'torchflower', dropCount: 1, width: 1.7, height: 1.6 },
+  camel: { nameVi: 'Lạc Đà (Camel)', hp: 32, hostile: false, speed: 3.2, damage: 0, drop: 'leather', dropCount: 2, width: 1.3, height: 2.2, rideable: true },
+  armadillo: { nameVi: 'Tatu (Armadillo)', hp: 12, hostile: false, speed: 2.0, damage: 0, drop: 'armadillo_scute', dropCount: 2, width: 0.7, height: 0.65 },
+  ghastling: { nameVi: 'Ghastling (Ghast Nhỏ)', hp: 14, hostile: false, speed: 3.1, damage: 0, drop: 'dried_ghast', dropCount: 1, width: 1.1, height: 1.1, flying: true },
+  nautilus: { nameVi: 'Ốc Anh Vũ Khổng Lồ (Nautilus)', hp: 28, hostile: false, speed: 3.6, damage: 0, drop: 'nautilus_shell', dropCount: 2, width: 1.2, height: 1.2, rideable: true, aquatic: true },
+  zombie_nautilus: { nameVi: 'Zombie Nautilus', hp: 24, hostile: true, speed: 3.0, damage: 4, drop: 'nautilus_shell', dropCount: 1, width: 1.2, height: 1.2, aquatic: true },
+  camel_husk: { nameVi: 'Lạc Đà Xác Khô (Camel Husk)', hp: 28, hostile: true, speed: 2.9, damage: 5, drop: 'rotten_flesh', dropCount: 2, width: 1.3, height: 2.2 },
+  parched: { nameVi: 'Parched (Xương Sa Mạc)', hp: 18, hostile: true, speed: 2.8, damage: 4, drop: 'arrow', dropCount: 3, width: 0.65, height: 1.9 },
+  zombie_horse: { nameVi: 'Ngựa Xác Sống (Zombie Horse)', hp: 26, hostile: false, speed: 3.8, damage: 0, drop: 'rotten_flesh', dropCount: 2, width: 1.2, height: 1.6, rideable: true },
+  sulfur_cube: { nameVi: 'Sulfur Cube (Khối Lưu Huỳnh 26.3)', hp: 22, hostile: true, speed: 2.5, damage: 4, drop: 'sulfur_dust', dropCount: 3, width: 1.0, height: 1.0 },
+  cold_sulfur_cube: { nameVi: 'Cold Sulfur Cube (26.4 Băng)', hp: 24, hostile: true, speed: 2.6, damage: 4, drop: 'ice_crystal', dropCount: 2, width: 1.0, height: 1.0 },
+  frostbite: { nameVi: 'Frostbite (Xác Băng 26.4)', hp: 22, hostile: true, speed: 2.7, damage: 4, drop: 'snow_bricks', dropCount: 2, width: 0.65, height: 1.9 },
+  ender_dragon: { nameVi: 'Rồng Ender (Ender Dragon)', hp: 200, hostile: true, speed: 7.5, damage: 8, drop: 'dragon_egg', dropCount: 1, width: 4.5, height: 3.2, flying: true, boss: true },
 };
 
 const PX = 1 / 16;
@@ -861,6 +912,352 @@ function buildFallbackProceduralMob(type: MobType): { group: THREE.Group; limbs:
     return { group, limbs };
   }
 
+  // --- 1.17–1.21 + 2025–2026 + 26.4 + The End 3D Composite Mobs ---
+  if (type === 'axolotl') {
+    const pink = 0xf9a8d4;
+    const gillCol = 0xec4899;
+    const body = partBox(0.36, 0.22, 0.66, pink, 0.45);
+    body.position.set(0, 0.18, 0);
+    const head = partBox(0.42, 0.24, 0.3, pink, 0.45);
+    head.position.set(0, 0.22, 0.44);
+    const tail = partBox(0.08, 0.22, 0.52, gillCol, 0.5);
+    tail.position.set(0, 0.2, -0.56);
+    for (const sx of [-0.26, 0.26]) {
+      const gill = partBox(0.14, 0.26, 0.06, gillCol, 0.5);
+      gill.position.set(sx, 0.26, 0.36);
+      const eye = partBox(0.06, 0.06, 0.04, 0x18181b, 0.2);
+      eye.position.set(sx * 0.55, 0.24, 0.59);
+      group.add(gill, eye);
+    }
+    for (const [lx, lz] of [[-0.2, 0.22], [0.2, 0.22], [-0.2, -0.22], [0.2, -0.22]]) {
+      const leg = partBox(0.1, 0.14, 0.1, pink, 0.55);
+      leg.position.set(lx, 0.07, lz);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    group.add(body, head, tail);
+    limbs.push(tail);
+    return { group, limbs };
+  }
+
+  if (type === 'goat') {
+    const wool = 0xf1ede4;
+    const hornCol = 0x574c41;
+    const body = partBox(0.56, 0.58, 1.0, wool, 0.92);
+    body.position.set(0, 0.72, 0);
+    const head = partBox(0.38, 0.42, 0.58, wool, 0.85);
+    head.position.set(0, 1.08, 0.62);
+    const beard = partBox(0.12, 0.22, 0.12, 0xd6d3d1, 0.9);
+    beard.position.set(0, 0.82, 0.78);
+    for (const sx of [-0.14, 0.14]) {
+      const horn = partBox(0.08, 0.42, 0.1, hornCol, 0.65);
+      horn.position.set(sx, 1.42, 0.52);
+      horn.rotation.x = -0.35;
+      const eye = partBox(0.06, 0.06, 0.05, 0xfacc15, 0.2);
+      eye.position.set(sx * 1.15, 1.12, 0.86);
+      group.add(horn, eye);
+    }
+    for (const [lx, lz] of [[-0.18, 0.34], [0.18, 0.34], [-0.18, -0.34], [0.18, -0.34]]) {
+      const leg = partBox(0.16, 0.52, 0.16, 0x9c8f81, 0.85);
+      leg.position.set(lx, 0.26, lz);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    group.add(body, head, beard);
+    return { group, limbs };
+  }
+
+  if (type === 'glow_squid') {
+    const body = partBox(0.58, 0.72, 0.58, 0x164e63, 0.25, 0.1, 0x22d3ee);
+    body.position.set(0, 0.92, 0);
+    const spot = partBox(0.61, 0.24, 0.61, 0x67e8f9, 0.15, 0, 0x38bdf8);
+    spot.position.set(0, 1.0, 0);
+    group.add(body, spot);
+    for (let i = 0; i < 6; i++) {
+      const ang = (i / 6) * Math.PI * 2;
+      const tent = partBox(0.1, 0.56, 0.1, 0x0891b2, 0.3, 0, 0x22d3ee);
+      tent.position.set(Math.cos(ang) * 0.2, 0.32, Math.sin(ang) * 0.2);
+      group.add(tent);
+      limbs.push(tent);
+    }
+    return { group, limbs };
+  }
+
+  if (type === 'tadpole') {
+    const body = partBox(0.24, 0.18, 0.28, 0x5c4738, 0.5);
+    body.position.set(0, 0.14, 0.06);
+    const tail = partBox(0.05, 0.14, 0.34, 0x7c6352, 0.6);
+    tail.position.set(0, 0.14, -0.22);
+    group.add(body, tail);
+    limbs.push(tail);
+    return { group, limbs };
+  }
+
+  if (type === 'sniffer') {
+    const red = 0x991b1b;
+    const moss = 0x4d7c0f;
+    const snoutCol = 0xd97706;
+    const body = partBox(1.35, 0.82, 1.85, red, 0.88);
+    body.position.set(0, 0.82, 0);
+    const backMoss = partBox(1.42, 0.28, 1.9, moss, 0.95);
+    backMoss.position.set(0, 1.24, 0);
+    const head = partBox(0.95, 0.68, 0.72, red, 0.85);
+    head.position.set(0, 0.78, 1.15);
+    const snout = partBox(0.84, 0.38, 0.42, snoutCol, 0.75);
+    snout.position.set(0, 0.72, 1.62);
+    for (const sx of [-0.54, 0.54]) {
+      const ear = partBox(0.12, 0.52, 0.44, red, 0.9);
+      ear.position.set(sx, 0.86, 1.12);
+      ear.rotation.z = sx < 0 ? 0.28 : -0.28;
+      group.add(ear);
+    }
+    for (const [lx, lz] of [[-0.48, 0.62], [0.48, 0.62], [-0.48, 0], [0.48, 0], [-0.48, -0.62], [0.48, -0.62]]) {
+      const leg = partBox(0.32, 0.48, 0.32, 0x5f1515, 0.88);
+      leg.position.set(lx, 0.24, lz);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    group.add(body, backMoss, head, snout);
+    return { group, limbs };
+  }
+
+  if (type === 'camel' || type === 'camel_husk') {
+    const isHusk = type === 'camel_husk';
+    const sand = isHusk ? 0x8b7e5f : 0xd6a662;
+    const dark = isHusk ? 0x5c5340 : 0xb08042;
+    const body = partBox(0.86, 0.74, 1.68, sand, 0.86);
+    body.position.set(0, 1.28, 0);
+    const hump = partBox(0.68, 0.42, 0.72, dark, 0.9);
+    hump.position.set(0, 1.78, -0.05);
+    const neck = partBox(0.38, 0.88, 0.42, sand, 0.85);
+    neck.position.set(0, 1.64, 0.96);
+    neck.rotation.x = 0.28;
+    const head = partBox(0.46, 0.44, 0.78, sand, 0.82);
+    head.position.set(0, 2.04, 1.22);
+    for (const sx of [-0.26, 0.26]) {
+      const ear = partBox(0.14, 0.14, 0.12, dark, 0.85);
+      ear.position.set(sx, 2.26, 0.98);
+      const eye = partBox(0.08, 0.08, 0.05, isHusk ? 0x4ade80 : 0x1c1917, 0.2, 0, isHusk ? 0x22c55e : 0);
+      eye.position.set(sx * 0.85, 2.08, 1.58);
+      group.add(ear, eye);
+    }
+    for (const [lx, lz] of [[-0.28, 0.62], [0.28, 0.62], [-0.28, -0.62], [0.28, -0.62]]) {
+      const leg = partBox(0.22, 1.05, 0.22, dark, 0.88);
+      leg.position.set(lx, 0.525, lz);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    group.add(body, hump, neck, head);
+    return { group, limbs };
+  }
+
+  if (type === 'armadillo') {
+    const shellCol = 0x9a6b5c;
+    const skinCol = 0xd6a593;
+    const shell = partBox(0.58, 0.42, 0.72, shellCol, 0.65, 0.12);
+    shell.position.set(0, 0.34, 0);
+    const plate = partBox(0.62, 0.22, 0.48, 0x7c5244, 0.6);
+    plate.position.set(0, 0.44, -0.04);
+    const head = partBox(0.28, 0.24, 0.34, skinCol, 0.8);
+    head.position.set(0, 0.28, 0.46);
+    const tail = partBox(0.1, 0.1, 0.38, shellCol, 0.75);
+    tail.position.set(0, 0.18, -0.5);
+    for (const [lx, lz] of [[-0.18, 0.22], [0.18, 0.22], [-0.18, -0.22], [0.18, -0.22]]) {
+      const leg = partBox(0.12, 0.2, 0.12, skinCol, 0.82);
+      leg.position.set(lx, 0.1, lz);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    group.add(shell, plate, head, tail);
+    return { group, limbs };
+  }
+
+  if (type === 'ghastling') {
+    const head = partBox(0.95, 0.95, 0.95, 0xf8fafc, 0.82);
+    head.position.set(0, 1.35, 0);
+    const eyeL = partBox(0.16, 0.14, 0.06, 0x1e293b, 0.2);
+    eyeL.position.set(-0.22, 1.44, 0.49);
+    const eyeR = eyeL.clone();
+    eyeR.position.x = 0.22;
+    const smile = partBox(0.3, 0.1, 0.06, 0xf472b6, 0.4);
+    smile.position.set(0, 1.18, 0.49);
+    group.add(head, eyeL, eyeR, smile);
+    for (const [tx, tz] of [[-0.25, -0.2], [0.25, -0.2], [0, 0.2], [-0.25, 0.2], [0.25, 0.2]]) {
+      const t = partBox(0.12, 0.42, 0.12, 0xe2e8f0, 0.86);
+      t.position.set(tx, 0.7, tz);
+      group.add(t);
+      limbs.push(t);
+    }
+    return { group, limbs };
+  }
+
+  if (type === 'nautilus' || type === 'zombie_nautilus') {
+    const isZ = type === 'zombie_nautilus';
+    const shellMain = isZ ? 0x4d6b47 : 0xf2e4cf;
+    const stripe = isZ ? 0x2d422a : 0xb45309;
+    const bodyCol = isZ ? 0x65a30d : 0xfda4af;
+    const shell = partBox(0.95, 1.05, 1.05, shellMain, 0.5, 0.15);
+    shell.position.set(0, 0.72, -0.15);
+    const ring = partBox(1.02, 0.36, 0.82, stripe, 0.55);
+    ring.position.set(0, 0.86, -0.18);
+    const hood = partBox(0.68, 0.52, 0.54, bodyCol, 0.6);
+    hood.position.set(0, 0.56, 0.54);
+    for (const sx of [-0.36, 0.36]) {
+      const eye = partBox(0.12, 0.16, 0.14, isZ ? 0xef4444 : 0x0ea5e9, 0.2, 0, isZ ? 0xdc2626 : 0x38bdf8);
+      eye.position.set(sx, 0.62, 0.66);
+      group.add(eye);
+    }
+    for (let i = -2; i <= 2; i++) {
+      const tent = partBox(0.1, 0.12, 0.52, bodyCol, 0.65);
+      tent.position.set(i * 0.14, 0.38, 0.92);
+      group.add(tent);
+      limbs.push(tent);
+    }
+    group.add(shell, ring, hood);
+    return { group, limbs };
+  }
+
+  if (type === 'parched' || type === 'frostbite') {
+    const isFrost = type === 'frostbite';
+    const skinCol = isFrost ? 0x7dd3fc : 0xd6c39c;
+    const clothCol = isFrost ? 0x1e3a8a : 0xa1865e;
+    const accentCol = isFrost ? 0xbae6fd : 0xfef08a;
+    for (const sx of [-0.15, 0.15]) {
+      const leg = partBox(0.2, 0.72, 0.2, clothCol, 0.78);
+      leg.position.set(sx, 0.36, 0);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    const torso = partBox(0.5, 0.68, 0.28, clothCol, 0.75);
+    torso.position.set(0, 1.04, 0);
+    const head = partBox(0.48, 0.48, 0.48, skinCol, 0.65, isFrost ? 0.15 : 0);
+    head.position.set(0, 1.62, 0);
+    const crown = partBox(0.54, 0.18, 0.54, accentCol, 0.3, 0, isFrost ? 0x38bdf8 : 0);
+    crown.position.set(0, 1.88, 0);
+    for (const sx of [-0.12, 0.12]) {
+      const eye = partBox(0.1, 0.08, 0.05, isFrost ? 0xe0f2fe : 0x451a03, 0.2, 0, isFrost ? 0x38bdf8 : 0);
+      eye.position.set(sx, 1.66, 0.25);
+      group.add(eye);
+    }
+    for (const sx of [-0.36, 0.36]) {
+      const arm = partBox(0.18, 0.66, 0.18, skinCol, 0.72);
+      arm.position.set(sx, 1.04, 0.22);
+      arm.rotation.x = -Math.PI * 0.42;
+      group.add(arm);
+    }
+    group.add(torso, head, crown);
+    return { group, limbs };
+  }
+
+  if (type === 'zombie_horse') {
+    const skin = 0x5c8c4c;
+    const mane = 0x2d4a26;
+    const body = partBox(0.76, 0.68, 1.48, skin, 0.8);
+    body.position.set(0, 1.12, 0);
+    const neck = partBox(0.34, 0.78, 0.38, skin, 0.8);
+    neck.position.set(0, 1.54, 0.68);
+    neck.rotation.x = 0.35;
+    const head = partBox(0.36, 0.36, 0.68, skin, 0.78);
+    head.position.set(0, 1.84, 0.98);
+    const maneStrip = partBox(0.14, 0.76, 0.2, mane, 0.9);
+    maneStrip.position.set(0, 1.6, 0.48);
+    maneStrip.rotation.x = 0.35;
+    for (const [lx, lz] of [[-0.26, 0.54], [0.26, 0.54], [-0.26, -0.54], [0.26, -0.54]]) {
+      const leg = partBox(0.2, 0.84, 0.2, mane, 0.84);
+      leg.position.set(lx, 0.42, lz);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    group.add(body, neck, head, maneStrip);
+    return { group, limbs };
+  }
+
+  if (type === 'sulfur_cube' || type === 'cold_sulfur_cube') {
+    const isCold = type === 'cold_sulfur_cube';
+    const outerCol = isCold ? 0x67e8f9 : 0xfacc15;
+    const coreCol = isCold ? 0x0284c7 : 0xea580c;
+    const outerGeo = new THREE.BoxGeometry(0.96, 0.96, 0.96);
+    const outerMat = new THREE.MeshStandardMaterial({
+      color: outerCol,
+      roughness: 0.25,
+      metalness: 0.1,
+      transparent: true,
+      opacity: 0.78,
+      emissive: isCold ? 0x06b6d4 : 0xca8a04,
+      emissiveIntensity: 0.35,
+    });
+    const outer = new THREE.Mesh(outerGeo, outerMat);
+    outer.name = 'sulfurOuter';
+    outer.position.set(0, 0.48, 0);
+    outer.castShadow = true;
+    const core = partBox(0.54, 0.54, 0.54, coreCol, 0.35, 0.2, coreCol);
+    core.name = 'sulfurCore';
+    core.position.set(0, 0.48, 0);
+    for (const sx of [-0.18, 0.18]) {
+      const eye = partBox(0.14, 0.14, 0.06, 0x18181b, 0.15);
+      eye.position.set(sx, 0.56, 0.48);
+      group.add(eye);
+    }
+    group.add(outer, core);
+    limbs.push(outer);
+    return { group, limbs };
+  }
+
+  if (type === 'ender_dragon') {
+    const scale = 0x18181b;
+    const ridge = 0x3f3f46;
+    const eyeGlow = 0xd946ef;
+    const wingMembrane = 0x272033;
+
+    const torso = partBox(1.5, 1.2, 3.4, scale, 0.55, 0.25);
+    torso.position.set(0, 1.5, 0);
+    const spine = partBox(0.32, 0.45, 3.0, ridge, 0.45, 0.35);
+    spine.position.set(0, 2.25, 0);
+    const neck = partBox(0.75, 0.72, 1.8, scale, 0.55, 0.2);
+    neck.position.set(0, 1.72, 2.3);
+    const head = partBox(1.05, 0.88, 1.35, scale, 0.5, 0.25);
+    head.position.set(0, 1.75, 3.6);
+    const snout = partBox(0.72, 0.48, 0.9, ridge, 0.55);
+    snout.position.set(0, 1.55, 4.55);
+    for (const sx of [-0.34, 0.34]) {
+      const eye = partBox(0.22, 0.14, 0.08, eyeGlow, 0.1, 0, eyeGlow);
+      eye.position.set(sx, 1.9, 4.26);
+      const horn = partBox(0.18, 0.45, 0.65, ridge, 0.4, 0.4);
+      horn.position.set(sx * 1.15, 2.32, 3.25);
+      group.add(eye, horn);
+    }
+    // Massive flapping left & right wing pivots
+    const wingLPivot = new THREE.Group();
+    wingLPivot.position.set(-0.75, 1.9, 0.4);
+    const wingLFrame = partBox(3.8, 0.18, 0.32, scale, 0.5, 0.3);
+    wingLFrame.position.set(-1.9, 0, 0.6);
+    const wingLSkin = partBox(3.8, 0.08, 2.4, wingMembrane, 0.75);
+    wingLSkin.position.set(-1.9, -0.05, -0.5);
+    wingLPivot.add(wingLFrame, wingLSkin);
+
+    const wingRPivot = new THREE.Group();
+    wingRPivot.position.set(0.75, 1.9, 0.4);
+    const wingRFrame = partBox(3.8, 0.18, 0.32, scale, 0.5, 0.3);
+    wingRFrame.position.set(1.9, 0, 0.6);
+    const wingRSkin = partBox(3.8, 0.08, 2.4, wingMembrane, 0.75);
+    wingRSkin.position.set(1.9, -0.05, -0.5);
+    wingRPivot.add(wingRFrame, wingRSkin);
+
+    // Segmented dragon tail
+    const tailPivot = new THREE.Group();
+    tailPivot.position.set(0, 1.5, -1.8);
+    for (let t = 0; t < 4; t++) {
+      const seg = partBox(0.75 - t * 0.12, 0.65 - t * 0.1, 1.0, scale, 0.55);
+      seg.position.set(0, 0, -0.5 - t * 0.95);
+      const spike = partBox(0.18, 0.28, 0.35, ridge, 0.4);
+      spike.position.set(0, 0.42 - t * 0.05, -0.5 - t * 0.95);
+      tailPivot.add(seg, spike);
+    }
+    group.add(torso, spine, neck, head, snout, wingLPivot, wingRPivot, tailPivot);
+    limbs.push(wingLPivot, wingRPivot, tailPivot);
+    return { group, limbs };
+  }
+
   const isCreeper = type === 'creeper';
   const isPiglin = type === 'piglin';
   const isZPiglin = type === 'zombified_piglin';
@@ -958,7 +1355,12 @@ export function updateMobAI(
   playerWearingGold: boolean,
   difficulty: Difficulty,
   getBlock: (x: number, y: number, z: number) => number,
-  onAttackPlayer: (dmg: number, mobName: string, explode?: { x: number; y: number; z: number }) => void,
+  onAttackPlayer: (
+    dmg: number,
+    mobName: string,
+    explode?: { x: number; y: number; z: number },
+    inflictEffect?: 'slowness' | 'darkness',
+  ) => void,
 ): void {
   const spec = MOB_SPECS[mob.type];
   mob.attackCooldown = Math.max(0, mob.attackCooldown - dt);
@@ -973,6 +1375,15 @@ export function updateMobAI(
     });
   }
 
+  // If currently ridden by the player, engine.ts controls velocity & position directly
+  if (mob.riddenByPlayer) {
+    mob.walkPhase += dt * (Math.hypot(mob.vx, mob.vz) * 2.2 + 2.5);
+    mob.limbs.forEach((limb, idx) => {
+      limb.rotation.x = Math.sin(mob.walkPhase + (idx % 2 === 0 ? 0 : Math.PI)) * 0.45;
+    });
+    return;
+  }
+
   const dx = playerPos.x - mob.x;
   const dy = playerPos.y - mob.y;
   const dz = playerPos.z - mob.z;
@@ -984,9 +1395,42 @@ export function updateMobAI(
     difficulty !== 'peaceful' &&
     mob.hostile &&
     !(mob.type === 'piglin' && playerWearingGold) &&
-    dist < 18;
+    dist < (mob.type === 'ender_dragon' ? 72 : mob.type === 'warden' ? 24 : 18);
 
-  if (mob.type === 'ghast' || mob.type === 'happy_ghast' || mob.type === 'allay') {
+  // --- ENDER DRAGON BOSS FLIGHT & SWOOP AI ---
+  if (mob.type === 'ender_dragon') {
+    mob.walkPhase += dt * 4.8;
+    const flap = Math.sin(mob.walkPhase) * 0.58;
+    if (mob.limbs[0]) mob.limbs[0].rotation.z = flap;
+    if (mob.limbs[1]) mob.limbs[1].rotation.z = -flap;
+    if (mob.limbs[2]) mob.limbs[2].rotation.y = Math.sin(mob.walkPhase * 0.7) * 0.35;
+
+    mob.wanderAngle += dt * 0.42;
+    const swooping = isAggro && Math.sin(mob.wanderAngle * 0.6) > 0.45;
+    const targetX = swooping ? playerPos.x : Math.cos(mob.wanderAngle) * 26;
+    const targetZ = swooping ? playerPos.z : Math.sin(mob.wanderAngle) * 26;
+    const targetY = swooping ? Math.max(60, playerPos.y + 2.2) : 76 + Math.sin(mob.wanderAngle * 2) * 5;
+
+    const toX = targetX - mob.x;
+    const toY = targetY - mob.y;
+    const toZ = targetZ - mob.z;
+    const toLen = Math.max(0.01, Math.hypot(toX, toY, toZ));
+    mob.yaw = Math.atan2(toX, toZ);
+    const spd = swooping ? spec.speed * 1.2 : spec.speed;
+    mob.x += (toX / toLen) * spd * dt;
+    mob.y += (toY / toLen) * spd * 0.65 * dt;
+    mob.z += (toZ / toLen) * spd * dt;
+
+    if (isAggro && dist < 5.5 && Math.abs(dy) < 4.5 && mob.attackCooldown <= 0) {
+      mob.attackCooldown = 2.4;
+      const dmgScale = difficulty === 'hard' ? 1.4 : difficulty === 'easy' ? 0.65 : 1.0;
+      onAttackPlayer(Math.max(2, Math.round(spec.damage * dmgScale)), spec.nameVi);
+    }
+    return;
+  }
+
+  // --- FLYING MOBS (Ghast, Happy Ghast, Ghastling, Allay) ---
+  if (spec.flying) {
     mob.wanderTimer -= dt;
     if (mob.wanderTimer <= 0) {
       mob.wanderTimer = 3 + Math.random() * 4;
@@ -1008,7 +1452,31 @@ export function updateMobAI(
     return;
   }
 
-  // Ground mobs
+  // --- AQUATIC MOBS (Axolotl, Glow Squid, Tadpole, Nautilus, Zombie Nautilus) ---
+  const curBlock = getBlock(Math.floor(mob.x), Math.floor(mob.y + 0.3), Math.floor(mob.z));
+  const inWater = curBlock === BLOCK.WATER;
+  if (spec.aquatic && inWater) {
+    mob.wanderTimer -= dt;
+    if (mob.wanderTimer <= 0) {
+      mob.wanderTimer = 2.5 + Math.random() * 3.5;
+      mob.wanderAngle = Math.random() * Math.PI * 2;
+    }
+    mob.yaw = isAggro ? Math.atan2(dx, dz) : mob.wanderAngle;
+    mob.x += Math.sin(mob.yaw) * spec.speed * 0.75 * dt;
+    mob.z += Math.cos(mob.yaw) * spec.speed * 0.75 * dt;
+    mob.y += Math.sin(performance.now() * 0.003 + mob.z) * 0.3 * dt;
+    mob.walkPhase += dt * 7;
+    mob.limbs.forEach((l, idx) => {
+      l.rotation.y = Math.sin(mob.walkPhase + idx * 0.6) * 0.38;
+    });
+    if (isAggro && dist < 2.4 && Math.abs(dy) < 2.2 && mob.attackCooldown <= 0) {
+      mob.attackCooldown = 1.4;
+      onAttackPlayer(spec.damage, spec.nameVi);
+    }
+    return;
+  }
+
+  // --- GROUND MOBS ---
   let moveX = 0;
   let moveZ = 0;
   if (isAggro && dist > 1.2) {
@@ -1041,6 +1509,31 @@ export function updateMobAI(
     mob.vy = Math.max(-24, mob.vy - 24 * dt);
   }
 
+  // --- 2026 CHAOS CUBED: SULFUR CUBE BLOCK ABSORPTION MUTATION ---
+  if ((mob.type === 'sulfur_cube' || mob.type === 'cold_sulfur_cube') && onSolid && below !== BLOCK.AIR && mob.absorbedBlockId !== below) {
+    mob.absorbedBlockId = below;
+    const outer = mob.mesh.getObjectByName('sulfurOuter') as THREE.Mesh | undefined;
+    if (outer && outer.material instanceof THREE.MeshStandardMaterial) {
+      if (below === BLOCK.MAGMA || below === BLOCK.LAVA || below === BLOCK.NETHERRACK) {
+        outer.material.color.setHex(0xf97316);
+        outer.material.emissive.setHex(0xea580c);
+      } else if (below === BLOCK.ICE || below === BLOCK.SNOW) {
+        outer.material.color.setHex(0x38bdf8);
+        outer.material.emissive.setHex(0x0284c7);
+      } else if (below === BLOCK.OBSIDIAN || below === BLOCK.BEDROCK) {
+        outer.material.color.setHex(0x7e22ce);
+        outer.material.emissive.setHex(0x581c87);
+        mob.hp = Math.min(mob.maxHp + 8, mob.hp + 6);
+      } else if (below === BLOCK.GRASS) {
+        outer.material.color.setHex(0x84cc16);
+        outer.material.emissive.setHex(0x4d7c0f);
+      } else if (below === BLOCK.GOLD_BLOCK || below === BLOCK.GOLD_ORE) {
+        outer.material.color.setHex(0xfef08a);
+        outer.material.emissive.setHex(0xeab308);
+      }
+    }
+  }
+
   const nextX = mob.x + mob.vx * dt;
   const nextZ = mob.z + mob.vz * dt;
   const frontFoot = getBlock(Math.floor(nextX), Math.floor(mob.y + 0.2), Math.floor(nextZ));
@@ -1060,16 +1553,29 @@ export function updateMobAI(
   }
   mob.y += mob.vy * dt;
 
-  // Limb walk cycle (Breeze spins its wind vortices!)
+  // Limb walk cycle & signature mob animations
   if (mob.type === 'breeze') {
     mob.walkPhase += dt * 7;
     mob.limbs.forEach((swirl, idx) => {
       swirl.rotation.y = mob.walkPhase * (idx % 2 === 0 ? 1 : -1.4);
     });
     if (onSolid && Math.random() < dt * 0.8) {
-      mob.vy = 8.2; // Playful Breeze wind leap!
+      mob.vy = 8.2;
     }
+  } else if (mob.type === 'sulfur_cube' || mob.type === 'cold_sulfur_cube') {
+    mob.walkPhase += dt * 6;
+    if (onSolid && Math.random() < dt * 1.1) {
+      mob.vy = 6.5; // Bouncy slime/sulfur cube hop!
+    }
+    const squish = onSolid ? 1 + Math.sin(mob.walkPhase) * 0.08 : 0.9;
+    mob.mesh.scale.set(1 / Math.sqrt(squish), squish, 1 / Math.sqrt(squish));
   } else {
+    if (mob.type === 'goat' && onSolid && Math.random() < dt * 0.35) {
+      mob.vy = 10.2; // High mountain Goat leap!
+    }
+    if (mob.type === 'frog' && onSolid && Math.random() < dt * 0.5) {
+      mob.vy = 6.8;
+    }
     const speedNow = Math.hypot(mob.vx, mob.vz);
     if (speedNow > 0.25) {
       mob.walkPhase += dt * speedNow * 2.6;
@@ -1083,7 +1589,7 @@ export function updateMobAI(
     }
   }
 
-  // Creeper fuse & melee attack
+  // Creeper fuse & melee attack (plus Frostbite/Cold Sulfur Cube Slowness & Warden Darkness!)
   if (isAggro && dist < 2.2 && Math.abs(dy) < 2.2) {
     if (mob.type === 'creeper') {
       mob.fuseTimer += dt;
@@ -1097,7 +1603,13 @@ export function updateMobAI(
     } else if (mob.attackCooldown <= 0) {
       mob.attackCooldown = 1.25;
       const dmgScale = difficulty === 'hard' ? 1.5 : difficulty === 'easy' ? 0.65 : 1.0;
-      onAttackPlayer(Math.max(1, Math.round(spec.damage * dmgScale)), spec.nameVi);
+      const inflict =
+        mob.type === 'frostbite' || mob.type === 'cold_sulfur_cube'
+          ? 'slowness'
+          : mob.type === 'warden'
+            ? 'darkness'
+            : undefined;
+      onAttackPlayer(Math.max(1, Math.round(spec.damage * dmgScale)), spec.nameVi, undefined, inflict);
     }
   } else if (mob.type === 'creeper' && mob.fuseTimer > 0) {
     mob.fuseTimer = Math.max(0, mob.fuseTimer - dt * 2);

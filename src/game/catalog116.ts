@@ -455,6 +455,49 @@ addBlock({ key: 'leaf_litter', nameVi: 'Lá Rụng Mùa Thu', category: 'decor_b
 addBlock({ key: 'bush', nameVi: 'Bụi Cây Xanh', category: 'decor_brew', hardness: 0.1, tool: 'none', transparent: true, nonSolid: true, sound: 'grass', texStyle: 'plant', base: '#4a8529', accent: '#65a30d' });
 addBlock({ key: 'short_dry_grass', nameVi: 'Cỏ Khô Thảo Nguyên', category: 'decor_brew', hardness: 0.1, tool: 'none', transparent: true, nonSolid: true, sound: 'grass', texStyle: 'plant', base: '#bfa358', accent: '#9e843f' });
 
+// Complete 1.17–1.21 Missing Deepslate, Copper, Sculk, Trails & Tales, Tricky Trials & Copper Age Blocks
+addBlock({ key: 'polished_deepslate', nameVi: 'Đá Phiến Sâu Mài Bóng', category: 'building', hardness: 3.0, tool: 'pickaxe', minTier: 1, sound: 'stone', texStyle: 'stone', base: '#48484f', accent: '#36363c' });
+addBlock({ key: 'deepslate_tiles', nameVi: 'Ngói Đá Phiến Sâu', category: 'building', hardness: 3.0, tool: 'pickaxe', minTier: 1, sound: 'stone', texStyle: 'bricks', base: '#3d3d44', accent: '#27272c' });
+addBlock({ key: 'chiseled_deepslate', nameVi: 'Đá Phiến Sâu Đục Khắc', category: 'building', hardness: 3.0, tool: 'pickaxe', minTier: 1, sound: 'stone', texStyle: 'bricks', base: '#44444b', accent: '#2b2b30' });
+addBlock({ key: 'deepslate_coal_ore', nameVi: 'Quặng Than Đá Sâu', category: 'ores', hardness: 3.5, tool: 'pickaxe', minTier: 1, dropItem: 'coal', sound: 'stone', texStyle: 'ore', base: '#46464d', accent: '#18181b' });
+addBlock({ key: 'deepslate_copper_ore', nameVi: 'Quặng Đồng Đá Sâu', category: 'ores', hardness: 3.5, tool: 'pickaxe', minTier: 1, dropItem: 'raw_copper', dropCount: 3, sound: 'stone', texStyle: 'ore', base: '#46464d', accent: '#d97757' });
+addBlock({ key: 'deepslate_lapis_ore', nameVi: 'Quặng Ngọc Lưu Ly Sâu', category: 'ores', hardness: 3.8, tool: 'pickaxe', minTier: 2, dropItem: 'lapis_lazuli', dropCount: 5, sound: 'stone', texStyle: 'ore', base: '#46464d', accent: '#2563eb' });
+addBlock({ key: 'deepslate_redstone_ore', nameVi: 'Quặng Đá Đỏ Sâu', category: 'ores', hardness: 3.8, tool: 'pickaxe', minTier: 2, dropItem: 'redstone', dropCount: 4, sound: 'stone', texStyle: 'ore', base: '#46464d', accent: '#dc2626' });
+addBlock({ key: 'deepslate_emerald_ore', nameVi: 'Quặng Ngọc Lục Bảo Sâu', category: 'ores', hardness: 4.2, tool: 'pickaxe', minTier: 2, dropItem: 'emerald', sound: 'stone', texStyle: 'ore', base: '#46464d', accent: '#22c55e' });
+addBlock({ key: 'cut_copper_stairs', nameVi: 'Cầu Thang Đồng Cắt', category: 'building', hardness: 2.8, tool: 'pickaxe', minTier: 1, sound: 'metal', texStyle: 'metal', base: '#c46c4a', accent: '#9e5033' });
+addBlock({ key: 'cut_copper_slab', nameVi: 'Phiến Đồng Cắt', category: 'building', hardness: 2.8, tool: 'pickaxe', minTier: 1, sound: 'metal', texStyle: 'metal', base: '#c46c4a', accent: '#9e5033' });
+addBlock({ key: 'waxed_copper_block', nameVi: 'Khối Đồng Phủ Sáp', category: 'building', hardness: 3.0, tool: 'pickaxe', minTier: 1, sound: 'metal', texStyle: 'metal', base: '#c46c4a', accent: '#facc15' });
+addBlock({ key: 'waxed_exposed_copper', nameVi: 'Đồng Lộ Khí Phủ Sáp', category: 'building', hardness: 3.0, tool: 'pickaxe', minTier: 1, sound: 'metal', texStyle: 'metal', base: '#a17b63', accent: '#facc15' });
+addBlock({ key: 'waxed_weathered_copper', nameVi: 'Đồng Phong Hóa Phủ Sáp', category: 'building', hardness: 3.0, tool: 'pickaxe', minTier: 1, sound: 'metal', texStyle: 'metal', base: '#69997b', accent: '#facc15' });
+addBlock({ key: 'waxed_oxidized_copper', nameVi: 'Đồng Oxy Hóa Phủ Sáp', category: 'building', hardness: 3.0, tool: 'pickaxe', minTier: 1, sound: 'metal', texStyle: 'metal', base: '#51a385', accent: '#facc15' });
+addBlock({ key: 'sculk_vein', nameVi: 'Gân Sculk (Deep Dark)', category: 'nether116', hardness: 0.2, tool: 'hoe', transparent: true, nonSolid: true, emissive: true, sound: 'stone', texStyle: 'flat', base: '#0a252d', accent: '#2dd4bf' });
+addBlock({ key: 'decorated_pot', nameVi: 'Bình Gốm Trang Trí', category: 'decor_brew', hardness: 0.3, tool: 'none', transparent: true, sound: 'stone', texStyle: 'station', base: '#9e533c', accent: '#753826', trim: '#c9785d' });
+addBlock({ key: 'pitcher_plant', nameVi: 'Cây Nắp Ấm (Pitcher Plant)', category: 'decor_brew', hardness: 0.1, tool: 'none', transparent: true, nonSolid: true, sound: 'grass', texStyle: 'plant', base: '#38bdf8', accent: '#7c3aed' });
+addBlock({ key: 'oak_hanging_sign', nameVi: 'Biển Treo Gỗ Sồi', category: 'decor_brew', hardness: 1.0, tool: 'axe', transparent: true, sound: 'wood', texStyle: 'planks', base: '#a2824e', accent: '#6b4c28' });
+addBlock({ key: 'bamboo_stairs', nameVi: 'Cầu Thang Tre', category: 'building', hardness: 1.5, tool: 'axe', sound: 'wood', texStyle: 'planks', base: '#c9b458', accent: '#9e8b38' });
+addBlock({ key: 'bamboo_slab', nameVi: 'Phiến Tre', category: 'building', hardness: 1.5, tool: 'axe', sound: 'wood', texStyle: 'planks', base: '#c9b458', accent: '#9e8b38' });
+addBlock({ key: 'ominous_vault', nameVi: 'Kho Báu Điềm Gở (Ominous Vault)', category: 'nether116', hardness: 8.0, tool: 'pickaxe', emissive: true, sound: 'metal', texStyle: 'station', base: '#1e293b', accent: '#22d3ee', trim: '#f43f5e' });
+addBlock({ key: 'ominous_trial_spawner', nameVi: 'Lồng Thử Thách Điềm Gở', category: 'nether116', hardness: 8.0, tool: 'pickaxe', emissive: true, sound: 'metal', texStyle: 'station', base: '#1e293b', accent: '#38bdf8', trim: '#e11d48' });
+addBlock({ key: 'copper_chest', nameVi: 'Rương Đồng (Copper Age)', category: 'decor_brew', hardness: 2.5, tool: 'pickaxe', sound: 'metal', texStyle: 'station', base: '#c46c4a', accent: '#4ea88a', trim: '#7c3f26' });
+addBlock({ key: 'copper_shelf', nameVi: 'Kệ Đồng (Copper Age)', category: 'decor_brew', hardness: 2.0, tool: 'pickaxe', sound: 'metal', texStyle: 'station', base: '#c46c4a', accent: '#e89572', trim: '#7c3f26' });
+
+// 2026 Chaos Cubed — Sulfur Caves & Cinnabar!
+addBlock({ key: 'sulfur_block', nameVi: 'Khối Lưu Huỳnh (Chaos Cubed)', category: 'building', hardness: 1.4, tool: 'pickaxe', emissive: true, sound: 'stone', texStyle: 'stone', base: '#eab308', accent: '#fef08a' });
+addBlock({ key: 'sulfur_ore', nameVi: 'Quặng Lưu Huỳnh', category: 'ores', hardness: 2.4, tool: 'pickaxe', minTier: 1, dropItem: 'sulfur_dust', dropCount: 3, sound: 'stone', texStyle: 'ore', base: '#6b685e', accent: '#facc15' });
+addBlock({ key: 'cinnabar_ore', nameVi: 'Quặng Chu Sa (Cinnabar Ore)', category: 'ores', hardness: 3.2, tool: 'pickaxe', minTier: 2, dropItem: 'cinnabar_gem', dropCount: 2, emissive: true, sound: 'stone', texStyle: 'ore', base: '#4a4347', accent: '#ef4444' });
+addBlock({ key: 'cinnabar_block', nameVi: 'Khối Chu Sa (Cinnabar Block)', category: 'ores', hardness: 3.8, tool: 'pickaxe', minTier: 2, emissive: true, sound: 'metal', texStyle: 'metal', base: '#dc2626', accent: '#fca5a5' });
+
+// 26.4 Winter Drop (Experimental/Bonus) — Ice Caves, Ice Crystals, Icicles, Snow Bricks, Calcite Set!
+addBlock({ key: 'ice_crystal', nameVi: 'Tinh Thể Băng (26.4)', category: 'decor_brew', hardness: 1.0, tool: 'pickaxe', transparent: true, emissive: true, sound: 'glass', texStyle: 'plant', base: '#7dd3fc', accent: '#e0f2fe' });
+addBlock({ key: 'icicle', nameVi: 'Nhũ Băng (Icicle 26.4)', category: 'decor_brew', hardness: 0.6, tool: 'pickaxe', transparent: true, sound: 'glass', texStyle: 'plant', base: '#bae6fd', accent: '#f8fafc' });
+addBlock({ key: 'snow_bricks', nameVi: 'Gạch Tuyết (26.4)', category: 'building', hardness: 0.8, tool: 'shovel', sound: 'grass', texStyle: 'bricks', base: '#f1f5f9', accent: '#cbd5e1' });
+addBlock({ key: 'polished_calcite', nameVi: 'Đá Calcite Đánh Bóng (26.4)', category: 'building', hardness: 1.4, tool: 'pickaxe', sound: 'stone', texStyle: 'stone', base: '#ecece6', accent: '#d6d4cc' });
+addBlock({ key: 'calcite_bricks', nameVi: 'Gạch Calcite (26.4)', category: 'building', hardness: 1.6, tool: 'pickaxe', sound: 'stone', texStyle: 'bricks', base: '#e5e5de', accent: '#c9c7be' });
+
+// The End Dimension Portals!
+addBlock({ key: 'end_portal', nameVi: 'Cổng The End', category: 'nether116', hardness: -1, tool: 'none', dropItem: null, transparent: true, nonSolid: true, emissive: true, sound: 'glass', texStyle: 'station', base: '#090914', accent: '#a855f7', trim: '#38bdf8' });
+addBlock({ key: 'end_gateway', nameVi: 'Cổng Dịch Chuyển End Gateway', category: 'nether116', hardness: -1, tool: 'none', dropItem: null, transparent: true, nonSolid: true, emissive: true, sound: 'glass', texStyle: 'station', base: '#0d061a', accent: '#e879f9', trim: '#2dd4bf' });
+
 // =========================================================================
 // 4. ALL 16 COLORS: WOOL (remaining 10), STAINED GLASS (16), TERRACOTTA (16), CONCRETE (16), CONCRETE POWDER (16), CARPET (6 key)
 // =========================================================================
@@ -755,6 +798,24 @@ export const EXT_ITEMS: ItemDef[] = [
   { id: 'bogged_spawn_egg', nameVi: 'Trứng Triệu Hồi Bogged', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#8a9c72', iconAccent: '#314d1b' },
   { id: 'happy_ghast_spawn_egg', nameVi: 'Trứng Triệu Hồi Happy Ghast', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#f8fafc', iconAccent: '#60a5fa' },
   { id: 'copper_golem_spawn_egg', nameVi: 'Trứng Triệu Hồi Copper Golem', maxStack: 64, category: 'tools', iconShape: 'pearl', iconColor: '#c46c4a', iconAccent: '#4ea88a' },
+  // 17 Additional Modern & Boss Mob Spawn Eggs (Complete 33-Mob Roster!)
+  { id: 'axolotl_spawn_egg', nameVi: 'Trứng Kỳ Nhông (Axolotl)', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#fbcfe8', iconAccent: '#ec4899' },
+  { id: 'goat_spawn_egg', nameVi: 'Trứng Dê Núi (Goat)', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#e7e5e4', iconAccent: '#a8a29e' },
+  { id: 'glow_squid_spawn_egg', nameVi: 'Trứng Mực Phát Sáng', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#0e7490', iconAccent: '#5eead4' },
+  { id: 'tadpole_spawn_egg', nameVi: 'Trứng Nòng Nọc (Tadpole)', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#5c4b37', iconAccent: '#3d3020' },
+  { id: 'sniffer_spawn_egg', nameVi: 'Trứng Thú Sniffer', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#991b1b', iconAccent: '#2dd4bf' },
+  { id: 'camel_spawn_egg', nameVi: 'Trứng Lạc Đà (Camel)', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#e5b869', iconAccent: '#b4833e' },
+  { id: 'armadillo_spawn_egg', nameVi: 'Trứng Tatu (Armadillo)', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#b88470', iconAccent: '#8c5d4c' },
+  { id: 'ghastling_spawn_egg', nameVi: 'Trứng Ghast Con (Ghastling)', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#ffffff', iconAccent: '#93c5fd' },
+  { id: 'nautilus_spawn_egg', nameVi: 'Trứng Ốc Anh Vũ (Nautilus)', maxStack: 64, category: 'tools', iconShape: 'pearl', iconColor: '#e7d7c1', iconAccent: '#ea580c' },
+  { id: 'zombie_nautilus_spawn_egg', nameVi: 'Trứng Ốc Anh Vũ Thây Ma', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#4d7c2e', iconAccent: '#9a3412' },
+  { id: 'camel_husk_spawn_egg', nameVi: 'Trứng Lạc Đà Xác Ướp', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#9c8a5e', iconAccent: '#57534e' },
+  { id: 'parched_spawn_egg', nameVi: 'Trứng Khô Cằn (Parched)', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#d6c598', iconAccent: '#92400e' },
+  { id: 'zombie_horse_spawn_egg', nameVi: 'Trứng Ngựa Thây Ma', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#3f7a2c', iconAccent: '#14532d' },
+  { id: 'sulfur_cube_spawn_egg', nameVi: 'Trứng Khối Lưu Huỳnh Sống', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#facc15', iconAccent: '#ca8a04' },
+  { id: 'cold_sulfur_cube_spawn_egg', nameVi: 'Trứng Khối Lưu Huỳnh Băng', maxStack: 64, category: 'decor_brew', iconShape: 'pearl', iconColor: '#7dd3fc', iconAccent: '#fde047' },
+  { id: 'frostbite_spawn_egg', nameVi: 'Trứng Thây Ma Băng Giá', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#38bdf8', iconAccent: '#1e3a8a' },
+  { id: 'ender_dragon_spawn_egg', nameVi: 'Trứng Rồng Ender (Boss)', maxStack: 64, category: 'nether116', iconShape: 'pearl', iconColor: '#18181b', iconAccent: '#c084fc' },
 
   // =========================================================================
   // MINECRAFT 1.17 – 26.3 MODERN WEAPONS, TOOLS, ARMOR & ITEMS
@@ -810,12 +871,32 @@ export const EXT_ITEMS: ItemDef[] = [
   { id: 'diamond_spear', nameVi: 'Giáo Kim Cương', maxStack: 1, category: 'tools', toolKind: 'sword', toolTier: 3, attackDamage: 9, iconShape: 'sword', iconColor: '#38bdf8', iconAccent: '#bae6fd' },
   { id: 'netherite_spear', nameVi: 'Giáo Netherite', maxStack: 1, category: 'nether116', toolKind: 'sword', toolTier: 4, attackDamage: 10.5, iconShape: 'sword', iconColor: '#4a4146', iconAccent: '#7c6f76' },
 
-  // Modern 1.18–1.21 Music Discs
+  // Modern 1.18–26.4 Music Discs, Pottery Sherds, Armor Trims, Harnesses, Chest Boat, Chaos Cubed Gems!
+  { id: 'oak_chest_boat', nameVi: 'Thuyền Có Rương (Chest Boat)', maxStack: 1, category: 'tools', iconShape: 'boat', iconColor: '#a2824e', iconAccent: '#eab308' },
+  { id: 'white_harness', nameVi: 'Yên Cưỡi Ghast Trắng', maxStack: 1, category: 'tools', iconShape: 'chestplate', iconColor: '#f8fafc', iconAccent: '#cbd5e1' },
+  { id: 'yellow_harness', nameVi: 'Yên Cưỡi Ghast Vàng', maxStack: 1, category: 'tools', iconShape: 'chestplate', iconColor: '#facc15', iconAccent: '#fef08a' },
+  { id: 'purple_harness', nameVi: 'Yên Cưỡi Ghast Tím', maxStack: 1, category: 'tools', iconShape: 'chestplate', iconColor: '#9333ea', iconAccent: '#d8b4fe' },
+  // Pottery Sherds (1.20 Trails & Tales)
+  { id: 'angler_pottery_sherd', nameVi: 'Mảnh Gốm Cần Thủ', maxStack: 64, category: 'decor_brew', iconShape: 'paper', iconColor: '#9e533c', iconAccent: '#e5b899' },
+  { id: 'archer_pottery_sherd', nameVi: 'Mảnh Gốm Cung Thủ', maxStack: 64, category: 'decor_brew', iconShape: 'paper', iconColor: '#9e533c', iconAccent: '#e5b899' },
+  { id: 'blade_pottery_sherd', nameVi: 'Mảnh Gốm Thanh Kiếm', maxStack: 64, category: 'decor_brew', iconShape: 'paper', iconColor: '#9e533c', iconAccent: '#e5b899' },
+  { id: 'heart_pottery_sherd', nameVi: 'Mảnh Gốm Trái Tim', maxStack: 64, category: 'decor_brew', iconShape: 'paper', iconColor: '#9e533c', iconAccent: '#f43f5e' },
+  { id: 'skull_pottery_sherd', nameVi: 'Mảnh Gốm Đầu Lâu', maxStack: 64, category: 'decor_brew', iconShape: 'paper', iconColor: '#9e533c', iconAccent: '#e5e7eb' },
+  // Armor Trim Smithing Templates (1.20–1.21)
+  { id: 'sentry_armor_trim_smithing_template', nameVi: 'Khuôn Viền Giáp Sentry', maxStack: 64, category: 'armor_food', iconShape: 'paper', iconColor: '#64748b', iconAccent: '#38bdf8' },
+  { id: 'silence_armor_trim_smithing_template', nameVi: 'Khuôn Viền Giáp Silence (Ancient City)', maxStack: 64, category: 'nether116', iconShape: 'paper', iconColor: '#0f2930', iconAccent: '#2dd4bf' },
+  { id: 'bolt_armor_trim_smithing_template', nameVi: 'Khuôn Viền Giáp Bolt (Trial)', maxStack: 64, category: 'tools', iconShape: 'paper', iconColor: '#c46c4a', iconAccent: '#facc15' },
+  { id: 'flow_armor_trim_smithing_template', nameVi: 'Khuôn Viền Giáp Flow (Trial)', maxStack: 64, category: 'tools', iconShape: 'paper', iconColor: '#3b82f6', iconAccent: '#e0f2fe' },
+  // 2026 Chaos Cubed Materials
+  { id: 'sulfur_dust', nameVi: 'Bột Lưu Huỳnh (Chaos Cubed)', maxStack: 64, category: 'ores', iconShape: 'dust', iconColor: '#facc15', iconAccent: '#fef08a' },
+  { id: 'cinnabar_gem', nameVi: 'Ngọc Chu Sa (Cinnabar)', maxStack: 64, category: 'ores', iconShape: 'gem', iconColor: '#ef4444', iconAccent: '#fecaca' },
+  // Music Discs (1.18–26.4)
   { id: 'music_disc_otherside', nameVi: 'Đĩa Nhạc Otherside', maxStack: 1, category: 'decor_brew', iconShape: 'disc', iconColor: '#27272a', iconAccent: '#38bdf8' },
   { id: 'music_disc_5', nameVi: 'Đĩa Nhạc 5 (Deep Dark)', maxStack: 1, category: 'decor_brew', iconShape: 'disc', iconColor: '#0f2930', iconAccent: '#2dd4bf' },
   { id: 'music_disc_relic', nameVi: 'Đĩa Nhạc Relic', maxStack: 1, category: 'decor_brew', iconShape: 'disc', iconColor: '#78350f', iconAccent: '#4ade80' },
   { id: 'music_disc_creator', nameVi: 'Đĩa Nhạc Creator (1.21)', maxStack: 1, category: 'decor_brew', iconShape: 'disc', iconColor: '#c46c4a', iconAccent: '#2dd4bf' },
   { id: 'music_disc_precipice', nameVi: 'Đĩa Nhạc Precipice (1.21)', maxStack: 1, category: 'decor_brew', iconShape: 'disc', iconColor: '#1e293b', iconAccent: '#fb923c' },
+  { id: 'music_disc_flurry', nameVi: 'Đĩa Nhạc Flurry (26.4 Winter)', maxStack: 1, category: 'decor_brew', iconShape: 'disc', iconColor: '#1e3a8a', iconAccent: '#7dd3fc' },
 ];
 
 // =========================================================================
@@ -1162,6 +1243,26 @@ export const EXT_CRAFTING_RECIPES: CraftingRecipe[] = [
   { id: 'copper_trapdoor_craft', nameVi: 'Cửa Sập Đồng', pattern: [['copper_ingot', 'copper_ingot'], ['copper_ingot', 'copper_ingot']], output: { itemId: 'copper_trapdoor', count: 2 } },
   { id: 'moss_carpet_craft', nameVi: 'Thảm Rêu Xanh', pattern: [['moss_block', 'moss_block']], output: { itemId: 'moss_carpet', count: 3 } },
   { id: 'packed_mud_craft', nameVi: 'Bùn Nén', shapeless: ['mud', 'wheat'], output: { itemId: 'packed_mud', count: 1 } },
+  // Complete 1.17–26.4 Additional Recipes
+  { id: 'polished_deepslate_craft', nameVi: 'Đá Phiến Sâu Bóng', pattern: [['cobbled_deepslate', 'cobbled_deepslate'], ['cobbled_deepslate', 'cobbled_deepslate']], output: { itemId: 'polished_deepslate', count: 4 } },
+  { id: 'deepslate_tiles_craft', nameVi: 'Ngói Đá Phiến Sâu', pattern: [['deepslate_bricks', 'deepslate_bricks'], ['deepslate_bricks', 'deepslate_bricks']], output: { itemId: 'deepslate_tiles', count: 4 } },
+  { id: 'cut_copper_slab_craft', nameVi: 'Phiến Đồng Cắt', pattern: [['cut_copper', 'cut_copper', 'cut_copper']], output: { itemId: 'cut_copper_slab', count: 6 } },
+  { id: 'cut_copper_stairs_craft', nameVi: 'Cầu Thang Đồng Cắt', pattern: [['cut_copper', null, null], ['cut_copper', 'cut_copper', null], ['cut_copper', 'cut_copper', 'cut_copper']], output: { itemId: 'cut_copper_stairs', count: 4 } },
+  { id: 'waxed_copper_craft', nameVi: 'Khối Đồng Phủ Sáp', shapeless: ['copper_block', 'honeycomb'], output: { itemId: 'waxed_copper_block', count: 1 } },
+  { id: 'oak_chest_boat_craft', nameVi: 'Thuyền Có Rương', shapeless: ['oak_boat', 'chest'], output: { itemId: 'oak_chest_boat', count: 1 } },
+  { id: 'decorated_pot_craft', nameVi: 'Bình Gốm Trang Trí', pattern: [[null, 'brick', null], ['brick', null, 'brick'], [null, 'brick', null]], output: { itemId: 'decorated_pot', count: 1 } },
+  { id: 'oak_hanging_sign_craft', nameVi: 'Biển Treo Gỗ', pattern: [['chain', null, 'chain'], ['oak_log', 'oak_log', 'oak_log'], ['oak_log', 'oak_log', 'oak_log']], output: { itemId: 'oak_hanging_sign', count: 6 } },
+  { id: 'bamboo_slab_craft', nameVi: 'Phiến Tre', pattern: [['bamboo_planks', 'bamboo_planks', 'bamboo_planks']], output: { itemId: 'bamboo_slab', count: 6 } },
+  { id: 'bamboo_stairs_craft', nameVi: 'Cầu Thang Tre', pattern: [['bamboo_planks', null, null], ['bamboo_planks', 'bamboo_planks', null], ['bamboo_planks', 'bamboo_planks', 'bamboo_planks']], output: { itemId: 'bamboo_stairs', count: 4 } },
+  { id: 'copper_chest_craft', nameVi: 'Rương Đồng', pattern: [['copper_ingot', 'copper_ingot', 'copper_ingot'], ['copper_ingot', 'chest', 'copper_ingot'], ['copper_ingot', 'copper_ingot', 'copper_ingot']], output: { itemId: 'copper_chest', count: 1 } },
+  { id: 'copper_shelf_craft', nameVi: 'Kệ Đồng', pattern: [['copper_ingot', 'copper_ingot', 'copper_ingot'], ['oak_planks', 'oak_planks', 'oak_planks']], output: { itemId: 'copper_shelf', count: 3 } },
+  { id: 'sulfur_block_craft', nameVi: 'Khối Lưu Huỳnh', pattern: [['sulfur_dust', 'sulfur_dust', 'sulfur_dust'], ['sulfur_dust', 'sulfur_dust', 'sulfur_dust'], ['sulfur_dust', 'sulfur_dust', 'sulfur_dust']], output: { itemId: 'sulfur_block', count: 1 } },
+  { id: 'cinnabar_block_craft', nameVi: 'Khối Chu Sa', pattern: [['cinnabar_gem', 'cinnabar_gem', 'cinnabar_gem'], ['cinnabar_gem', 'cinnabar_gem', 'cinnabar_gem'], ['cinnabar_gem', 'cinnabar_gem', 'cinnabar_gem']], output: { itemId: 'cinnabar_block', count: 1 } },
+  { id: 'snow_bricks_craft', nameVi: 'Gạch Tuyết', pattern: [['snow_block', 'snow_block'], ['snow_block', 'snow_block']], output: { itemId: 'snow_bricks', count: 4 } },
+  { id: 'polished_calcite_craft', nameVi: 'Calcite Đánh Bóng', pattern: [['calcite', 'calcite'], ['calcite', 'calcite']], output: { itemId: 'polished_calcite', count: 4 } },
+  { id: 'calcite_bricks_craft', nameVi: 'Gạch Calcite', pattern: [['polished_calcite', 'polished_calcite'], ['polished_calcite', 'polished_calcite']], output: { itemId: 'calcite_bricks', count: 4 } },
+  { id: 'blue_harness_craft', nameVi: 'Yên Ghast Xanh', pattern: [['leather', 'leather', 'leather'], ['glass', 'blue_wool', 'glass']], output: { itemId: 'blue_harness', count: 1 } },
+  { id: 'red_harness_craft', nameVi: 'Yên Ghast Đỏ', pattern: [['leather', 'leather', 'leather'], ['glass', 'red_wool', 'glass']], output: { itemId: 'red_harness', count: 1 } },
 ];
 
 // =========================================================================
@@ -1170,6 +1271,9 @@ export const EXT_CRAFTING_RECIPES: CraftingRecipe[] = [
 export const EXT_SMELTING_RECIPES: Record<string, string> = {
   raw_copper: 'copper_ingot',
   copper_ore: 'copper_ingot',
+  deepslate_copper_ore: 'copper_ingot',
+  sulfur_ore: 'sulfur_dust',
+  cinnabar_ore: 'cinnabar_gem',
   raw_iron: 'iron_ingot',
   raw_gold: 'gold_ingot',
   deepslate_iron_ore: 'iron_ingot',
