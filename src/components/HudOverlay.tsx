@@ -154,26 +154,13 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
         </div>
       )}
 
-      {/* Resource Pack Center Crosshair (icons.png 0,0 15x15) */}
+      {/* Authentic Classic Minecraft Center Crosshair (+ with difference invert over bright/dark) */}
       {!hud.dead && !chatOpen && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          {iconsUrl ? (
-            <McSpriteSlice
-              src={iconsUrl}
-              sx={0}
-              sy={0}
-              sw={15}
-              sh={15}
-              width={22}
-              height={22}
-              className="mix-blend-difference opacity-95"
-            />
-          ) : (
-            <div className="relative w-5 h-5">
-              <span className="absolute left-1/2 top-0 -translate-x-1/2 w-[2px] h-full bg-white/90 shadow-[0_0_2px_#000]" />
-              <span className="absolute top-1/2 left-0 -translate-y-1/2 h-[2px] w-full bg-white/90 shadow-[0_0_2px_#000]" />
-            </div>
-          )}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="relative w-[18px] h-[18px] mix-blend-difference opacity-95">
+            <span className="absolute left-1/2 top-0 -translate-x-1/2 w-[2px] h-full bg-white" />
+            <span className="absolute top-1/2 left-0 -translate-y-1/2 h-[2px] w-full bg-white" />
+          </div>
         </div>
       )}
 

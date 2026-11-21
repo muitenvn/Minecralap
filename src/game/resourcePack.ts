@@ -421,10 +421,10 @@ export async function importZipResourcePack(
       continue;
     }
 
-    // Match GUI, Container & Map textures
-    const guiMatch = lower.match(
-      /(?:textures\/gui\/)(widgets|icons|options_background|recipe_button)\.png$/,
-    );
+    // Match GUI, Container & Map textures (exclude realms/ textures so realms/gui/icons.png never overwrites minecraft/gui/icons.png!)
+    const guiMatch = !lower.includes('realms/')
+      ? lower.match(/(?:textures\/gui\/)(widgets|icons|options_background|recipe_button)\.png$/)
+      : null;
     if (guiMatch) {
       guiBlobs[guiMatch[1]] = new Blob([data], { type: 'image/png' });
       replacedGui++;

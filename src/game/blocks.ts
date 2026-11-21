@@ -888,6 +888,248 @@ export const ALL_TEXTURE_KEYS = Array.from(
   ),
 );
 
+export type BlockShape =
+  | 'cube'
+  | 'liquid'
+  | 'torch'
+  | 'lantern'
+  | 'cross'
+  | 'chain'
+  | 'end_rod'
+  | 'slab'
+  | 'stairs'
+  | 'fence'
+  | 'wall'
+  | 'fence_gate'
+  | 'pane'
+  | 'carpet'
+  | 'pressure_plate'
+  | 'button'
+  | 'rail'
+  | 'ladder'
+  | 'trapdoor'
+  | 'door'
+  | 'campfire'
+  | 'bed'
+  | 'anvil'
+  | 'enchanting_table'
+  | 'cake'
+  | 'chest'
+  | 'bell'
+  | 'flower_pot'
+  | 'lever'
+  | 'sign'
+  | 'bamboo'
+  | 'cactus'
+  | 'repeater'
+  | 'daylight_detector'
+  | 'stonecutter'
+  | 'grindstone'
+  | 'lectern'
+  | 'cauldron'
+  | 'hopper'
+  | 'end_portal_frame'
+  | 'conduit'
+  | 'dragon_egg'
+  | 'turtle_egg'
+  | 'farmland';
+
+export interface LightEmission {
+  level: number; // 0..15
+  r: number;
+  g: number;
+  b: number;
+}
+
+const NO_LIGHT: LightEmission = { level: 0, r: 0, g: 0, b: 0 };
+
+function classifyBlockShape(def: BlockDef): BlockShape {
+  if (def.liquid) return 'liquid';
+  const k = def.key;
+  if (k === 'torch' || k === 'soul_torch' || k === 'redstone_torch') return 'torch';
+  if (k === 'lantern' || k === 'soul_lantern') return 'lantern';
+  if (k === 'chain') return 'chain';
+  if (k === 'end_rod') return 'end_rod';
+  if (
+    k === 'soul_fire' ||
+    k.endsWith('_sapling') ||
+    k === 'sugar_cane' ||
+    k === 'cobweb' ||
+    k === 'crimson_roots' ||
+    k === 'warped_roots' ||
+    k === 'weeping_vines' ||
+    k === 'twisting_vines' ||
+    k === 'nether_sprouts' ||
+    k === 'vine' ||
+    k === 'sea_pickle' ||
+    k === 'brewing_stand'
+  ) {
+    return 'cross';
+  }
+  if (k.endsWith('_slab')) return 'slab';
+  if (k.endsWith('_stairs')) return 'stairs';
+  if (k.endsWith('_fence_gate')) return 'fence_gate';
+  if (k.endsWith('_fence')) return 'fence';
+  if (k.endsWith('_wall')) return 'wall';
+  if (k === 'glass_pane' || k === 'iron_bars') return 'pane';
+  if (k.endsWith('_carpet') || k === 'lily_pad') return 'carpet';
+  if (k.endsWith('_pressure_plate')) return 'pressure_plate';
+  if (k.endsWith('_button')) return 'button';
+  if (k === 'rail' || k.endsWith('_rail')) return 'rail';
+  if (k === 'ladder') return 'ladder';
+  if (k.endsWith('_trapdoor')) return 'trapdoor';
+  if (k.endsWith('_door')) return 'door';
+  if (k === 'campfire' || k === 'soul_campfire') return 'campfire';
+  if (k === 'red_bed' || k.endsWith('_bed')) return 'bed';
+  if (k === 'anvil') return 'anvil';
+  if (k === 'enchanting_table') return 'enchanting_table';
+  if (k === 'cake') return 'cake';
+  if (k === 'chest' || k === 'ender_chest' || k === 'trapped_chest') return 'chest';
+  if (k === 'bell') return 'bell';
+  if (k === 'flower_pot') return 'flower_pot';
+  if (k === 'lever' || k === 'tripwire_hook') return 'lever';
+  if (k.endsWith('_sign')) return 'sign';
+  if (k === 'bamboo') return 'bamboo';
+  if (k === 'cactus') return 'cactus';
+  if (k === 'repeater' || k === 'comparator') return 'repeater';
+  if (k === 'daylight_detector') return 'daylight_detector';
+  if (k === 'stonecutter') return 'stonecutter';
+  if (k === 'grindstone') return 'grindstone';
+  if (k === 'lectern') return 'lectern';
+  if (k === 'cauldron') return 'cauldron';
+  if (k === 'hopper') return 'hopper';
+  if (k === 'end_portal_frame') return 'end_portal_frame';
+  if (k === 'conduit') return 'conduit';
+  if (k === 'dragon_egg') return 'dragon_egg';
+  if (k === 'turtle_egg') return 'turtle_egg';
+  if (k === 'farmland' || k === 'grass_path') return 'farmland';
+  return 'cube';
+}
+
+function classifyLightEmission(def: BlockDef): LightEmission {
+  const k = def.key;
+  if (
+    k === 'glowstone' ||
+    k === 'shroomlight' ||
+    k === 'jack_o_lantern' ||
+    k === 'lantern' ||
+    k === 'campfire' ||
+    k === 'redstone_lamp' ||
+    k === 'lava'
+  ) {
+    return { level: 15, r: 1.0, g: 0.85, b: 0.56 };
+  }
+  if (k === 'sea_lantern' || k === 'beacon' || k === 'conduit') {
+    return { level: 15, r: 0.78, g: 0.96, b: 1.0 };
+  }
+  if (k === 'torch') {
+    return { level: 14, r: 1.0, g: 0.84, b: 0.52 };
+  }
+  if (k === 'end_rod') {
+    return { level: 14, r: 0.96, g: 0.9, b: 1.0 };
+  }
+  if (k === 'respawn_anchor' || k === 'nether_portal' || k === 'crying_obsidian') {
+    return { level: 11, r: 0.78, g: 0.42, b: 1.0 };
+  }
+  if (k === 'soul_lantern' || k === 'soul_torch' || k === 'soul_fire' || k === 'soul_campfire') {
+    return { level: 11, r: 0.36, g: 0.92, b: 1.0 };
+  }
+  if (k === 'redstone_torch' || k === 'redstone_block' || k === 'powered_rail') {
+    return { level: 8, r: 1.0, g: 0.35, b: 0.28 };
+  }
+  if (k === 'ender_chest' || k === 'enchanting_table') {
+    return { level: 8, r: 0.45, g: 0.88, b: 0.85 };
+  }
+  if (k === 'magma_block' || k === 'brewing_stand' || k === 'sea_pickle') {
+    return { level: 7, r: 1.0, g: 0.74, b: 0.42 };
+  }
+  if (def.emissive) {
+    return { level: 12, r: 1.0, g: 0.88, b: 0.65 };
+  }
+  return NO_LIGHT;
+}
+
+const BLOCK_SHAPE_TABLE: Record<number, BlockShape> = {};
+const BLOCK_FULL_OPAQUE_TABLE: Record<number, boolean> = {};
+const BLOCK_LIGHT_TABLE: Record<number, LightEmission> = {};
+
+for (const def of Object.values(BLOCK_DEFS)) {
+  const shape = classifyBlockShape(def);
+  BLOCK_SHAPE_TABLE[def.id] = shape;
+  BLOCK_FULL_OPAQUE_TABLE[def.id] = def.id !== BLOCK.AIR && shape === 'cube' && !def.transparent;
+  BLOCK_LIGHT_TABLE[def.id] = classifyLightEmission(def);
+}
+
+export function getBlockShape(id: number): BlockShape {
+  return BLOCK_SHAPE_TABLE[id] || 'cube';
+}
+
+export function isFullOpaqueCube(id: number): boolean {
+  return Boolean(BLOCK_FULL_OPAQUE_TABLE[id]);
+}
+
+export function getBlockLightEmission(id: number): LightEmission {
+  return BLOCK_LIGHT_TABLE[id] || NO_LIGHT;
+}
+
+// Selection wireframe bounds [minX, minY, minZ, maxX, maxY, maxZ] in 0..1 block coordinates
+export function getBlockSelectionBounds(id: number): [number, number, number, number, number, number] {
+  const s = getBlockShape(id);
+  switch (s) {
+    case 'torch':
+      return [0.36, 0, 0.36, 0.64, 0.66, 0.64];
+    case 'lantern':
+      return [0.28, 0, 0.28, 0.72, 0.62, 0.72];
+    case 'chain':
+    case 'end_rod':
+      return [0.36, 0, 0.36, 0.64, 1, 0.64];
+    case 'slab':
+      return [0, 0, 0, 1, 0.5, 1];
+    case 'carpet':
+    case 'pressure_plate':
+    case 'rail':
+      return [0, 0, 0, 1, 0.1, 1];
+    case 'button':
+      return [0.3, 0, 0.35, 0.7, 0.15, 0.65];
+    case 'trapdoor':
+    case 'repeater':
+      return [0, 0, 0, 1, 0.2, 1];
+    case 'daylight_detector':
+      return [0, 0, 0, 1, 0.38, 1];
+    case 'campfire':
+      return [0, 0, 0, 1, 0.45, 1];
+    case 'bed':
+      return [0, 0, 0, 1, 0.56, 1];
+    case 'cake':
+      return [0.06, 0, 0.06, 0.94, 0.5, 0.94];
+    case 'chest':
+      return [0.06, 0, 0.06, 0.94, 0.88, 0.94];
+    case 'enchanting_table':
+      return [0, 0, 0, 1, 0.75, 1];
+    case 'stonecutter':
+      return [0, 0, 0, 1, 0.58, 1];
+    case 'flower_pot':
+      return [0.3, 0, 0.3, 0.7, 0.4, 0.7];
+    case 'lever':
+      return [0.28, 0, 0.24, 0.72, 0.65, 0.76];
+    case 'bell':
+      return [0.18, 0.06, 0.18, 0.82, 0.95, 0.82];
+    case 'conduit':
+      return [0.3, 0.3, 0.3, 0.7, 0.7, 0.7];
+    case 'bamboo':
+      return [0.34, 0, 0.34, 0.66, 1, 0.66];
+    case 'turtle_egg':
+      return [0.28, 0, 0.28, 0.72, 0.46, 0.72];
+    case 'cross':
+      return [0.15, 0, 0.15, 0.85, 0.85, 0.85];
+    case 'fence':
+    case 'wall':
+      return [0.22, 0, 0.22, 0.78, 1, 0.78];
+    default:
+      return [0, 0, 0, 1, 1, 1];
+  }
+}
+
 export function isBlockSolid(id: number): boolean {
   const def = BLOCK_DEFS[id];
   return Boolean(def && !def.nonSolid);
@@ -895,7 +1137,9 @@ export function isBlockSolid(id: number): boolean {
 
 export function isBlockTransparent(id: number): boolean {
   const def = BLOCK_DEFS[id];
-  return !def || Boolean(def.transparent);
+  if (!def) return true;
+  if (def.transparent) return true;
+  return getBlockShape(id) !== 'cube';
 }
 
 export function isBlockLiquid(id: number): boolean {

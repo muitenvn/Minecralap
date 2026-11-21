@@ -351,8 +351,8 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
         </div>
 
         {/* Bottom-Right Action Pad (Swipe-while-holding on Đập, Đặt, Nhảy) */}
-        <div className="absolute right-3 bottom-20 sm:bottom-16 flex flex-col items-end gap-1.5 pointer-events-auto touch-none">
-          <div className="flex items-center gap-1.5">
+        <div className="absolute right-2.5 bottom-16 sm:bottom-14 flex flex-col items-end gap-1 pointer-events-auto touch-none">
+          <div className="flex items-center gap-1">
             <button
               type="button"
               aria-label="Đập"
@@ -360,11 +360,11 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
               onPointerMove={handleBreakMove}
               onPointerUp={handleBreakUp}
               onPointerCancel={handleBreakUp}
-              className={`w-[56px] h-[56px] flex flex-col items-center justify-center gap-0.5 font-mc text-[10px] font-bold touch-none ${
+              className={`w-[50px] h-[50px] flex flex-col items-center justify-center gap-0.5 font-mc text-[10px] font-bold touch-none ${
                 breaking ? 'mc-touch-pad-active' : 'mc-touch-pad'
               }`}
             >
-              <Pickaxe className="w-5 h-5" />
+              <Pickaxe className="w-4 h-4" />
               <span>Đập</span>
             </button>
 
@@ -375,11 +375,11 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
               onPointerMove={handlePlaceMove}
               onPointerUp={handlePlaceUp}
               onPointerCancel={handlePlaceUp}
-              className={`w-[56px] h-[56px] flex flex-col items-center justify-center gap-0.5 font-mc text-[10px] font-bold touch-none ${
+              className={`w-[50px] h-[50px] flex flex-col items-center justify-center gap-0.5 font-mc text-[10px] font-bold touch-none ${
                 placing ? 'mc-touch-pad-active' : 'mc-touch-pad'
               }`}
             >
-              <Hammer className="w-5 h-5" />
+              <Hammer className="w-4 h-4" />
               <span>Đặt</span>
             </button>
           </div>
@@ -391,7 +391,7 @@ export const MobileTouchControls: React.FC<MobileTouchControlsProps> = ({
             onPointerMove={handleJumpMove}
             onPointerUp={handleJumpUp}
             onPointerCancel={handleJumpUp}
-            className={`w-[118px] h-[46px] flex items-center justify-center gap-1.5 font-mc text-xs font-bold touch-none ${
+            className={`w-[104px] h-[40px] flex items-center justify-center gap-1 font-mc text-xs font-bold touch-none ${
               jumping ? 'mc-touch-pad-active' : 'mc-touch-pad'
             }`}
           >

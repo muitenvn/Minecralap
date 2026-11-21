@@ -152,17 +152,9 @@ export const MinimapHud: React.FC<MinimapHudProps> = ({
               </svg>
             )}
           </div>
-
-          {/* Sleek compact coordinates strip tucked neatly inside bottom of map */}
-          <div className="absolute inset-x-0 bottom-0 bg-black/55 px-1 py-[1px] flex items-center justify-between text-[9px] sm:text-[10px] font-mono-num text-white leading-tight pointer-events-none">
-            <span className="truncate">
-              {Math.floor(hud.x)} {Math.floor(hud.y)} {Math.floor(hud.z)}
-            </span>
-            <span className="text-[#fde68a] font-bold ml-1 shrink-0">{compassShort}</span>
-          </div>
         </div>
 
-        {/* Tiny corner Hide button */}
+        {/* Tiny corner Hide button tucked cleanly inside top-right corner */}
         <button
           type="button"
           onClick={(e) => {
@@ -171,15 +163,23 @@ export const MinimapHud: React.FC<MinimapHudProps> = ({
           }}
           title="Ẩn bản đồ (M)"
           aria-label="Ẩn bản đồ"
-          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#241b12]/90 hover:bg-[#3f2c1c] border border-[#b9996b] text-[#f5e7c9] flex items-center justify-center cursor-pointer"
+          className="absolute top-0.5 right-0.5 w-4 h-4 bg-[#241b12]/85 hover:bg-[#3f2c1c] border border-[#b9996b]/80 text-[#f5e7c9] flex items-center justify-center cursor-pointer"
         >
-          <X className="w-3 h-3" />
+          <X className="w-2.5 h-2.5" />
         </button>
+      </div>
+
+      {/* Crisp full non-truncated Minecraft Coordinates + Compass directly below map */}
+      <div className="mt-1 px-1.5 py-0.5 bg-black/65 border border-[#a88b5f]/55 flex items-center gap-1.5 text-[10px] font-mono-num text-white leading-tight whitespace-nowrap mc-text-shadow-sm">
+        <span>
+          {Math.floor(hud.x)}, {Math.floor(hud.y)}, {Math.floor(hud.z)}
+        </span>
+        <span className="text-[#fde68a] font-bold">{compassShort}</span>
       </div>
 
       {/* When expanded, show compact Biome name directly underneath */}
       {isExpanded && (
-        <div className="mt-1 px-1.5 py-0.5 bg-black/65 border border-[#a88b5f]/60 text-[10px] font-mc text-[#f5e7c9] max-w-[176px] truncate mc-text-shadow-sm">
+        <div className="mt-0.5 px-1.5 py-0.5 bg-black/65 border border-[#a88b5f]/55 text-[10px] font-mc text-[#f5e7c9] max-w-[176px] truncate mc-text-shadow-sm">
           {hud.biome}
         </div>
       )}

@@ -3,6 +3,9 @@ import { soundEngine } from './audio';
 import {
   BLOCK,
   BLOCK_DEFS,
+  getBlockLightEmission,
+  getBlockSelectionBounds,
+  getBlockShape,
   ITEM_DEFS,
   isBlockLiquid,
   isBlockSolid,
@@ -20,6 +23,7 @@ import {
 } from './mobs';
 import {
   animatePlayerRig,
+  buildExtrudedItemGeometry,
   buildFirstPersonSkinArm,
   buildMinecraftPlayerRig,
   loadSavedSkinConfig,
@@ -64,6 +68,7 @@ interface ChunkMeshEntry {
   group: THREE.Group;
   opaqueMeshes: (THREE.Mesh | null)[];
   transMeshes: (THREE.Mesh | null)[];
+  emissiveMeshes: (THREE.Mesh | null)[];
 }
 
 interface BreakParticle {
@@ -121,6 +126,19 @@ export class NetherCraftEngine {
   // Materials driven by compiled Resource Pack atlas (Lambert for 3x faster FPS on mobile & desktop)
   private opaqueMat: THREE.MeshLambertMaterial;
   private transMat: THREE.MeshLambertMaterial;
+  private emissiveMat: THREE.MeshBasicMaterial;
+
+  // Dynamic real-time PointLight pool for placed torches/lanterns/glowstone/campfires/lava + handheld light
+  private dynamicLights: THREE.PointLight[] = [];
+  private heldPointLight: THREE.PointLight;
+  private dynamicLightTick = 99;
+
+  // Dedicated depth-cleared First-Person Hand overlay scene (zero wall clipping + fixed 70° FOV)
+  private handScene: THREE.Scene;
+  private handCamera: THREE.PerspectiveCamera;
+  private handHemi: THREE.HemisphereLight;
+  private handDir: THREE.DirectionalLight;
+  private handRim: THREE.DirectionalLight;
 
   // World state
   private mode: 'panorama' | 'playing' = 'panorama';
@@ -180,6 +198,8 @@ export class NetherCraftEngine {
   private handGroup: THREE.Group;
   private handDispose: (() => void) | null = null;
   private handSwing = 0;
+  private equipProgress = 1;
+  private lastHeldItemId = '';
   private playerSkinConfig: PlayerSkinConfig = loadSavedSkinConfig();
   private playerRig: PlayerRig | null = null;
   private cameraMode: CameraMode = 'first';
@@ -189,10 +209,11 @@ export class NetherCraftEngine {
   private particles: BreakParticle[] = [];
   private particleGeo = new THREE.BoxGeometry(0.14, 0.14, 0.14);
 
-  // Clouds, Rain, Sun/Moon, World Border wall
+  // Clouds, Rain, Sun/Moon, Stars, World Border wall
   private cloudGroup = new THREE.Group();
   private sunMesh: THREE.Mesh;
   private moonMesh: THREE.Mesh;
+  private starField: THREE.Points;
   private rainPoints: THREE.Points;
   private borderWalls: THREE.Mesh[] = [];
 
@@ -296,17 +317,33 @@ export class NetherCraftEngine {
     this.rimLight.position.set(-40, 28, -40);
     this.scene.add(this.rimLight);
 
-    // Fast Lambert voxel atlas materials (preserves vertex-color smooth AO at 60fps)
+    // Fast Lambert voxel atlas materials + self-illuminated emissive material for glowing light blocks
     this.opaqueMat = new THREE.MeshLambertMaterial({
       vertexColors: true,
     });
     this.transMat = new THREE.MeshLambertMaterial({
       vertexColors: true,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.78,
+      alphaTest: 0.08,
+      side: THREE.DoubleSide,
+    });
+    this.emissiveMat = new THREE.MeshBasicMaterial({
+      vertexColors: true,
       alphaTest: 0.1,
       side: THREE.DoubleSide,
     });
+
+    // Pooled dynamic PointLights (6 nearby world light blocks + 1 handheld light when holding torch/lantern)
+    for (let i = 0; i < 6; i++) {
+      const pl = new THREE.PointLight(0xffcf87, 0, 16, 1.5);
+      pl.visible = false;
+      this.scene.add(pl);
+      this.dynamicLights.push(pl);
+    }
+    this.heldPointLight = new THREE.PointLight(0xffcf87, 0, 13, 1.5);
+    this.heldPointLight.visible = false;
+    this.scene.add(this.heldPointLight);
 
     this.scene.add(this.worldGroup);
     this.scene.add(this.panoramaGroup);
@@ -333,28 +370,55 @@ export class NetherCraftEngine {
     this.crackMesh.visible = false;
     this.scene.add(this.crackMesh);
 
-    // First-person held hand/item attached to camera + 3D Player Skin Rig
+    // Dedicated depth-cleared First-Person Hand overlay scene (prevents hand/tool clipping into walls!)
+    this.handScene = new THREE.Scene();
+    this.handCamera = new THREE.PerspectiveCamera(
+      70,
+      Math.max(1, container.clientWidth) / Math.max(1, container.clientHeight),
+      0.05,
+      10,
+    );
+    this.handHemi = new THREE.HemisphereLight(0xffffff, 0x7b7570, 1.35);
+    this.handDir = new THREE.DirectionalLight(0xfff7e6, 1.05);
+    this.handDir.position.set(-0.9, 1.8, 2.0);
+    this.handRim = new THREE.DirectionalLight(0xa5c8ff, 0.45);
+    this.handRim.position.set(1.4, 0.9, -0.6);
+    this.handScene.add(this.handHemi, this.handDir, this.handRim);
+
     const builtArm = buildFirstPersonSkinArm(this.playerSkinConfig);
     this.handGroup = builtArm.group;
     this.handDispose = builtArm.dispose;
     this.handGroup.visible = false;
-    this.camera.add(this.handGroup);
+    this.handScene.add(this.handGroup);
     this.scene.add(this.camera);
 
     this.playerRig = buildMinecraftPlayerRig(this.playerSkinConfig);
     this.playerRig.root.visible = false;
     this.scene.add(this.playerRig.root);
 
-    // Sun & Moon billboards
+    // Authentic Minecraft Pixel Sun, Cratered Moon & Starry Night Sky
     this.sunMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(10, 10, 10),
-      new THREE.MeshBasicMaterial({ color: 0xfff3b0, fog: false }),
+      new THREE.PlaneGeometry(24, 24),
+      new THREE.MeshBasicMaterial({
+        map: this.createSunTexture(),
+        transparent: true,
+        depthWrite: false,
+        fog: false,
+        side: THREE.DoubleSide,
+      }),
     );
     this.moonMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(7, 7, 7),
-      new THREE.MeshBasicMaterial({ color: 0xdbeafe, fog: false }),
+      new THREE.PlaneGeometry(19, 19),
+      new THREE.MeshBasicMaterial({
+        map: this.createMoonTexture(),
+        transparent: true,
+        depthWrite: false,
+        fog: false,
+        side: THREE.DoubleSide,
+      }),
     );
-    this.scene.add(this.sunMesh, this.moonMesh);
+    this.starField = this.buildStarField();
+    this.scene.add(this.starField, this.sunMesh, this.moonMesh);
 
     // Clouds & Rain & World Border walls
     this.buildClouds();
@@ -403,14 +467,14 @@ export class NetherCraftEngine {
 
   public setPlayerSkin(config: PlayerSkinConfig): void {
     this.playerSkinConfig = config;
-    // Rebuild 1st-person skin arm
-    this.camera.remove(this.handGroup);
+    // Rebuild 1st-person skin arm inside dedicated depth-cleared handScene
+    this.handScene.remove(this.handGroup);
     this.handDispose?.();
     const builtArm = buildFirstPersonSkinArm(config);
     this.handGroup = builtArm.group;
     this.handDispose = builtArm.dispose;
     this.handGroup.visible = this.mode === 'playing' && this.cameraMode === 'first';
-    this.camera.add(this.handGroup);
+    this.handScene.add(this.handGroup);
 
     // Rebuild 3D Player Model Rig
     if (this.playerRig) {
@@ -442,43 +506,144 @@ export class NetherCraftEngine {
   }
 
   private heldTexCache = new Map<string, THREE.Texture>();
+  private heldItemGeoCache = new Map<string, THREE.BufferGeometry>();
 
-  private getHeldTexture(itemId: string): THREE.Texture | null {
+  private createSunTexture(): THREE.CanvasTexture {
+    const c = document.createElement('canvas');
+    c.width = 16;
+    c.height = 16;
+    const ctx = c.getContext('2d')!;
+    ctx.clearRect(0, 0, 16, 16);
+    // Soft outer golden glow + crisp square Minecraft sun core
+    ctx.fillStyle = 'rgba(255, 224, 122, 0.28)';
+    ctx.fillRect(1, 1, 14, 14);
+    ctx.fillStyle = 'rgba(255, 238, 158, 0.65)';
+    ctx.fillRect(3, 3, 10, 10);
+    ctx.fillStyle = '#fff5bd';
+    ctx.fillRect(4, 4, 8, 8);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(5, 5, 6, 6);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    return tex;
+  }
+
+  private createMoonTexture(): THREE.CanvasTexture {
+    const c = document.createElement('canvas');
+    c.width = 16;
+    c.height = 16;
+    const ctx = c.getContext('2d')!;
+    ctx.clearRect(0, 0, 16, 16);
+    // Soft pale-blue lunar halo + iconic blocky Minecraft full moon with pixel craters
+    ctx.fillStyle = 'rgba(186, 214, 255, 0.22)';
+    ctx.fillRect(2, 2, 12, 12);
+    ctx.fillStyle = '#e5eefc';
+    ctx.fillRect(4, 4, 8, 8);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(5, 5, 6, 6);
+    // Pixel craters
+    ctx.fillStyle = '#b6c5dc';
+    ctx.fillRect(5, 5, 2, 2);
+    ctx.fillRect(9, 6, 2, 2);
+    ctx.fillRect(6, 9, 3, 2);
+    ctx.fillStyle = '#9aaac4';
+    ctx.fillRect(5, 6, 1, 1);
+    ctx.fillRect(10, 7, 1, 1);
+    ctx.fillRect(7, 10, 1, 1);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    return tex;
+  }
+
+  private buildStarField(): THREE.Points {
+    const count = 480;
+    const pos = new Float32Array(count * 3);
+    const col = new Float32Array(count * 3);
+    const radius = 158;
+    for (let i = 0; i < count; i++) {
+      // Distribute across upper celestial sphere + horizon band
+      const u = Math.random();
+      const v = Math.random();
+      const theta = u * Math.PI * 2;
+      const phi = Math.acos(2 * v - 1);
+      const x = radius * Math.sin(phi) * Math.cos(theta);
+      const y = radius * Math.cos(phi);
+      const z = radius * Math.sin(phi) * Math.sin(theta);
+      pos[i * 3] = x;
+      pos[i * 3 + 1] = y;
+      pos[i * 3 + 2] = z;
+
+      const bright = 0.65 + Math.random() * 0.35;
+      const tint = Math.random();
+      col[i * 3] = bright * (tint > 0.8 ? 1.0 : 0.88);
+      col[i * 3 + 1] = bright * 0.94;
+      col[i * 3 + 2] = bright * (tint < 0.3 ? 1.0 : 0.92);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const mat = new THREE.PointsMaterial({
+      size: 1.85,
+      sizeAttenuation: false,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      fog: false,
+    });
+    const pts = new THREE.Points(geo, mat);
+    pts.frustumCulled = false;
+    pts.visible = false;
+    return pts;
+  }
+
+  private getAtlasTileCanvas(texKey: string): HTMLCanvasElement | null {
     if (!this.pack) return null;
-    const cached = this.heldTexCache.get(itemId);
+    const uv = this.pack.uvMap[texKey] || this.pack.uvMap.stone;
+    if (!uv) return null;
+    const atlas = this.pack.atlasCanvas;
+    const sx = Math.round(uv.u0 * atlas.width);
+    const sy = Math.round((1 - uv.v1) * atlas.height);
+    const sw = Math.max(1, Math.round((uv.u1 - uv.u0) * atlas.width));
+    const sh = Math.max(1, Math.round((uv.v1 - uv.v0) * atlas.height));
+    const c = document.createElement('canvas');
+    c.width = 32;
+    c.height = 32;
+    const ctx = c.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(atlas, sx, sy, sw, sh, 0, 0, 32, 32);
+    return c;
+  }
+
+  private getAtlasTileTexture(texKey: string): THREE.Texture | null {
+    if (!this.pack) return null;
+    const cacheKey = `tile:${texKey}`;
+    const cached = this.heldTexCache.get(cacheKey);
     if (cached) return cached;
 
-    const def = ITEM_DEFS[itemId];
-    if (!def) return null;
+    const c = this.getAtlasTileCanvas(texKey);
+    if (!c) return null;
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    this.heldTexCache.set(cacheKey, tex);
+    return tex;
+  }
 
-    // For full 3D cubes, crop the real block texture directly from the 32x32 atlas
-    if (def.blockId !== undefined) {
-      const bdef = BLOCK_DEFS[def.blockId];
-      const texKey = bdef.textures.front || bdef.textures.side;
-      const uv = this.pack.uvMap[texKey];
-      if (uv) {
-        const atlas = this.pack.atlasCanvas;
-        const sx = Math.round(uv.u0 * atlas.width);
-        const sy = Math.round((1 - uv.v1) * atlas.height);
-        const sw = Math.max(1, Math.round((uv.u1 - uv.u0) * atlas.width));
-        const sh = Math.max(1, Math.round((uv.v1 - uv.v0) * atlas.height));
-        const c = document.createElement('canvas');
-        c.width = 32;
-        c.height = 32;
-        const ctx = c.getContext('2d')!;
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(atlas, sx, sy, sw, sh, 0, 0, 32, 32);
-        const tex = new THREE.CanvasTexture(c);
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.magFilter = THREE.NearestFilter;
-        tex.minFilter = THREE.NearestFilter;
-        tex.generateMipmaps = false;
-        this.heldTexCache.set(itemId, tex);
-        return tex;
-      }
-    }
+  private getHeldItemSpriteTexture(itemId: string): THREE.Texture | null {
+    if (!this.pack) return null;
+    const cacheKey = `item:${itemId}`;
+    const cached = this.heldTexCache.get(cacheKey);
+    if (cached) return cached;
 
-    // For tools, weapons, food, potions, armor, etc., use the actual pack 2D item sprite
     const dataUrl = this.pack.itemIcons[itemId];
     if (!dataUrl) return null;
     const img = new Image();
@@ -491,55 +656,204 @@ export class NetherCraftEngine {
       tex.needsUpdate = true;
     };
     img.src = dataUrl;
-    this.heldTexCache.set(itemId, tex);
+    this.heldTexCache.set(cacheKey, tex);
     return tex;
+  }
+
+  private applyExtrudedItemGeometry(itemId: string, mesh: THREE.Mesh, fallbackTexKey?: string): void {
+    const cached = this.heldItemGeoCache.get(itemId);
+    if (cached) {
+      mesh.geometry = cached;
+      mesh.visible = true;
+      return;
+    }
+    if (!this.pack) return;
+    const dataUrl = this.pack.itemIcons[itemId];
+    if (dataUrl) {
+      mesh.visible = false;
+      const img = new Image();
+      img.onload = () => {
+        if (this.disposed) return;
+        const geo = buildExtrudedItemGeometry(img, 32);
+        this.heldItemGeoCache.set(itemId, geo);
+        // If player is still holding this item, swap geometry in immediately
+        const curStack = this.world?.player.inventory[this.world.player.selectedSlot];
+        if (curStack?.itemId === itemId) {
+          const fpHeldItem = this.handGroup.getObjectByName('fpHeldItem') as THREE.Mesh | undefined;
+          if (fpHeldItem) {
+            fpHeldItem.geometry = geo;
+            fpHeldItem.visible = true;
+          }
+        }
+      };
+      img.src = dataUrl;
+      return;
+    }
+    if (fallbackTexKey) {
+      const tileCanvas = this.getAtlasTileCanvas(fallbackTexKey);
+      if (tileCanvas) {
+        const geo = buildExtrudedItemGeometry(tileCanvas, 32);
+        this.heldItemGeoCache.set(itemId, geo);
+        mesh.geometry = geo;
+        mesh.visible = true;
+      }
+    }
+  }
+
+  private getHeldTexture(itemId: string): THREE.Texture | null {
+    const def = ITEM_DEFS[itemId];
+    if (!def) return null;
+    if (def.blockId !== undefined && getBlockShape(def.blockId) === 'cube') {
+      const bdef = BLOCK_DEFS[def.blockId];
+      return this.getAtlasTileTexture(bdef.textures.front || bdef.textures.side);
+    }
+    return this.getHeldItemSpriteTexture(itemId);
   }
 
   private updateFirstPersonHeldVisual(): void {
     if (!this.world) return;
     const stack = this.world.player.inventory[this.world.player.selectedSlot];
-    const meshes: THREE.Mesh[] = [];
-    const fpHeld = this.handGroup.getObjectByName('heldItemMesh') as THREE.Mesh | undefined;
-    if (fpHeld) meshes.push(fpHeld);
-    const tpHeld = this.playerRig?.heldSlotGroup.getObjectByName('playerHeldMesh') as THREE.Mesh | undefined;
-    if (tpHeld) meshes.push(tpHeld);
+    const nextItemKey = stack ? `${this.world.player.selectedSlot}:${stack.itemId}` : `${this.world.player.selectedSlot}:empty`;
+    if (nextItemKey !== this.lastHeldItemId) {
+      this.lastHeldItemId = nextItemKey;
+      this.equipProgress = 0; // Authentic Minecraft slot-switch raise animation
+    }
 
-    for (const held of meshes) {
-      if (!stack) {
-        held.visible = false;
-        continue;
-      }
-      held.visible = true;
+    const fpBareArm = this.handGroup.getObjectByName('fpBareArm');
+    const fpHeldBlock = this.handGroup.getObjectByName('fpHeldBlock') as THREE.Mesh | undefined;
+    const fpHeldItem = this.handGroup.getObjectByName('fpHeldItem') as THREE.Mesh | undefined;
+
+    if (!stack) {
+      if (fpBareArm) fpBareArm.visible = true;
+      if (fpHeldBlock) fpHeldBlock.visible = false;
+      if (fpHeldItem) fpHeldItem.visible = false;
+    } else {
       const def = ITEM_DEFS[stack.itemId];
-      const mat = held.material as THREE.MeshStandardMaterial;
-      const tex = this.getHeldTexture(stack.itemId);
+      const bdef = def?.blockId !== undefined ? BLOCK_DEFS[def.blockId] : undefined;
+      const shape = def?.blockId !== undefined ? getBlockShape(def.blockId) : null;
+      const is3DBlock = Boolean(
+        bdef &&
+          (shape === 'cube' ||
+            shape === 'slab' ||
+            shape === 'stairs' ||
+            shape === 'chest' ||
+            shape === 'enchanting_table' ||
+            shape === 'farmland' ||
+            shape === 'cactus'),
+      );
 
-      if (def?.blockId !== undefined) {
-        held.scale.set(1.0, 1.0, 1.0);
-        mat.map = tex;
-        mat.color.setHex(tex ? 0xffffff : 0x8b8b8b);
-        mat.transparent = Boolean(BLOCK_DEFS[def.blockId]?.transparent);
-        mat.alphaTest = BLOCK_DEFS[def.blockId]?.transparent ? 0.4 : 0;
-        mat.metalness = 0.05;
-        mat.roughness = 0.85;
+      if (fpBareArm) fpBareArm.visible = false;
+
+      if (is3DBlock && bdef && fpHeldBlock) {
+        fpHeldBlock.visible = true;
+        if (fpHeldItem) fpHeldItem.visible = false;
+
+        // Scale non-full 3D block previews (slabs, chests, enchanting table) accurately in hand!
+        if (shape === 'slab') fpHeldBlock.scale.set(1.0, 0.5, 1.0);
+        else if (shape === 'enchanting_table') fpHeldBlock.scale.set(1.0, 0.75, 1.0);
+        else if (shape === 'chest') fpHeldBlock.scale.set(0.88, 0.88, 0.88);
+        else fpHeldBlock.scale.set(1.0, 1.0, 1.0);
+
+        // Apply all 6 authentic block faces (+X, -X, +Y, -Y, +Z, -Z)
+        const sideTex = this.getAtlasTileTexture(bdef.textures.side);
+        const topTex = this.getAtlasTileTexture(bdef.textures.top);
+        const botTex = this.getAtlasTileTexture(bdef.textures.bottom);
+        const frontTex = this.getAtlasTileTexture(bdef.textures.front || bdef.textures.side);
+        const faceTexes = [sideTex, sideTex, topTex, botTex, frontTex, sideTex];
+        const em = getBlockLightEmission(bdef.id);
+        const isTrans = Boolean(bdef.transparent);
+        const mats = fpHeldBlock.material as THREE.MeshStandardMaterial[];
+        for (let i = 0; i < 6; i++) {
+          const m = mats[i];
+          if (!m) continue;
+          m.map = faceTexes[i];
+          m.color.setHex(faceTexes[i] ? 0xffffff : 0x8b8b8b);
+          m.transparent = isTrans;
+          m.alphaTest = isTrans ? 0.35 : 0;
+          m.emissive.setRGB(
+            em.level >= 10 ? em.r * 0.45 : 0,
+            em.level >= 10 ? em.g * 0.45 : 0,
+            em.level >= 10 ? em.b * 0.45 : 0,
+          );
+          m.needsUpdate = true;
+        }
+      } else if (fpHeldItem) {
+        if (fpHeldBlock) fpHeldBlock.visible = false;
+        fpHeldItem.visible = true;
+        this.applyExtrudedItemGeometry(stack.itemId, fpHeldItem, bdef?.textures.side);
+
+        const mat = fpHeldItem.material as THREE.MeshStandardMaterial;
+
+        // Classify item orientation exactly like Minecraft 1.16 firstperson_righthand models:
+        // 1. Diagonal Handheld Weapons/Tools (handle bottom-left -> blade/head top-right)
+        //    -> Rz(+64°) then Ry(-71°) puts handle bottom-right and blade/cutting-edge pointing UP & FORWARD!
+        const isHandheldDiagonal = Boolean(
+          (def?.toolKind && def.toolKind !== 'none') ||
+            stack.itemId === 'trident' ||
+            stack.itemId === 'fishing_rod' ||
+            stack.itemId === 'warped_fungus_on_a_stick' ||
+            stack.itemId === 'carrot_on_a_stick' ||
+            stack.itemId === 'stick' ||
+            stack.itemId === 'blaze_rod' ||
+            stack.itemId === 'bone' ||
+            stack.itemId === 'spyglass',
+        );
+        const isBowLike = stack.itemId === 'bow' || stack.itemId === 'crossbow';
+        const isLightFixture = shape === 'torch' || shape === 'lantern' || shape === 'end_rod';
+
+        fpHeldItem.rotation.order = 'YXZ';
+        if (isHandheldDiagonal) {
+          // Authentic Minecraft handheld sword/pickaxe/axe/shovel/hoe pose:
+          // Handle tucked bottom-right, blade pointing UP and FORWARD into the world!
+          fpHeldItem.position.set(0.50, -0.28, -0.76);
+          fpHeldItem.rotation.set(0.02, -1.24, 1.12);
+          fpHeldItem.scale.setScalar(0.64);
+        } else if (isBowLike) {
+          fpHeldItem.position.set(0.48, -0.30, -0.74);
+          fpHeldItem.rotation.set(0.05, -0.82, 0.24);
+          fpHeldItem.scale.setScalar(0.56);
+        } else if (isLightFixture) {
+          // Upright Torch / Soul Torch / Lantern / End Rod
+          fpHeldItem.position.set(0.48, -0.30, -0.72);
+          fpHeldItem.rotation.set(0.06, -0.42, 0.03);
+          fpHeldItem.scale.setScalar(0.52);
+        } else {
+          // Standard Minecraft generated items (food, potions, flint & steel, buckets, pearls, ingots...)
+          fpHeldItem.position.set(0.48, -0.34, -0.74);
+          fpHeldItem.rotation.set(0.06, -0.44, 0.04);
+          fpHeldItem.scale.setScalar(0.50);
+        }
+
+        const em = bdef ? getBlockLightEmission(bdef.id) : null;
+        const glow = (em && em.level >= 8) || stack.itemId === 'lava_bucket' || stack.itemId === 'blaze_rod';
+        if (glow) {
+          const gr = em && em.level >= 8 ? em.r : 1.0;
+          const gg = em && em.level >= 8 ? em.g : 0.82;
+          const gb = em && em.level >= 8 ? em.b : 0.45;
+          mat.emissive.setRGB(gr * 0.42, gg * 0.42, gb * 0.42);
+        } else {
+          mat.emissive.setRGB(0, 0, 0);
+        }
         mat.needsUpdate = true;
-      } else if (def?.toolKind && def.toolKind !== 'none') {
-        held.scale.set(1.25, 1.25, 0.14);
+      }
+    }
+
+    // Also update 3rd-person playerRig held mesh
+    const tpHeld = this.playerRig?.heldSlotGroup.getObjectByName('playerHeldMesh') as THREE.Mesh | undefined;
+    if (tpHeld) {
+      if (!stack) {
+        tpHeld.visible = false;
+      } else {
+        tpHeld.visible = true;
+        const def = ITEM_DEFS[stack.itemId];
+        const mat = tpHeld.material as THREE.MeshStandardMaterial;
+        const tex = this.getHeldTexture(stack.itemId);
+        const isCube = def?.blockId !== undefined && getBlockShape(def.blockId) === 'cube';
+        tpHeld.scale.set(isCube ? 1.0 : 1.15, isCube ? 1.0 : 1.15, isCube ? 1.0 : 0.14);
         mat.map = tex;
         mat.color.setHex(tex ? 0xffffff : 0xd4d8dc);
-        mat.transparent = Boolean(tex);
-        mat.alphaTest = tex ? 0.45 : 0;
-        mat.metalness = def.toolTier && def.toolTier >= 3 ? 0.35 : 0.1;
-        mat.roughness = 0.45;
-        mat.needsUpdate = true;
-      } else {
-        held.scale.set(0.95, 0.95, 0.12);
-        mat.map = tex;
-        mat.color.setHex(tex ? 0xffffff : 0xe5e7eb);
-        mat.transparent = Boolean(tex);
-        mat.alphaTest = tex ? 0.45 : 0;
-        mat.metalness = 0.15;
-        mat.roughness = 0.5;
+        mat.transparent = !isCube || Boolean(def?.blockId && BLOCK_DEFS[def.blockId]?.transparent);
+        mat.alphaTest = mat.transparent ? 0.4 : 0;
         mat.needsUpdate = true;
       }
     }
@@ -696,11 +1010,16 @@ export class NetherCraftEngine {
     this.pack = pack;
     for (const tex of this.heldTexCache.values()) tex.dispose();
     this.heldTexCache.clear();
+    for (const geo of this.heldItemGeoCache.values()) geo.dispose();
+    this.heldItemGeoCache.clear();
+    this.lastHeldItemId = '';
     pack.atlasTexture.needsUpdate = true;
     this.opaqueMat.map = pack.atlasTexture;
     this.opaqueMat.needsUpdate = true;
     this.transMat.map = pack.atlasTexture;
     this.transMat.needsUpdate = true;
+    this.emissiveMat.map = pack.atlasTexture;
+    this.emissiveMat.needsUpdate = true;
     // Rebuild all loaded chunks to display newly downloaded/swapped textures immediately
     for (const entry of this.chunks.values()) {
       for (let s = 0; s < SUBCHUNK_COUNT; s++) {
@@ -765,6 +1084,7 @@ export class NetherCraftEngine {
     this.cloudGroup.visible = false;
     this.sunMesh.visible = false;
     this.moonMesh.visible = false;
+    this.starField.visible = false;
     this.borderWalls.forEach((w) => (w.visible = false));
     this.exitPointerLock();
   }
@@ -1128,21 +1448,36 @@ export class NetherCraftEngine {
 
     const entry = this.chunks.get(this.chunkKey(cx, cz));
     if (entry) {
+      const prevId = getChunkBlock(entry.col, lx, wy, lz);
+      const lightChanged =
+        getBlockLightEmission(prevId).level > 0 || getBlockLightEmission(blockId).level > 0;
+
       setChunkBlock(entry.col, lx, wy, lz, blockId);
       const sy = wy >> 4;
       entry.col.dirtySections[sy] = true;
-      if ((wy & 15) === 0 && sy > 0) entry.col.dirtySections[sy - 1] = true;
-      if ((wy & 15) === 15 && sy < SUBCHUNK_COUNT - 1) entry.col.dirtySections[sy + 1] = true;
+      if (((wy & 15) === 0 || (lightChanged && (wy & 15) <= 6)) && sy > 0) {
+        entry.col.dirtySections[sy - 1] = true;
+      }
+      if (((wy & 15) === 15 || (lightChanged && (wy & 15) >= 10)) && sy < SUBCHUNK_COUNT - 1) {
+        entry.col.dirtySections[sy + 1] = true;
+      }
 
-      // Mark adjacent chunk borders dirty
+      // Mark adjacent chunk borders dirty (expanded 6-block margin when placing/breaking lights)
+      const borderMargin = lightChanged ? 6 : 0;
       const markNeighbor = (ncx: number, ncz: number) => {
         const nb = this.chunks.get(this.chunkKey(ncx, ncz));
-        if (nb) nb.col.dirtySections[sy] = true;
+        if (!nb) return;
+        nb.col.dirtySections[sy] = true;
+        if (lightChanged && sy > 0) nb.col.dirtySections[sy - 1] = true;
+        if (lightChanged && sy < SUBCHUNK_COUNT - 1) nb.col.dirtySections[sy + 1] = true;
       };
-      if (lx === 0) markNeighbor(cx - 1, cz);
-      if (lx === CHUNK_SIZE - 1) markNeighbor(cx + 1, cz);
-      if (lz === 0) markNeighbor(cx, cz - 1);
-      if (lz === CHUNK_SIZE - 1) markNeighbor(cx, cz + 1);
+      if (lx <= borderMargin) markNeighbor(cx - 1, cz);
+      if (lx >= CHUNK_SIZE - 1 - borderMargin) markNeighbor(cx + 1, cz);
+      if (lz <= borderMargin) markNeighbor(cx, cz - 1);
+      if (lz >= CHUNK_SIZE - 1 - borderMargin) markNeighbor(cx, cz + 1);
+      if (lightChanged) {
+        this.dynamicLightTick = 99; // Snap real-time PointLights immediately
+      }
     }
   }
 
@@ -1187,6 +1522,7 @@ export class NetherCraftEngine {
           (entry.col.cz - this.originCZ) * CHUNK_SIZE,
         );
       }
+      this.dynamicLightTick = 99;
     }
   }
 
@@ -1225,7 +1561,17 @@ export class NetherCraftEngine {
               group,
               opaqueMeshes: new Array(SUBCHUNK_COUNT).fill(null),
               transMeshes: new Array(SUBCHUNK_COUNT).fill(null),
+              emissiveMeshes: new Array(SUBCHUNK_COUNT).fill(null),
             });
+            // Mark already-loaded neighbor chunks dirty so chunk-edge seam walls are seamlessly re-culled
+            for (const [ndx, ndz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+              const nb = this.chunks.get(this.chunkKey(cx + ndx, cz + ndz));
+              if (nb) {
+                for (let s = 0; s < SUBCHUNK_COUNT; s++) {
+                  if (nb.col.sections[s]) nb.col.dirtySections[s] = true;
+                }
+              }
+            }
             genBudget--;
           }
         }
@@ -1256,6 +1602,11 @@ export class NetherCraftEngine {
           entry.transMeshes[sy]!.geometry.dispose();
           entry.transMeshes[sy] = null;
         }
+        if (entry.emissiveMeshes[sy]) {
+          entry.group.remove(entry.emissiveMeshes[sy]!);
+          entry.emissiveMeshes[sy]!.geometry.dispose();
+          entry.emissiveMeshes[sy] = null;
+        }
 
         const built = buildSubChunkGeometry(entry.col, sy, getter, this.pack.uvMap, smoothAO, fancyLeaves);
         if (built.opaque) {
@@ -1275,6 +1626,14 @@ export class NetherCraftEngine {
           entry.group.add(m);
           entry.transMeshes[sy] = m;
         }
+        if (built.emissive) {
+          const m = new THREE.Mesh(built.emissive, this.emissiveMat);
+          m.renderOrder = 1;
+          m.updateMatrix();
+          m.matrixAutoUpdate = false;
+          entry.group.add(m);
+          entry.emissiveMeshes[sy] = m;
+        }
         meshBudget--;
         if (meshBudget <= 0) return;
       }
@@ -1290,6 +1649,10 @@ export class NetherCraftEngine {
       if (entry.transMeshes[s]) {
         entry.group.remove(entry.transMeshes[s]!);
         entry.transMeshes[s]!.geometry.dispose();
+      }
+      if (entry.emissiveMeshes[s]) {
+        entry.group.remove(entry.emissiveMeshes[s]!);
+        entry.emissiveMeshes[s]!.geometry.dispose();
       }
     }
     this.worldGroup.remove(entry.group);
@@ -1308,6 +1671,13 @@ export class NetherCraftEngine {
       (p.mesh.material as THREE.Material).dispose();
     }
     this.particles = [];
+    for (const pl of this.dynamicLights) {
+      pl.visible = false;
+      pl.intensity = 0;
+    }
+    this.heldPointLight.visible = false;
+    this.heldPointLight.intensity = 0;
+    this.dynamicLightTick = 99;
   }
 
   // --- Nether Portal Detection & Dimension Switching (1:8 scale!) ---
@@ -1707,10 +2077,12 @@ export class NetherCraftEngine {
             name: def?.nameVi || 'Khối',
             face: [prevX - bx, prevY - by, prevZ - bz],
           };
+          const [minX, minY, minZ, maxX, maxY, maxZ] = getBlockSelectionBounds(id);
+          this.highlightBox.scale.set(maxX - minX, maxY - minY, maxZ - minZ);
           this.highlightBox.position.set(
-            bx - this.originCX * CHUNK_SIZE + 0.5,
-            by + 0.5,
-            bz - this.originCZ * CHUNK_SIZE + 0.5,
+            bx - this.originCX * CHUNK_SIZE + (minX + maxX) * 0.5,
+            by + (minY + maxY) * 0.5,
+            bz - this.originCZ * CHUNK_SIZE + (minZ + maxZ) * 0.5,
           );
           this.highlightBox.visible = true;
           return;
@@ -2436,18 +2808,22 @@ export class NetherCraftEngine {
       }
       this.sunMesh.visible = false;
       this.moonMesh.visible = false;
+      this.starField.visible = false;
       this.cloudGroup.visible = false;
       this.rainPoints.visible = false;
       this.sunLight.color.setHex(0xff8c5a);
-      this.sunLight.intensity = 0.85 * brightBoost;
+      this.sunLight.intensity = 0.88 * brightBoost;
       this.hemiLight.color.setHex(biome === 'warped_forest' ? 0x5eead4 : 0xd96b5c);
       this.hemiLight.groundColor.setHex(0x451a12);
-      this.hemiLight.intensity = 0.92 * brightBoost;
+      this.hemiLight.intensity = 0.94 * brightBoost;
+      this.handHemi.intensity = 1.25;
+      this.handDir.intensity = 0.95;
     } else {
-      // Overworld day/night sky, sun/moon arc, clouds, rain/thunder
+      // Overworld day/night sky, sun/moon arc, twinkling stars, twilight, clouds, rain/thunder
       const angle = ((this.world.timeOfDay - 6000) / 24000) * Math.PI * 2;
       const sunH = Math.cos(angle);
       const dayFactor = THREE.MathUtils.clamp((sunH + 0.25) / 0.75, 0, 1);
+      const twilightFactor = Math.max(0, 1 - Math.abs(sunH + 0.04) * 3.6);
       const rainy = this.world.weather !== 'clear';
 
       if (this.world.weather === 'thunder' && Math.random() < dt * 0.14) {
@@ -2457,34 +2833,54 @@ export class NetherCraftEngine {
       this.lightningFlash = Math.max(0, this.lightningFlash - dt * 3.5);
 
       const daySky = rainy ? 0x5c6e85 : 0x7cb1ff;
-      const nightSky = 0x0b1020;
+      const nightSky = 0x0a1024;
       _fogTarget.setHex(nightSky).lerp(new THREE.Color(daySky), dayFactor);
+      if (!rainy && twilightFactor > 0.02) {
+        _fogTarget.lerp(new THREE.Color(0xd97559), twilightFactor * 0.42);
+      }
       if (this.lightningFlash > 0.1) _fogTarget.lerp(new THREE.Color(0xe0f2fe), this.lightningFlash * 0.7);
       (this.scene.background as THREE.Color).copy(_fogTarget);
       if (this.scene.fog instanceof THREE.Fog) {
         this.scene.fog.color.copy(_fogTarget);
         this.scene.fog.near = rainy ? 14 : 26;
-        this.scene.fog.far = Math.max(38, this.settings.renderDistance * 15);
+        this.scene.fog.far = Math.max(40, this.settings.renderDistance * 15);
       }
 
       const relX = this.px - this.originCX * CHUNK_SIZE;
       const relZ = this.pz - this.originCZ * CHUNK_SIZE;
-      const orbitR = 140;
-      this.sunMesh.visible = true;
-      this.moonMesh.visible = true;
-      this.sunMesh.position.set(relX + Math.sin(angle) * orbitR, this.py + Math.cos(angle) * orbitR, relZ - 30);
-      this.moonMesh.position.set(relX - Math.sin(angle) * orbitR, this.py - Math.cos(angle) * orbitR, relZ - 30);
+      const orbitR = 148;
+      this.sunMesh.visible = !rainy;
+      this.moonMesh.visible = !rainy;
+      this.sunMesh.position.set(relX + Math.sin(angle) * orbitR, this.py + Math.cos(angle) * orbitR, relZ);
+      this.moonMesh.position.set(relX - Math.sin(angle) * orbitR, this.py - Math.cos(angle) * orbitR, relZ);
+      this.sunMesh.lookAt(this.camera.position);
+      this.moonMesh.lookAt(this.camera.position);
 
-      this.sunLight.position.set(relX + Math.sin(angle) * 60, Math.max(12, Math.cos(angle) * 75), relZ + 25);
+      // Authentic Minecraft Night Stars (rotate gently with celestial sky, fade in at sunset)
+      const starOpacity = rainy ? 0 : THREE.MathUtils.clamp((0.42 - dayFactor) / 0.34, 0, 0.94);
+      this.starField.visible = starOpacity > 0.02;
+      if (this.starField.visible) {
+        this.starField.position.set(relX, this.py, relZ);
+        this.starField.rotation.z = -angle;
+        (this.starField.material as THREE.PointsMaterial).opacity = starOpacity;
+      }
+
+      this.sunLight.position.set(relX + Math.sin(angle) * 60, Math.max(14, Math.abs(Math.cos(angle)) * 72 + 12), relZ + 22);
       this.sunLight.target.position.set(relX, this.py, relZ);
-      this.sunLight.color.setHex(dayFactor > 0.35 ? 0xfff4d6 : 0x93c5fd);
-      this.sunLight.intensity = (0.28 + dayFactor * (rainy ? 0.65 : 1.15) + this.lightningFlash) * brightBoost;
+      this.sunLight.color.setHex(dayFactor > 0.35 ? 0xfff4d6 : 0x9ec5fe);
+      // Authentic Minecraft moonlight floor so night terrain, trees & water stay crisp and readable!
+      this.sunLight.intensity = (0.36 + dayFactor * (rainy ? 0.62 : 1.08) + this.lightningFlash) * brightBoost;
 
-      _hemiSky.setHex(0x1e293b).lerp(new THREE.Color(rainy ? 0x7c8fa6 : 0xa5d2ff), dayFactor);
-      _hemiGround.setHex(0x1f1d24).lerp(new THREE.Color(0x52483c), dayFactor);
+      _hemiSky.setHex(0x344a72).lerp(new THREE.Color(rainy ? 0x7c8fa6 : 0xa8d4ff), dayFactor);
+      _hemiGround.setHex(0x222736).lerp(new THREE.Color(0x544a3e), dayFactor);
       this.hemiLight.color.copy(_hemiSky);
       this.hemiLight.groundColor.copy(_hemiGround);
-      this.hemiLight.intensity = (0.38 + dayFactor * 0.45) * brightBoost;
+      this.hemiLight.intensity = (0.54 + dayFactor * 0.38) * brightBoost;
+
+      // Keep First-Person Hand & Sword well-lit and crisp even at night (never silhouettes!)
+      const handLightBoost = Math.max(0.84, 0.84 + dayFactor * 0.42);
+      this.handHemi.intensity = 1.22 * handLightBoost;
+      this.handDir.intensity = 0.92 * handLightBoost;
 
       // Clouds drift
       this.cloudGroup.visible = this.settings.clouds !== 'off';
@@ -2503,6 +2899,9 @@ export class NetherCraftEngine {
         posAttr.needsUpdate = true;
       }
     }
+
+    // 3b. Dynamic real-time PointLights for placed torches/lanterns/glowstone/campfires/lava + handheld glow
+    this.updateDynamicBlockLights(dt);
 
     // 4. World Border visual barrier when within 45 blocks of border
     const [bcx, bcz] = this.world.worldBorderCenter;
@@ -2615,6 +3014,133 @@ export class NetherCraftEngine {
     if (this.autosaveTick > 15) {
       this.autosaveTick = 0;
       this.saveCurrentWorld();
+    }
+  }
+
+  private updateDynamicBlockLights(dt: number): void {
+    if (!this.world) return;
+    const relX = this.px - this.originCX * CHUNK_SIZE;
+    const relZ = this.pz - this.originCZ * CHUNK_SIZE;
+
+    // Handheld light when holding Torch, Lantern, Glowstone, Campfire, Lava Bucket, etc.
+    const heldStack = this.world.player.inventory[this.world.player.selectedSlot];
+    const heldDef = heldStack ? ITEM_DEFS[heldStack.itemId] : undefined;
+    const heldBlockEm = heldDef?.blockId !== undefined ? getBlockLightEmission(heldDef.blockId) : null;
+    if (
+      (heldBlockEm && heldBlockEm.level >= 8) ||
+      heldStack?.itemId === 'lava_bucket' ||
+      heldStack?.itemId === 'blaze_rod'
+    ) {
+      const r = heldBlockEm && heldBlockEm.level >= 8 ? heldBlockEm.r : 1.0;
+      const g = heldBlockEm && heldBlockEm.level >= 8 ? heldBlockEm.g : 0.78;
+      const b = heldBlockEm && heldBlockEm.level >= 8 ? heldBlockEm.b : 0.42;
+      const lvl = heldBlockEm && heldBlockEm.level >= 8 ? heldBlockEm.level : 13;
+      this.heldPointLight.visible = true;
+      this.heldPointLight.color.setRGB(r, g, b);
+      this.heldPointLight.intensity = 1.45 * (lvl / 15);
+      this.heldPointLight.position.set(relX, this.py + 1.45, relZ);
+    } else {
+      this.heldPointLight.visible = false;
+      this.heldPointLight.intensity = 0;
+    }
+
+    // Sync hand overlay lighting with current sky brightness + handheld light
+    const handDayBoost = Math.max(0.55, Math.min(1.25, this.sunLight.intensity * 0.75 + 0.45));
+    this.handHemi.intensity = this.heldPointLight.visible ? 1.25 : handDayBoost;
+    this.handDir.intensity = this.heldPointLight.visible ? 0.95 : handDayBoost * 0.72;
+
+    this.dynamicLightTick += dt;
+    if (this.dynamicLightTick < 0.35) return;
+    this.dynamicLightTick = 0;
+
+    // Gather closest light-emitting blocks within 14 blocks of player
+    const pxI = Math.floor(this.px);
+    const pyI = Math.floor(this.py + 1);
+    const pzI = Math.floor(this.pz);
+    const R = 14;
+    const minCX = Math.floor((pxI - R) / CHUNK_SIZE);
+    const maxCX = Math.floor((pxI + R) / CHUNK_SIZE);
+    const minCZ = Math.floor((pzI - R) / CHUNK_SIZE);
+    const maxCZ = Math.floor((pzI + R) / CHUNK_SIZE);
+    const minSY = Math.max(0, (pyI - R) >> 4);
+    const maxSY = Math.min(SUBCHUNK_COUNT - 1, (pyI + R) >> 4);
+
+    const found: { d2: number; wx: number; wy: number; wz: number; r: number; g: number; b: number; lvl: number }[] = [];
+
+    for (let cx = minCX; cx <= maxCX; cx++) {
+      for (let cz = minCZ; cz <= maxCZ; cz++) {
+        const entry = this.chunks.get(this.chunkKey(cx, cz));
+        if (!entry) continue;
+        const xOff = cx * CHUNK_SIZE;
+        const zOff = cz * CHUNK_SIZE;
+        for (let sy = minSY; sy <= maxSY; sy++) {
+          const sec = entry.col.sections[sy];
+          if (!sec) continue;
+          const yOff = sy * 16;
+          for (let ly = 0; ly < 16; ly++) {
+            const wy = yOff + ly;
+            const dy = wy - pyI;
+            if (dy < -R || dy > R) continue;
+            const yBaseIdx = ly << 8;
+            for (let lz = 0; lz < 16; lz++) {
+              const wz = zOff + lz;
+              const dz = wz - pzI;
+              if (dz < -R || dz > R) continue;
+              const zBaseIdx = yBaseIdx | (lz << 4);
+              for (let lx = 0; lx < 16; lx++) {
+                const bid = sec[zBaseIdx | lx];
+                if (bid === BLOCK.AIR) continue;
+                const em = getBlockLightEmission(bid);
+                if (em.level < 8) continue;
+                const wx = xOff + lx;
+                const dx = wx - pxI;
+                if (dx < -R || dx > R) continue;
+                const d2 = dx * dx + dy * dy + dz * dz;
+                if (d2 > R * R) continue;
+                found.push({ d2, wx, wy, wz, r: em.r, g: em.g, b: em.b, lvl: em.level });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    found.sort((a, b) => a.d2 - b.d2);
+
+    // Pick up to 6 well-spaced nearby light sources (avoid stacking 6 lights on the same lava lake)
+    const picked: typeof found = [];
+    for (const c of found) {
+      if (picked.length >= this.dynamicLights.length) break;
+      let tooClose = false;
+      for (const p of picked) {
+        const ddx = c.wx - p.wx;
+        const ddy = c.wy - p.wy;
+        const ddz = c.wz - p.wz;
+        if (ddx * ddx + ddy * ddy + ddz * ddz < 9) {
+          tooClose = true;
+          break;
+        }
+      }
+      if (!tooClose) picked.push(c);
+    }
+
+    for (let i = 0; i < this.dynamicLights.length; i++) {
+      const pl = this.dynamicLights[i];
+      const src = picked[i];
+      if (src) {
+        pl.visible = true;
+        pl.color.setRGB(src.r, src.g, src.b);
+        pl.intensity = 2.4 * (src.lvl / 15);
+        pl.distance = 8 + src.lvl * 0.75;
+        pl.position.set(
+          src.wx - this.originCX * CHUNK_SIZE + 0.5,
+          src.wy + 0.65,
+          src.wz - this.originCZ * CHUNK_SIZE + 0.5,
+        );
+      } else {
+        pl.visible = false;
+        pl.intensity = 0;
+      }
     }
   }
 
@@ -2762,10 +3288,25 @@ export class NetherCraftEngine {
         }
       }
 
-      // First-person hand swing
-      const swingAmt = Math.sin(this.handSwing * Math.PI);
-      this.handGroup.position.set(bobX * 0.6, bobY * 0.6 - swingAmt * 0.14, -swingAmt * 0.18);
-      this.handGroup.rotation.set(-swingAmt * 0.65, swingAmt * 0.25, 0);
+      // Authentic Minecraft first-person equip-raise, walking figure-8 bob & diagonal chop swing!
+      if (this.equipProgress < 1) {
+        this.equipProgress = Math.min(1, this.equipProgress + dt * 5.8);
+      }
+      const equipEase = 1 - (1 - this.equipProgress) * (1 - this.equipProgress);
+      const equipDrop = -(1 - equipEase) * 0.34;
+      const p = 1 - this.handSwing; // 0 -> 1 during active swing
+      const swingCurve = this.handSwing > 0 ? Math.sin(Math.sqrt(p) * Math.PI) : 0;
+      const swingDip = this.handSwing > 0 ? Math.sin(p * p * Math.PI) : 0;
+      this.handGroup.position.set(
+        bobX * 0.65 - swingCurve * 0.24,
+        bobY * 0.55 + equipDrop - swingDip * 0.16,
+        -swingCurve * 0.18,
+      );
+      this.handGroup.rotation.set(
+        -swingCurve * 0.85,
+        swingCurve * 0.36,
+        swingCurve * 0.32,
+      );
 
       // Throttled HUD snapshot emit (~9Hz keeps React completely off the 60fps hot path)
       this.hudEmitTick += dt;
@@ -2775,7 +3316,15 @@ export class NetherCraftEngine {
       }
     }
 
+    // Main 3D world render + dedicated depth-cleared First-Person Hand overlay (zero wall clipping!)
+    this.renderer.autoClear = true;
     this.renderer.render(this.scene, this.camera);
+    if (this.mode === 'playing' && this.cameraMode === 'first' && this.handGroup.visible) {
+      this.renderer.autoClear = false;
+      this.renderer.clearDepth();
+      this.renderer.render(this.handScene, this.handCamera);
+      this.renderer.autoClear = true;
+    }
 
     if (this.isSoftwareGl) {
       this.afterDraw(this.tick);
@@ -2957,8 +3506,11 @@ export class NetherCraftEngine {
   private handleResize(): void {
     const w = this.container.clientWidth || window.innerWidth;
     const h = this.container.clientHeight || window.innerHeight;
-    this.camera.aspect = Math.max(1, w) / Math.max(1, h);
+    const aspect = Math.max(1, w) / Math.max(1, h);
+    this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
+    this.handCamera.aspect = aspect;
+    this.handCamera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
   }
 
@@ -3181,14 +3733,25 @@ export class NetherCraftEngine {
     this.renderer.domElement.removeEventListener('contextmenu', this.onContextMenuBound);
 
     this.clearWorldScene();
+    for (const tex of this.heldTexCache.values()) tex.dispose();
+    this.heldTexCache.clear();
+    for (const geo of this.heldItemGeoCache.values()) geo.dispose();
+    this.heldItemGeoCache.clear();
     this.handDispose?.();
     if (this.playerRig) {
       this.scene.remove(this.playerRig.root);
       this.playerRig.dispose();
       this.playerRig = null;
     }
+    this.starField.geometry.dispose();
+    (this.starField.material as THREE.Material).dispose();
+    this.sunMesh.geometry.dispose();
+    (this.sunMesh.material as THREE.Material).dispose();
+    this.moonMesh.geometry.dispose();
+    (this.moonMesh.material as THREE.Material).dispose();
     this.opaqueMat.dispose();
     this.transMat.dispose();
+    this.emissiveMat.dispose();
     this.particleGeo.dispose();
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode === this.container) {

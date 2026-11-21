@@ -100,17 +100,29 @@ export class WorldGenerator {
     return dimension === 'overworld' ? this.getOverworldBiome(wx, wz) : this.getNetherBiome(wx, wz);
   }
 
+  private smoothstep(edge0: number, edge1: number, x: number): number {
+    const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+    return t * t * (3 - 2 * t);
+  }
+
   getOverworldSurfaceY(wx: number, wz: number): number {
-    const biome = this.getOverworldBiome(wx, wz);
+    const temp = this.biomeNoise.fbm2D(wx * 0.0028, wz * 0.0028, 3);
+    const moist = this.detailNoise.fbm2D(wx * 0.0028 + 100, wz * 0.0028 - 100, 3);
+    const ridge = this.noise.fbm2D(wx * 0.0045 + 31, wz * 0.0045 + 17, 2);
+
     const cont = this.noise.fbm2D(wx * 0.006, wz * 0.006, 4);
     const hill = this.detailNoise.fbm2D(wx * 0.022, wz * 0.022, 2);
-    let h = SEA_LEVEL + 4 + cont * 16 + hill * 4;
-    if (biome === 'mountains') {
-      h += Math.max(0, cont + 0.35) * 34 + Math.abs(hill) * 14;
-    } else if (biome === 'desert') {
-      h = SEA_LEVEL + 3 + cont * 9 + hill * 2;
-    }
-    return Math.max(20, Math.min(148, Math.floor(h)));
+
+    // Smooth continuous biome weights so terrain NEVER forms artificial vertical cliff walls
+    const mountainW = this.smoothstep(0.24, 0.52, ridge);
+    const desertW = this.smoothstep(0.22, 0.44, temp) * this.smoothstep(0.18, -0.02, moist);
+
+    const baseH = SEA_LEVEL + 4 + cont * 15 + hill * 4;
+    const desertH = SEA_LEVEL + 3 + cont * 8 + hill * 2.2;
+    const blended = baseH * (1 - desertW) + desertH * desertW;
+    const mountainLift = mountainW * (Math.max(0, cont + 0.38) * 30 + Math.abs(hill) * 12);
+
+    return Math.max(20, Math.min(148, Math.floor(blended + mountainLift)));
   }
 
   generateChunk(
@@ -170,10 +182,11 @@ export class WorldGenerator {
         for (let y = 1; y <= surfY; y++) {
           if (y === 1 && getChunkBlock(col, lx, 1, lz) === BLOCK.BEDROCK) continue;
 
-          // Caves (Y = 8..surfY-4)
-          if (y >= 8 && y < surfY - 3) {
+          // Caves (Y = 8..surfY-4, safely below sea floor to avoid floating water pockets)
+          const caveCeiling = surfY < SEA_LEVEL ? Math.min(surfY - 5, SEA_LEVEL - 6) : surfY - 4;
+          if (y >= 8 && y < caveCeiling) {
             const c1 = this.noise.noise3D(wx * 0.055, y * 0.075, wz * 0.055);
-            if (c1 > 0.58) {
+            if (c1 > 0.6) {
               setChunkBlock(col, lx, y, lz, y <= 10 ? BLOCK.LAVA : BLOCK.AIR);
               continue;
             }
@@ -215,16 +228,20 @@ export class WorldGenerator {
         ) {
           const treeChance = biome === 'forest' ? 0.962 : 0.991;
           if (this.noise.rand2(wx, wz, 777) > treeChance) {
-            const trunkH = 4 + Math.floor(this.noise.rand2(wx, wz, 778) * 2);
+            const trunkH = 4 + Math.floor(this.noise.rand2(wx, wz, 778) * 3);
             for (let ty = 1; ty <= trunkH; ty++) {
               setChunkBlock(col, lx, surfY + ty, lz, BLOCK.OAK_LOG);
             }
             const topY = surfY + trunkH;
-            for (let dy = -1; dy <= 1; dy++) {
-              const rad = dy === 1 ? 1 : 2;
+            // Authentic 4-layer Minecraft Oak Tree canopy (dy = -2, -1: 5x5; dy = 0: 3x3; dy = +1: + crown)
+            for (let dy = -2; dy <= 1; dy++) {
+              const rad = dy <= -1 ? 2 : 1;
               for (let dx = -rad; dx <= rad; dx++) {
                 for (let dz = -rad; dz <= rad; dz++) {
-                  if (Math.abs(dx) === rad && Math.abs(dz) === rad && dy >= 0) continue;
+                  const isCorner = Math.abs(dx) === rad && Math.abs(dz) === rad;
+                  if (dy === 1 && isCorner) continue; // Plus-shaped top crown
+                  if (dy === 0 && isCorner && this.noise.rand2(wx + dx, wz + dz, 781) > 0.45) continue;
+                  if (dy <= -1 && isCorner && this.noise.rand2(wx + dx, wz + dz, 782 + dy) > 0.62) continue;
                   if (dx === 0 && dz === 0 && dy <= 0) continue;
                   setChunkBlock(col, lx + dx, topY + dy, lz + dz, BLOCK.OAK_LEAVES);
                 }
@@ -241,7 +258,7 @@ export class WorldGenerator {
       const px = 10;
       const pz = 10;
       const base = Math.max(SEA_LEVEL + 1, this.getOverworldSurfaceY(px + 1, pz));
-      // Clear platform & build Netherrack/Magma/Gold/Obsidian Ruined Portal
+      // Clear platform, ground foundation down to solid earth, and build Ruined Portal
       for (let dx = -1; dx <= 4; dx++) {
         for (let dz = -2; dz <= 2; dz++) {
           const bx = px + dx;
@@ -249,6 +266,12 @@ export class WorldGenerator {
           if (bx < 0 || bx >= 16 || bz < 0 || bz >= 16) continue;
           const patch = (dx + dz) % 3 === 0 ? BLOCK.MAGMA : BLOCK.NETHERRACK;
           setChunkBlock(col, bx, base, bz, patch);
+          // Fill downward foundation so the portal platform never floats above sloped ground
+          for (let fy = base - 1; fy >= Math.max(1, base - 10); fy--) {
+            const existing = getChunkBlock(col, bx, fy, bz);
+            if (existing !== BLOCK.AIR && existing !== BLOCK.WATER) break;
+            setChunkBlock(col, bx, fy, bz, BLOCK.NETHERRACK);
+          }
           for (let cy = 1; cy <= 6; cy++) setChunkBlock(col, bx, base + cy, bz, BLOCK.AIR);
         }
       }

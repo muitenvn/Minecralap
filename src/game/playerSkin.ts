@@ -816,7 +816,125 @@ export function animatePlayerRig(
   }
 }
 
-// Build UV-mapped First-Person Right Arm using the active Steve/Alex/Custom skin!
+// ============================================================================
+// AUTHENTIC 3D PIXEL-EXTRUDED MINECRAFT HELD ITEM GEOMETRY (16x16 / 32x32)
+// Converts any 2D item icon (sword, pickaxe, axe, torch, food, etc.) into a
+// chunky 3D voxel-extruded mesh with shaded pixel thickness, just like Minecraft!
+// ============================================================================
+export function buildExtrudedItemGeometry(
+  source: HTMLImageElement | HTMLCanvasElement,
+  maxRes = 32,
+): THREE.BufferGeometry {
+  const natW = source instanceof HTMLImageElement ? source.naturalWidth || source.width : source.width;
+  const natH = source instanceof HTMLImageElement ? source.naturalHeight || source.height : source.height;
+  // Choose crisp native grid resolution (16 for 16x vanilla, 32 for Faithful 32x/HD+)
+  const grid = natW >= 24 || natH >= 24 ? Math.min(maxRes, 32) : 16;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = grid;
+  canvas.height = grid;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, grid, grid);
+  ctx.drawImage(source, 0, 0, grid, grid);
+  const data = ctx.getImageData(0, 0, grid, grid).data;
+
+  const opaque = new Uint8Array(grid * grid);
+  for (let i = 0; i < grid * grid; i++) {
+    if (data[i * 4 + 3] >= 96) opaque[i] = 1;
+  }
+
+  const pos: number[] = [];
+  const norm: number[] = [];
+  const col: number[] = [];
+  const idx: number[] = [];
+  const tmpColor = new THREE.Color();
+
+  const step = 1 / grid;
+  const halfDepth = 1 / 32; // Authentic Minecraft 1/16 block thickness (-1/32 .. +1/32)
+
+  const pushQuad = (
+    v0: [number, number, number],
+    v1: [number, number, number],
+    v2: [number, number, number],
+    v3: [number, number, number],
+    nx: number,
+    ny: number,
+    nz: number,
+    r: number,
+    g: number,
+    b: number,
+    shade: number,
+  ) => {
+    const base = pos.length / 3;
+    pos.push(
+      v0[0], v0[1], v0[2],
+      v1[0], v1[1], v1[2],
+      v2[0], v2[1], v2[2],
+      v3[0], v3[1], v3[2],
+    );
+    for (let k = 0; k < 4; k++) {
+      norm.push(nx, ny, nz);
+      col.push(r * shade, g * shade, b * shade);
+    }
+    idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  };
+
+  for (let py = 0; py < grid; py++) {
+    for (let px = 0; px < grid; px++) {
+      const pi = py * grid + px;
+      if (!opaque[pi]) continue;
+
+      const r8 = data[pi * 4];
+      const g8 = data[pi * 4 + 1];
+      const b8 = data[pi * 4 + 2];
+      tmpColor.setRGB(r8 / 255, g8 / 255, b8 / 255, THREE.SRGBColorSpace);
+      const r = tmpColor.r;
+      const g = tmpColor.g;
+      const b = tmpColor.b;
+
+      const x0 = px * step - 0.5;
+      const x1 = x0 + step;
+      // py = 0 is top of image (+0.5 Y), py = grid-1 is bottom (-0.5 Y)
+      const y1 = 0.5 - py * step;
+      const y0 = y1 - step;
+      const z0 = -halfDepth;
+      const z1 = halfDepth;
+
+      // Front face (+Z)
+      pushQuad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], 0, 0, 1, r, g, b, 1.0);
+      // Back face (-Z)
+      pushQuad([x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], 0, 0, -1, r, g, b, 0.92);
+
+      // Exposed perimeter side faces (gives genuine chunky 3D pixel edges!)
+      if (px === 0 || !opaque[py * grid + (px - 1)]) {
+        pushQuad([x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], -1, 0, 0, r, g, b, 0.84);
+      }
+      if (px === grid - 1 || !opaque[py * grid + (px + 1)]) {
+        pushQuad([x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], 1, 0, 0, r, g, b, 0.88);
+      }
+      if (py === 0 || !opaque[(py - 1) * grid + px]) {
+        pushQuad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], 0, 1, 0, r, g, b, 1.04);
+      }
+      if (py === grid - 1 || !opaque[(py + 1) * grid + px]) {
+        pushQuad([x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], 0, -1, 0, r, g, b, 0.72);
+      }
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.setIndex(idx);
+  geo.computeBoundingSphere();
+  return geo;
+}
+
+// Build authentic Minecraft First-Person Rig:
+// 1. fpBareArm   — clean Steve/Alex/Custom bare right arm shown ONLY when hand is empty
+// 2. fpHeldBlock — authentic 6-face 3D isometric cube shown when holding full blocks
+// 3. fpHeldItem  — authentic 3D pixel-extruded voxel item mesh for swords, tools, torches, food
 export function buildFirstPersonSkinArm(config: PlayerSkinConfig): {
   group: THREE.Group;
   skinTexture: THREE.Texture;
@@ -826,38 +944,61 @@ export function buildFirstPersonSkinArm(config: PlayerSkinConfig): {
   const armW = config.armModel === 'slim' || config.modelCode.armWidth <= 3 ? 3 : 4;
   const skinTexture = createSkinTexture(config.skinDataUrl);
 
+  // 1. Bare Right Arm (authentic lower-right Minecraft angle)
+  const armPivot = new THREE.Group();
+  armPivot.name = 'fpBareArm';
   const armMat = new THREE.MeshStandardMaterial({
     map: skinTexture,
-    roughness: 0.84,
-    metalness: 0.04,
+    roughness: 0.86,
+    metalness: 0.02,
   });
-  const armGeo = createMinecraftBoxGeometry(armW, 12, 4, 40, 16);
-  const armMesh = new THREE.Mesh(armGeo, armMat);
-  armMesh.position.set(0.36, -0.34, -0.5);
-  armMesh.rotation.set(0.45, -0.32, 0.18);
-  armMesh.scale.setScalar(0.82);
+  const armMesh = new THREE.Mesh(createMinecraftBoxGeometry(armW, 12, 4, 40, 16), armMat);
+  armMesh.position.set(0.50, -0.44, -0.66);
+  armMesh.rotation.set(-0.82, -0.42, 0.34);
+  armMesh.scale.setScalar(0.88);
 
   if (config.modelCode.showOverlays) {
     const sleeveMat = new THREE.MeshStandardMaterial({
       map: skinTexture,
       transparent: true,
       alphaTest: 0.45,
-      roughness: 0.84,
+      roughness: 0.86,
       side: THREE.DoubleSide,
     });
     const sleeve = new THREE.Mesh(createMinecraftBoxGeometry(armW, 12, 4, 40, 32, 0.016), sleeveMat);
     armMesh.add(sleeve);
   }
+  armPivot.add(armMesh);
+  group.add(armPivot);
 
-  const held = new THREE.Mesh(
-    new THREE.BoxGeometry(0.24, 0.24, 0.24),
-    new THREE.MeshStandardMaterial({ color: 0x4c464f, roughness: 0.3, metalness: 0.65 }),
+  // 2. Held 3D Block (6 independent face materials: +X, -X, +Y, -Y, +Z, -Z)
+  const blockMats = Array.from({ length: 6 }, () =>
+    new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.84,
+      metalness: 0.04,
+    }),
   );
-  held.name = 'heldItemMesh';
-  held.position.set(-0.04, -0.34, 0.14);
-  armMesh.add(held);
+  const heldBlock = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.36, 0.36), blockMats);
+  heldBlock.name = 'fpHeldBlock';
+  heldBlock.position.set(0.52, -0.38, -0.78);
+  heldBlock.rotation.set(0.14, -Math.PI / 4, 0.02);
+  heldBlock.visible = false;
+  group.add(heldBlock);
 
-  group.add(armMesh);
+  // 3. Held 3D Pixel-Extruded Item (geometry hot-swapped per item from cached voxel mesh!)
+  const itemMat = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.56,
+    metalness: 0.12,
+  });
+  const heldItem = new THREE.Mesh(new THREE.BufferGeometry(), itemMat);
+  heldItem.name = 'fpHeldItem';
+  heldItem.rotation.order = 'YXZ';
+  heldItem.position.set(0.50, -0.28, -0.76);
+  heldItem.rotation.set(0.02, -1.24, 1.12);
+  heldItem.visible = false;
+  group.add(heldItem);
 
   return {
     group,
@@ -866,7 +1007,10 @@ export function buildFirstPersonSkinArm(config: PlayerSkinConfig): {
       skinTexture.dispose();
       group.traverse((obj) => {
         if (obj instanceof THREE.Mesh) {
-          obj.geometry.dispose();
+          // Do not dispose shared cached extruded item geometries held by engine
+          if (obj.name !== 'fpHeldItem') {
+            obj.geometry.dispose();
+          }
           if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose());
           else obj.material.dispose();
         }
@@ -874,3 +1018,4 @@ export function buildFirstPersonSkinArm(config: PlayerSkinConfig): {
     },
   };
 }
+
