@@ -18,7 +18,13 @@ import {
   VolumeX,
 } from 'lucide-react';
 import { CompiledResourcePack } from '../game/resourcePack';
-import { DEFAULT_VIDEO_SETTINGS, MinimapMode, TexturePreset, VideoSettings } from '../game/types';
+import {
+  DEFAULT_VIDEO_SETTINGS,
+  MinimapMode,
+  TexturePreset,
+  TouchControlStyle,
+  VideoSettings,
+} from '../game/types';
 import { McButton, McDirtBackdrop } from './McSprites';
 
 // --- 1. PAUSE MODAL (Authentic Classic Minecraft Pause Overlay) ---
@@ -148,6 +154,14 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
     update('touchMode', order[(order.indexOf(settings.touchMode) + 1) % order.length]);
   };
 
+  const cycleTouchStyle = () => {
+    const next: TouchControlStyle =
+      (settings.touchControlStyle || 'dpad_buttons') === 'dpad_buttons'
+        ? 'touch_screen'
+        : 'dpad_buttons';
+    update('touchControlStyle', next);
+  };
+
   const cycleMinimap = () => {
     const order: MinimapMode[] = ['compact', 'expanded', 'off'];
     const cur = settings.minimapMode || 'compact';
@@ -162,6 +176,10 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
     settings.guiScale
   ];
   const touchLabel = { auto: 'Tự động', on: 'Bật', off: 'Tắt' }[settings.touchMode];
+  const touchStyleLabel =
+    (settings.touchControlStyle || 'dpad_buttons') === 'touch_screen'
+      ? 'Chạm đè màn hình'
+      : 'Nút Đập / Đặt';
   const minimapLabel = { compact: 'Gọn', expanded: 'Lớn', off: 'Tắt' }[
     settings.minimapMode || 'compact'
   ];
@@ -333,6 +351,14 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
 
           <McButton widgetsUrl={pack?.guiUrls.widgets} onClick={cycleTouch}>
             Cảm ứng: {touchLabel}
+          </McButton>
+
+          <McButton
+            widgetsUrl={pack?.guiUrls.widgets}
+            onClick={cycleTouchStyle}
+            className="sm:col-span-2"
+          >
+            Kiểu điều khiển điện thoại: {touchStyleLabel}
           </McButton>
 
           <McButton widgetsUrl={pack?.guiUrls.widgets} onClick={onToggleFullscreen}>

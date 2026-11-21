@@ -250,6 +250,19 @@ export function buildMobMesh(
     if (type === 'piglin' || type === 'zombified_piglin') return buildTexturedPiglin(tex, type === 'piglin');
     if (type === 'strider') return buildTexturedStrider(tex);
     if (type === 'ghast') return buildTexturedGhast(tex);
+    if (type === 'happy_ghast' || type === 'ghastling') {
+      return buildTexturedHappyGhast(tex, type === 'ghastling' ? 0.48 : 0.95);
+    }
+    if (type === 'bogged' || type === 'parched' || type === 'frostbite') {
+      return buildTexturedSkeleton(tex, type === 'frostbite' ? 0xcffafe : 0xffffff);
+    }
+    if (type === 'warden') return buildTexturedWarden(tex);
+    if (type === 'breeze') return buildTexturedBreeze(tex);
+    if (type === 'allay') return buildTexturedAllay(tex);
+    if (type === 'creaking') return buildTexturedCreaking(tex);
+    if (type === 'copper_golem') return buildTexturedCopperGolem(tex);
+    // Apply crisp Minecraft 26.3 entity PNG skinning to all other 3D composite mobs (camel, sniffer, axolotl, goat, frog, tadpole, armadillo, glow_squid, nautilus, zombie_horse, ender_dragon, etc.)
+    return buildTexturedProceduralComposite(type, tex);
   }
 
   return buildFallbackProceduralMob(type);
@@ -614,6 +627,266 @@ function buildTexturedGhast(tex: THREE.Texture): { group: THREE.Group; limbs: TH
   }
 
   return { group, limbs };
+}
+
+// --- 8. TEXTURED HAPPY GHAST & GHASTLING (entity/ghast/happy_ghast.png — 64x64) ---
+function buildTexturedHappyGhast(
+  tex: THREE.Texture,
+  scale = 0.95,
+): { group: THREE.Group; limbs: THREE.Object3D[] } {
+  const group = new THREE.Group();
+  const limbs: THREE.Object3D[] = [];
+  const mat = createEntityMaterial(tex);
+  const unit = (2.15 / 16) * scale;
+
+  const body = texturedPart(createMobBoxGeometry(16, 16, 16, 0, 0, 64, 64, 0, unit), mat);
+  body.position.set(0, 1.9 * scale, 0);
+  group.add(body);
+
+  for (let i = -1; i <= 1; i++) {
+    for (let j = -1; j <= 1; j++) {
+      const lenPx = 6 + ((i * 2 + j + 4) % 3) * 2;
+      const pivot = new THREE.Group();
+      pivot.position.set(i * 0.52 * scale, 0.92 * scale, j * 0.52 * scale);
+      const tent = texturedPart(createMobBoxGeometry(2, lenPx, 2, 0, 0, 64, 64, 0, unit), mat);
+      tent.position.y = -(lenPx * unit) * 0.5;
+      pivot.add(tent);
+      group.add(pivot);
+      limbs.push(pivot);
+    }
+  }
+  return { group, limbs };
+}
+
+// --- 9. TEXTURED SKELETON VARIANTS (Bogged / Parched / Frostbite — 64x32) ---
+function buildTexturedSkeleton(
+  tex: THREE.Texture,
+  tintHex = 0xffffff,
+): { group: THREE.Group; limbs: THREE.Object3D[] } {
+  const group = new THREE.Group();
+  const limbs: THREE.Object3D[] = [];
+  const mat = new THREE.MeshLambertMaterial({ map: tex, color: tintHex });
+
+  for (const lx of [-2, 2]) {
+    const pivot = new THREE.Group();
+    pivot.position.set(lx * PX, 12 * PX, 0);
+    const leg = texturedPart(createMobBoxGeometry(2, 12, 2, 0, 16, 64, 32), mat);
+    leg.position.y = -6 * PX;
+    pivot.add(leg);
+    group.add(pivot);
+    limbs.push(pivot);
+  }
+  const torso = texturedPart(createMobBoxGeometry(8, 12, 4, 16, 16, 64, 32), mat);
+  torso.position.set(0, 18 * PX, 0);
+  group.add(torso);
+
+  const head = texturedPart(createMobBoxGeometry(8, 8, 8, 0, 0, 64, 32), mat);
+  head.position.set(0, 28 * PX, 0);
+  group.add(head);
+
+  for (const ax of [-5, 5]) {
+    const pivot = new THREE.Group();
+    pivot.position.set(ax * PX, 22 * PX, 0);
+    pivot.rotation.x = -Math.PI * 0.35;
+    const arm = texturedPart(createMobBoxGeometry(2, 12, 2, 40, 16, 64, 32), mat);
+    arm.position.y = -5 * PX;
+    pivot.add(arm);
+    group.add(pivot);
+    limbs.push(pivot);
+  }
+  return { group, limbs };
+}
+
+// --- 10. TEXTURED WARDEN BOSS (entity/warden/warden.png — 128x128) ---
+function buildTexturedWarden(tex: THREE.Texture): { group: THREE.Group; limbs: THREE.Object3D[] } {
+  const group = new THREE.Group();
+  const limbs: THREE.Object3D[] = [];
+  const mat = createEntityMaterial(tex);
+  const s = PX * 1.04;
+
+  for (const lx of [-5.5, 5.5]) {
+    const pivot = new THREE.Group();
+    pivot.position.set(lx * s, 13 * s, 0);
+    const leg = texturedPart(createMobBoxGeometry(6, 13, 6, 76, 48, 128, 128, 0, s), mat);
+    leg.position.y = -6.5 * s;
+    pivot.add(leg);
+    group.add(pivot);
+    limbs.push(pivot);
+  }
+
+  const chest = texturedPart(createMobBoxGeometry(18, 21, 11, 0, 0, 128, 128, 0, s), mat);
+  chest.position.set(0, 23.5 * s, 0);
+  group.add(chest);
+
+  const head = texturedPart(createMobBoxGeometry(16, 16, 10, 0, 32, 128, 128, 0, s), mat);
+  head.position.set(0, 41 * s, 1 * s);
+  group.add(head);
+
+  // Sculk Tendril Horns
+  for (const hx of [-11, 11]) {
+    const tendril = texturedPart(createMobBoxGeometry(6, 12, 2, 58, 0, 128, 128, 0, s), mat);
+    tendril.position.set(hx * s, 45 * s, 0);
+    group.add(tendril);
+  }
+
+  for (const ax of [-13, 13]) {
+    const pivot = new THREE.Group();
+    pivot.position.set(ax * s, 32 * s, 0);
+    const arm = texturedPart(createMobBoxGeometry(8, 28, 8, 44, 50, 128, 128, 0, s), mat);
+    arm.position.y = -13 * s;
+    pivot.add(arm);
+    group.add(pivot);
+    limbs.push(pivot);
+  }
+  return { group, limbs };
+}
+
+// --- 11. TEXTURED BREEZE (entity/breeze/breeze.png — 32x32) ---
+function buildTexturedBreeze(tex: THREE.Texture): { group: THREE.Group; limbs: THREE.Object3D[] } {
+  const group = new THREE.Group();
+  const limbs: THREE.Object3D[] = [];
+  const mat = createEntityMaterial(tex, true);
+
+  const head = texturedPart(createMobBoxGeometry(8, 8, 8, 0, 0, 32, 32), mat);
+  head.position.set(0, 24 * PX, 0);
+  group.add(head);
+
+  const rod = texturedPart(createMobBoxGeometry(4, 18, 4, 0, 16, 32, 32), mat);
+  rod.position.set(0, 11 * PX, 0);
+  group.add(rod);
+  limbs.push(rod);
+
+  const windMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.45 });
+  const swirl = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.36, 0.92), windMat);
+  swirl.position.set(0, 12 * PX, 0);
+  group.add(swirl);
+  limbs.push(swirl);
+  return { group, limbs };
+}
+
+// --- 12. TEXTURED ALLAY (entity/allay/allay.png — 32x32) ---
+function buildTexturedAllay(tex: THREE.Texture): { group: THREE.Group; limbs: THREE.Object3D[] } {
+  const group = new THREE.Group();
+  const limbs: THREE.Object3D[] = [];
+  const mat = createEntityMaterial(tex, true);
+  const s = PX * 1.15;
+
+  const head = texturedPart(createMobBoxGeometry(5, 5, 5, 0, 0, 32, 32, 0, s), mat);
+  head.position.set(0, 14 * s, 0);
+  group.add(head);
+
+  const body = texturedPart(createMobBoxGeometry(3, 6, 2, 0, 10, 32, 32, 0, s), mat);
+  body.position.set(0, 8.5 * s, 0);
+  group.add(body);
+
+  for (const wx of [-1, 1]) {
+    const wingPivot = new THREE.Group();
+    wingPivot.position.set(wx * 1.5 * s, 11 * s, -1.5 * s);
+    const wing = texturedPart(createMobBoxGeometry(6, 5, 0.5, 16, 14, 32, 32, 0, s), mat);
+    wing.position.set(wx * 3 * s, 0, 0);
+    wingPivot.add(wing);
+    group.add(wingPivot);
+    limbs.push(wingPivot);
+  }
+  return { group, limbs };
+}
+
+// --- 13. TEXTURED CREAKING (entity/creaking/creaking.png — 64x64) ---
+function buildTexturedCreaking(tex: THREE.Texture): { group: THREE.Group; limbs: THREE.Object3D[] } {
+  const group = new THREE.Group();
+  const limbs: THREE.Object3D[] = [];
+  const mat = createEntityMaterial(tex);
+  const s = PX * 1.12;
+
+  for (const lx of [-3, 3]) {
+    const pivot = new THREE.Group();
+    pivot.position.set(lx * s, 16 * s, 0);
+    const leg = texturedPart(createMobBoxGeometry(3, 16, 3, 0, 34, 64, 64, 0, s), mat);
+    leg.position.y = -8 * s;
+    pivot.add(leg);
+    group.add(pivot);
+    limbs.push(pivot);
+  }
+  const torso = texturedPart(createMobBoxGeometry(8, 14, 5, 0, 16, 64, 64, 0, s), mat);
+  torso.position.set(0, 23 * s, 0);
+  group.add(torso);
+
+  const head = texturedPart(createMobBoxGeometry(6, 10, 6, 0, 0, 64, 64, 0, s), mat);
+  head.position.set(0, 35 * s, 0.5 * s);
+  group.add(head);
+
+  for (const ax of [-6, 6]) {
+    const pivot = new THREE.Group();
+    pivot.position.set(ax * s, 28 * s, 0);
+    const arm = texturedPart(createMobBoxGeometry(3, 18, 3, 30, 40, 64, 64, 0, s), mat);
+    arm.position.y = -8 * s;
+    pivot.add(arm);
+    group.add(pivot);
+    limbs.push(pivot);
+  }
+  return { group, limbs };
+}
+
+// --- 14. TEXTURED COPPER GOLEM (entity/copper_golem/copper_golem.png — 64x64) ---
+function buildTexturedCopperGolem(tex: THREE.Texture): { group: THREE.Group; limbs: THREE.Object3D[] } {
+  const group = new THREE.Group();
+  const limbs: THREE.Object3D[] = [];
+  const mat = createEntityMaterial(tex);
+
+  for (const lx of [-2.2, 2.2]) {
+    const pivot = new THREE.Group();
+    pivot.position.set(lx * PX, 6 * PX, 0);
+    const leg = texturedPart(createMobBoxGeometry(3, 6, 3, 0, 27, 64, 64), mat);
+    leg.position.y = -3 * PX;
+    pivot.add(leg);
+    group.add(pivot);
+    limbs.push(pivot);
+  }
+  const body = texturedPart(createMobBoxGeometry(7, 6, 6, 0, 15, 64, 64), mat);
+  body.position.set(0, 9 * PX, 0);
+  group.add(body);
+
+  const head = texturedPart(createMobBoxGeometry(8, 6, 8, 0, 0, 64, 64), mat);
+  head.position.set(0, 15 * PX, 0);
+  group.add(head);
+
+  const rod = texturedPart(createMobBoxGeometry(2, 5, 2, 32, 0, 64, 64), mat);
+  rod.position.set(0, 20.5 * PX, 0);
+  group.add(rod);
+
+  for (const ax of [-5.2, 5.2]) {
+    const pivot = new THREE.Group();
+    pivot.position.set(ax * PX, 11.5 * PX, 0);
+    const arm = texturedPart(createMobBoxGeometry(3, 9, 3, 36, 16, 64, 64), mat);
+    arm.position.y = -4 * PX;
+    pivot.add(arm);
+    group.add(pivot);
+    limbs.push(pivot);
+  }
+  return { group, limbs };
+}
+
+// --- 15. TEXTURED COMPOSITE SKINNING FOR REMAINING 26.3 MOBS (Camel, Sniffer, Axolotl, Goat, Frog, Tadpole, Armadillo, Glow Squid, Nautilus, Zombie Horse, Ender Dragon) ---
+function buildTexturedProceduralComposite(
+  type: MobType,
+  tex: THREE.Texture,
+): { group: THREE.Group; limbs: THREE.Object3D[] } {
+  const built = buildFallbackProceduralMob(type);
+  const skinnedMat = createEntityMaterial(tex, true);
+  built.group.traverse((obj) => {
+    if (!(obj instanceof THREE.Mesh)) return;
+    const oldMat = obj.material as THREE.MeshLambertMaterial | THREE.MeshBasicMaterial;
+    // Keep bright emissive eyes/beacons intact, skin all body/limb/wing boxes with official 26.3 texture tinted gently
+    if (oldMat instanceof THREE.MeshBasicMaterial) return;
+    const c = oldMat.color ? oldMat.color.clone() : new THREE.Color(0xffffff);
+    // Blend 70% white + 30% structural tint so the real 26.3 PNG artwork shines cleanly
+    c.lerp(new THREE.Color(0xffffff), 0.72);
+    const mat = skinnedMat.clone();
+    mat.color.copy(c);
+    obj.material = mat;
+    oldMat.dispose();
+  });
+  return built;
 }
 
 // Offline fallback if no resource pack entity texture was fetched

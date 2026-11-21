@@ -15,6 +15,7 @@ import {
 import { ResourceGateScreen } from './components/ResourceGateScreen';
 import { SkinManagerModal } from './components/SkinManagerModal';
 import { TitleAndWorlds } from './components/TitleAndWorlds';
+import { soundEngine } from './game/audio';
 import { NetherCraftEngine } from './game/engine';
 import { loadSavedSkinConfig, saveSkinConfig } from './game/playerSkin';
 import {
@@ -56,13 +57,12 @@ type AppScreen =
   | 'options'
   | 'playing';
 
-function isTouchDevice(): boolean {
+function isInitialTouchDevice(): boolean {
   if (typeof window === 'undefined') return false;
-  return (
-    'ontouchstart' in window ||
-    navigator.maxTouchPoints > 0 ||
-    window.matchMedia('(pointer: coarse)').matches
-  );
+  const coarse = window.matchMedia('(pointer: coarse)').matches;
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  // Touchscreen laptops have BOTH coarse and fine pointers — start as PC and auto-switch if touched
+  return coarse && !fine;
 }
 
 export default function App() {
@@ -104,13 +104,47 @@ export default function App() {
   const inGameModalRef = useRef(inGameModal);
   inGameModalRef.current = inGameModal;
 
-  const [hasTouchCapable, setHasTouchCapable] = useState(() => isTouchDevice());
+  const [activeInputDevice, setActiveInputDevice] = useState<'pc' | 'touch'>(() =>
+    isInitialTouchDevice() ? 'touch' : 'pc',
+  );
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Automatically detect PC (mouse/keyboard) vs Phone/Tablet (touch) in real time
   useEffect(() => {
-    const onResize = () => setHasTouchCapable(isTouchDevice());
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    const onPointer = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') {
+        setActiveInputDevice((prev) => (prev === 'pc' ? prev : 'pc'));
+      } else if (e.pointerType === 'touch') {
+        setActiveInputDevice((prev) => (prev === 'touch' ? prev : 'touch'));
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (
+        document.activeElement?.tagName === 'INPUT' ||
+        document.activeElement?.tagName === 'TEXTAREA'
+      ) {
+        return;
+      }
+      if (
+        e.code === 'KeyW' ||
+        e.code === 'KeyA' ||
+        e.code === 'KeyS' ||
+        e.code === 'KeyD' ||
+        e.code === 'Space' ||
+        e.code === 'KeyE' ||
+        e.code.startsWith('Arrow')
+      ) {
+        setActiveInputDevice((prev) => (prev === 'pc' ? prev : 'pc'));
+      }
+    };
+    window.addEventListener('pointerdown', onPointer, { passive: true });
+    window.addEventListener('pointermove', onPointer, { passive: true });
+    window.addEventListener('keydown', onKey, { passive: true });
+    return () => {
+      window.removeEventListener('pointerdown', onPointer);
+      window.removeEventListener('pointermove', onPointer);
+      window.removeEventListener('keydown', onKey);
+    };
   }, []);
 
   const lockLandscapeOrientation = useCallback(async () => {
@@ -253,7 +287,8 @@ export default function App() {
   }, [handleToggleFullscreen]);
 
   const touchVisible =
-    settings.touchMode === 'on' || (settings.touchMode === 'auto' && hasTouchCapable);
+    settings.touchMode === 'on' || (settings.touchMode === 'auto' && activeInputDevice === 'touch');
+  const touchControlStyle = settings.touchControlStyle || 'dpad_buttons';
 
   const refreshWorlds = useCallback(async () => {
     const list = await listWorlds();
@@ -264,6 +299,7 @@ export default function App() {
     const nextCompiled = await compileResourcePack(cached);
     const prevPack = compiledPackRef.current;
     compiledPackRef.current = nextCompiled;
+    soundEngine.setResourcePackSounds(nextCompiled.soundBlobs, nextCompiled.soundsRootUrl);
     engineRef.current?.setResourcePack(nextCompiled);
     setCompiledPack(nextCompiled);
     if (prevPack) {
@@ -280,7 +316,7 @@ export default function App() {
     setChatOpen(false);
     setScreen('playing');
     engineRef.current?.loadWorld(world);
-    if (requestLock && !isTouchDevice()) {
+    if (requestLock && !isInitialTouchDevice()) {
       setTimeout(() => engineRef.current?.requestPointerLock(), 80);
     }
   }, []);
@@ -380,14 +416,14 @@ export default function App() {
           cachedPack.sourceType === 'github-default' ||
           cachedPack.sourceType === 'hd-32' ||
           (cachedPack.sourceType === 'faithful-32x' &&
-            cachedPack.version !== '26.3-faithful32-hdplus-v2')
+            cachedPack.version !== '26.3-faithful32-hdplus-v3')
         ) {
           setBootStatus('Đang nạp gói chính thức HD+ Faithful 32x (Minecraft 26.3)...');
           cachedPack = await buildFaithfulHdPlusPack(cachedPack?.guiBlobs);
           if (!alive) return;
         } else if (
           cachedPack.sourceType === 'original-classic' &&
-          cachedPack.version !== '26.3-official-v2'
+          cachedPack.version !== '26.3-official-v3'
         ) {
           setBootStatus('Đang cập nhật Minecraft 26.3 Chính Gốc (Block, Vật phẩm, Mob, UI & Bản đồ)...');
           cachedPack = await buildOriginalMinecraftPack(cachedPack.guiBlobs);
@@ -519,6 +555,7 @@ export default function App() {
       compiledPackRef.current.dispose();
       compiledPackRef.current = null;
     }
+    soundEngine.setResourcePackSounds(undefined, undefined);
     setCompiledPack(null);
     if (screenRef.current === 'playing') {
       engineRef.current?.enterPanoramaMode();
@@ -644,6 +681,7 @@ export default function App() {
             guiScale={settings.guiScale}
             minimapMode={settings.minimapMode || 'compact'}
             touchVisible={touchVisible}
+            touchControlStyle={touchControlStyle}
             isFullscreen={isFullscreen}
             onSelectSlot={(idx) => engineRef.current?.selectHotbarSlot(idx)}
             onChangeMinimapMode={(nextMode) => {
@@ -669,7 +707,7 @@ export default function App() {
             }}
           />
 
-          {/* Mobile Multi-Touch Controls */}
+          {/* Mobile Multi-Touch Controls (auto-hidden when PC mouse/keyboard detected) */}
           {touchVisible &&
             !paused &&
             !chatOpen &&
@@ -680,12 +718,22 @@ export default function App() {
                 flying={hud.flying}
                 sneaking={hud.sneaking}
                 isFullscreen={isFullscreen}
+                controlStyle={touchControlStyle}
+                onToggleControlStyle={() => {
+                  const nextStyle =
+                    touchControlStyle === 'dpad_buttons' ? 'touch_screen' : 'dpad_buttons';
+                  handleSettingsChange({ ...settings, touchControlStyle: nextStyle });
+                }}
                 onMove={(x, z) => engineRef.current?.setTouchMovement(x, z)}
                 onLookDelta={(dx, dy) => engineRef.current?.addTouchLookDelta(dx, dy)}
                 onJump={(active) => engineRef.current?.setTouchJump(active)}
                 onSneakToggle={() => engineRef.current?.setTouchSneak(!hud.sneaking)}
                 onBreak={(active) => engineRef.current?.setTouchBreak(active)}
                 onUse={() => engineRef.current?.triggerTouchUseOrPlace()}
+                onTouchScreenBreak={(active, x, y) =>
+                  engineRef.current?.setTouchScreenBreak(active, x, y)
+                }
+                onTouchScreenTap={(x, y) => engineRef.current?.triggerTouchScreenTap(x, y)}
                 onOpenChat={() => {
                   setChatInitial('/');
                   setChatOpen(true);
@@ -700,7 +748,7 @@ export default function App() {
               />
             )}
 
-          {/* Inventory / Crafting Table / Furnace / 1.16 Smithing Table */}
+          {/* Inventory / Crafting Table / Furnace / Smithing Table / Enchanting Table / Anvil */}
           {containerType !== 'none' && !hud.dead && (
             <ContainerModal
               type={containerType}
@@ -708,11 +756,14 @@ export default function App() {
               inventory={hud.inventory}
               armor={hud.armor}
               furnace={hud.furnace}
+              playerLevel={hud.level}
+              enchantBookshelves={hud.enchantBookshelves ?? 0}
               pack={compiledPack}
               playerSkin={playerSkin}
               onUpdateInventory={(inv, arm, furn) =>
                 engineRef.current?.applyInventoryUpdate(inv, arm, furn)
               }
+              onSpendLevels={(lv) => engineRef.current?.spendPlayerLevels(lv)}
               onClose={handleCloseContainer}
             />
           )}

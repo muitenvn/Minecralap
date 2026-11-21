@@ -682,6 +682,7 @@ export interface ItemDef {
   attackDamage?: number;
   armorSlot?: 0 | 1 | 2 | 3; // 0 helmet, 1 chest, 2 legs, 3 boots
   armorDefense?: number;
+  maxDurability?: number;
   foodRestore?: number;
   healRestore?: number;
   potionEffect?: { id: EffectId; amplifier: number; durationSec: number };
@@ -873,6 +874,40 @@ for (const item of EXT_ITEMS) {
   if (!ITEM_DEFS[item.id]) {
     ITEM_DEFS[item.id] = item;
   }
+}
+
+// Assign authentic Minecraft durability to all tools, weapons, armor & special gear
+for (const item of Object.values(ITEM_DEFS)) {
+  if (item.maxDurability !== undefined) continue;
+  const id = item.id;
+  if (item.toolKind || id.endsWith('_spear')) {
+    if (id.startsWith('netherite_')) item.maxDurability = 2031;
+    else if (id.startsWith('diamond_')) item.maxDurability = 1561;
+    else if (id.startsWith('iron_')) item.maxDurability = 250;
+    else if (id.startsWith('copper_')) item.maxDurability = 190;
+    else if (id.startsWith('stone_')) item.maxDurability = 131;
+    else if (id.startsWith('gold_')) item.maxDurability = 32;
+    else if (id.startsWith('wooden_')) item.maxDurability = 59;
+    else item.maxDurability = 250;
+  } else if (item.armorSlot !== undefined) {
+    const slotMult = [11, 16, 15, 13][item.armorSlot] || 15;
+    if (id === 'elytra') item.maxDurability = 432;
+    else if (id.startsWith('netherite_')) item.maxDurability = slotMult * 37;
+    else if (id.startsWith('diamond_')) item.maxDurability = slotMult * 33;
+    else if (id.startsWith('iron_')) item.maxDurability = slotMult * 15;
+    else if (id.startsWith('copper_')) item.maxDurability = slotMult * 11;
+    else if (id.startsWith('gold_')) item.maxDurability = slotMult * 7;
+    else if (id.startsWith('leather_')) item.maxDurability = slotMult * 5;
+    else item.maxDurability = slotMult * 15;
+  } else if (id === 'bow') item.maxDurability = 384;
+  else if (id === 'crossbow') item.maxDurability = 465;
+  else if (id === 'trident') item.maxDurability = 250;
+  else if (id === 'mace') item.maxDurability = 500;
+  else if (id === 'shield') item.maxDurability = 336;
+  else if (id === 'flint_and_steel') item.maxDurability = 64;
+  else if (id === 'shears') item.maxDurability = 238;
+  else if (id === 'fishing_rod') item.maxDurability = 64;
+  else if (id === 'brush') item.maxDurability = 64;
 }
 
 export const ALL_TEXTURE_KEYS = Array.from(

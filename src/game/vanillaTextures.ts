@@ -1193,11 +1193,11 @@ const LEGACY_FAITHFUL_GUI_MIRROR =
 const LEGACY_OFFICIAL_GUI_MIRROR =
   'https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@1.16.5/assets/minecraft/textures';
 
-const FAITHFUL_CACHE_ID = 'faithful_32x_hd_plus_26_3_v2';
-const FAITHFUL_CACHE_VERSION = '26.3-faithful32-hdplus-v2';
+const FAITHFUL_CACHE_ID = 'faithful_32x_hd_plus_26_3_v3';
+const FAITHFUL_CACHE_VERSION = '26.3-faithful32-hdplus-v3';
 
-const ORIGINAL_CACHE_ID = 'original_mc26_3_cache_v2';
-const ORIGINAL_CACHE_VERSION = '26.3-official-v2';
+const ORIGINAL_CACHE_ID = 'original_mc26_3_cache_v3';
+const ORIGINAL_CACHE_VERSION = '26.3-official-v3';
 
 // Map internal texture keys to exact official Minecraft Java Edition 1.16.5 block filenames
 function mapKeyToOfficialMc116Block(key: string): string {
@@ -1338,10 +1338,10 @@ function mapKeyToOfficialMc116Block(key: string): string {
     bamboo_stairs: 'bamboo_planks',
     bamboo_slab: 'bamboo_planks',
     pitcher_plant: 'pitcher_crop_top_stage_4',
-    ominous_vault: 'vault_front_on',
+    ominous_vault: 'vault_front_on_ominous',
     ominous_trial_spawner: 'trial_spawner_side_active_ominous',
     copper_chest: 'copper_block',
-    copper_shelf: 'cut_copper',
+    copper_shelf: 'oak_shelf',
     decorated_pot: 'terracotta',
     polished_calcite: 'calcite',
     calcite_bricks: 'calcite',
@@ -1809,14 +1809,20 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
 
     const fetchedByPath = new Map<string, Blob>();
     const pathList = Array.from(uniqueRelPaths);
+    const officialFallbackMirror =
+      mirror !== OFFICIAL_MC116_MIRRORS[0] ? OFFICIAL_MC116_MIRRORS[0] : OFFICIAL_MC116_MIRRORS[1];
 
-    // High-concurrency parallel fetch over HTTP/2 (batches of 36)
+    // High-concurrency parallel fetch over HTTP/2 (batches of 36) with automatic 26.3 fallback for any missing 1.21–26.3 textures
     const BATCH = 36;
     for (let i = 0; i < pathList.length; i += BATCH) {
       const slice = pathList.slice(i, i + BATCH);
       await Promise.all(
         slice.map(async (relPath) => {
-          const blob = await fetchWithTimeout(`${mirror}/${relPath}.png`, 3000);
+          const blob =
+            (await fetchWithTimeout(`${mirror}/${relPath}.png`, 2600)) ||
+            (officialFallbackMirror
+              ? await fetchWithTimeout(`${officialFallbackMirror}/${relPath}.png`, 2600)
+              : null);
           if (blob) fetchedByPath.set(relPath, blob);
         }),
       );
@@ -1946,23 +1952,43 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
       totalBytes += comp.size;
     }
 
-    // --- Official Resource Pack Mob Entity Textures (11 Mobs incl. Warden, Breeze, Creaking + Sheep Wool) ---
-    const entityFetchMap: [string, string][] = [
-      ['pig', 'entity/pig/pig.png'],
-      ['sheep', 'entity/sheep/sheep.png'],
-      ['sheep_fur', 'entity/sheep/sheep_fur.png'],
-      ['zombie', 'entity/zombie/zombie.png'],
-      ['creeper', 'entity/creeper/creeper.png'],
-      ['piglin', 'entity/piglin/piglin.png'],
-      ['zombified_piglin', 'entity/piglin/zombified_piglin.png'],
-      ['strider', 'entity/strider/strider.png'],
-      ['ghast', 'entity/ghast/ghast.png'],
-      ['warden', 'entity/warden/warden.png'],
-      ['breeze', 'entity/breeze/breeze.png'],
-      ['creaking', 'entity/creaking/creaking.png'],
+    // --- Official Resource Pack Mob Entity Textures (ALL 26.3 Mobs with multi-path & 26.3 official fallback) ---
+    const entityFetchMap: [string, string[]][] = [
+      ['pig', ['entity/pig/pig_temperate.png', 'entity/pig/pig.png']],
+      ['sheep', ['entity/sheep/sheep.png']],
+      ['sheep_fur', ['entity/sheep/sheep_wool.png', 'entity/sheep/sheep_fur.png']],
+      ['zombie', ['entity/zombie/zombie.png']],
+      ['creeper', ['entity/creeper/creeper.png']],
+      ['piglin', ['entity/piglin/piglin.png']],
+      ['zombified_piglin', ['entity/piglin/zombified_piglin.png']],
+      ['strider', ['entity/strider/strider.png']],
+      ['ghast', ['entity/ghast/ghast.png']],
+      ['happy_ghast', ['entity/ghast/happy_ghast.png', 'entity/ghast/ghast.png']],
+      ['ghastling', ['entity/ghast/happy_ghast.png', 'entity/ghast/ghast.png']],
+      ['warden', ['entity/warden/warden.png']],
+      ['breeze', ['entity/breeze/breeze.png']],
+      ['creaking', ['entity/creaking/creaking.png']],
+      ['allay', ['entity/allay/allay.png']],
+      ['frog', ['entity/frog/frog_temperate.png', 'entity/frog/temperate_frog.png']],
+      ['tadpole', ['entity/tadpole/tadpole.png']],
+      ['axolotl', ['entity/axolotl/axolotl_lucy.png']],
+      ['goat', ['entity/goat/goat.png']],
+      ['glow_squid', ['entity/squid/glow_squid.png']],
+      ['sniffer', ['entity/sniffer/sniffer.png']],
+      ['camel', ['entity/camel/camel.png']],
+      ['camel_husk', ['entity/camel/camel_husk.png', 'entity/camel/camel.png']],
+      ['armadillo', ['entity/armadillo/armadillo.png', 'entity/armadillo.png']],
+      ['bogged', ['entity/skeleton/bogged.png']],
+      ['parched', ['entity/skeleton/parched.png', 'entity/skeleton/skeleton.png']],
+      ['frostbite', ['entity/skeleton/skeleton.png']],
+      ['copper_golem', ['entity/copper_golem/copper_golem.png']],
+      ['nautilus', ['entity/nautilus/nautilus.png']],
+      ['zombie_nautilus', ['entity/nautilus/zombie_nautilus.png', 'entity/nautilus/nautilus.png']],
+      ['zombie_horse', ['entity/horse/horse_zombie.png']],
+      ['ender_dragon', ['entity/enderdragon/dragon.png']],
     ];
 
-    // --- Official Resource Pack GUI, Container & Map sprites ---
+    // --- Official Resource Pack GUI, Container & Map sprites (including Enchanting Table & Anvil) ---
     const guiFetchMap: [string, string][] = [
       ['widgets', 'gui/widgets.png'],
       ['icons', 'gui/icons.png'],
@@ -1971,6 +1997,8 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
       ['container_crafting', 'gui/container/crafting_table.png'],
       ['container_furnace', 'gui/container/furnace.png'],
       ['container_smithing', 'gui/container/smithing.png'],
+      ['container_enchanting', 'gui/container/enchanting_table.png'],
+      ['container_anvil', 'gui/container/anvil.png'],
       ['recipe_button', 'gui/recipe_button.png'],
       ['map_background', 'map/map_background.png'],
       ['map_icons', 'map/map_icons.png'],
@@ -1978,8 +2006,16 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
     const legacyGuiMirror =
       opts.sourceType === 'faithful-32x' ? LEGACY_FAITHFUL_GUI_MIRROR : LEGACY_OFFICIAL_GUI_MIRROR;
     await Promise.all([
-      ...entityFetchMap.map(async ([eKey, relPath]) => {
-        const blob = await fetchWithTimeout(`${mirror}/${relPath}`, 3000);
+      ...entityFetchMap.map(async ([eKey, relPaths]) => {
+        let blob: Blob | null = null;
+        for (const relPath of relPaths) {
+          blob =
+            (await fetchWithTimeout(`${mirror}/${relPath}`, 2400)) ||
+            (officialFallbackMirror
+              ? await fetchWithTimeout(`${officialFallbackMirror}/${relPath}`, 2400)
+              : null);
+          if (blob) break;
+        }
         if (blob) {
           entityBlobs[eKey] = blob;
           totalBytes += blob.size;
@@ -1987,10 +2023,24 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
       }),
       ...guiFetchMap.map(async ([gKey, relPath]) => {
         const blob =
-          (await fetchWithTimeout(`${mirror}/${relPath}`, 2600)) ||
-          (await fetchWithTimeout(`${legacyGuiMirror}/${relPath}`, 2600));
+          (await fetchWithTimeout(`${mirror}/${relPath}`, 2400)) ||
+          (officialFallbackMirror
+            ? await fetchWithTimeout(`${officialFallbackMirror}/${relPath}`, 2400)
+            : null) ||
+          (await fetchWithTimeout(`${legacyGuiMirror}/${relPath}`, 2400));
         if (blob) guiBlobs[gKey] = blob;
       }),
+      // Also upgrade Decorated Pot & Copper Chest blocks with their official 26.3 entity textures
+      (async () => {
+        const pot = await fetchWithTimeout(
+          `${OFFICIAL_MC116_MIRRORS[0]}/entity/decorated_pot/decorated_pot_side.png`,
+          2400,
+        );
+        if (pot) {
+          blockBlobs['decorated_pot'] = pot;
+          totalBytes += pot.size;
+        }
+      })(),
     ]);
   }
 

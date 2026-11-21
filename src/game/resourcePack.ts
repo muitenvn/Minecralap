@@ -23,12 +23,15 @@ export interface CompiledResourcePack {
     totalBytes: number;
     blockCount: number;
     guiCount: number;
+    soundCount: number;
   };
   atlasTexture: THREE.CanvasTexture;
   atlasCanvas: HTMLCanvasElement;
   uvMap: Record<string, AtlasUV>;
   itemIcons: Record<string, string>; // itemId -> dataURL
   entityTextures: Record<string, THREE.Texture>; // mob entity key -> THREE.Texture
+  soundBlobs: Record<string, Blob>; // relative sound path (without ext) -> audio Blob from Resource Pack
+  soundsRootUrl?: string; // optional GitHub raw sounds root for custom GitHub packs
   guiUrls: {
     widgets: string;
     icons: string;
@@ -190,14 +193,16 @@ export async function downloadCustomGithubRawPack(
   rawUrl: string,
   basePack: CachedResourcePack | null,
   onProgress?: (p: DownloadProgress) => void,
-): Promise<{ pack: CachedResourcePack; replacedBlocks: number; replacedGui: number }> {
+): Promise<{ pack: CachedResourcePack; replacedBlocks: number; replacedGui: number; replacedSounds: number }> {
   // Always ensure base fallback exists so missing textures never turn purple/black
   const fallback = basePack ?? (await downloadDefaultGithubPack(onProgress));
   const texturesRoot = normalizeGithubTexturesRoot(rawUrl);
+  const soundsRootUrl = texturesRoot.replace(/\/textures$/, '/sounds');
 
   const blockBlobs: Record<string, Blob> = { ...fallback.blockBlobs };
   const entityBlobs: Record<string, Blob> = { ...(fallback.entityBlobs || {}) };
   const guiBlobs: Record<string, Blob> = { ...fallback.guiBlobs };
+  const soundBlobs: Record<string, Blob> = {};
   const keys = [...ALL_TEXTURE_KEYS];
   const entityTargets: [string, string][] = [
     ['pig', 'entity/pig/pig.png'],
@@ -303,16 +308,43 @@ export async function downloadCustomGithubRawPack(
     }
   }
 
-  if (replacedBlocks === 0 && replacedGui === 0) {
+  // Probe core sounds from the GitHub Resource Pack if it ships assets/minecraft/sounds/
+  const soundProbePaths = [
+    'random/click_stereo',
+    'random/click',
+    'dig/stone1',
+    'dig/wood1',
+    'dig/grass1',
+    'damage/hit1',
+    'random/orb',
+    'random/explode1',
+  ];
+  let replacedSounds = 0;
+  await Promise.all(
+    soundProbePaths.map(async (sp) => {
+      try {
+        const blob = await fetchBlob(`${soundsRootUrl}/${sp}.ogg`);
+        if (blob.size > 64) {
+          soundBlobs[sp] = blob;
+          replacedSounds++;
+          loadedBytes += blob.size;
+        }
+      } catch {
+        // Pack does not override this sound — official Vanilla Minecraft GitHub sound will be used
+      }
+    }),
+  );
+
+  if (replacedBlocks === 0 && replacedGui === 0 && replacedSounds === 0) {
     throw new Error(
-      'Không tìm thấy tệp ảnh .png hợp lệ tại URL GitHub này (kiểm tra lại nhánh main/master hoặc cấu trúc assets/minecraft/textures/block/).',
+      'Không tìm thấy tệp ảnh .png hay âm thanh .ogg hợp lệ tại URL GitHub này (kiểm tra lại nhánh main/master hoặc cấu trúc assets/minecraft/).',
     );
   }
 
   const record: CachedResourcePack = {
     id: 'active_pack',
-    name: `GitHub Pack (${replacedBlocks} block · ${replacedGui} UI)`,
-    version: '1.16.5 Custom',
+    name: `GitHub Pack (${replacedBlocks} block · ${replacedGui} UI${replacedSounds > 0 ? ` · ${replacedSounds}+ âm thanh` : ''})`,
+    version: '26.3 Custom',
     sourceLabel: texturesRoot,
     sourceType: 'github-raw',
     sourceUrl: rawUrl.trim(),
@@ -322,16 +354,18 @@ export async function downloadCustomGithubRawPack(
     itemBlobs: fallback.itemBlobs,
     entityBlobs,
     guiBlobs,
+    soundBlobs,
+    soundsRootUrl: replacedSounds > 0 ? soundsRootUrl : undefined,
   };
   await saveResourcePack(record);
-  return { pack: record, replacedBlocks, replacedGui };
+  return { pack: record, replacedBlocks, replacedGui, replacedSounds };
 }
 
 export async function importZipResourcePack(
   file: File,
   basePack: CachedResourcePack | null,
   onProgress?: (p: DownloadProgress) => void,
-): Promise<{ pack: CachedResourcePack; replacedBlocks: number; replacedGui: number }> {
+): Promise<{ pack: CachedResourcePack; replacedBlocks: number; replacedGui: number; replacedSounds: number }> {
   const fallback = basePack ?? (await downloadDefaultGithubPack(onProgress));
   onProgress?.({
     phase: 'blocks',
@@ -348,6 +382,8 @@ export async function importZipResourcePack(
   const itemBlobs: Record<string, Blob> = { ...(fallback.itemBlobs || {}) };
   const entityBlobs: Record<string, Blob> = { ...(fallback.entityBlobs || {}) };
   const guiBlobs: Record<string, Blob> = { ...fallback.guiBlobs };
+  // Start fresh for soundBlobs so image-only packs cleanly fall back to official Vanilla Minecraft GitHub sounds
+  const soundBlobs: Record<string, Blob> = {};
   const keySet = new Set(ALL_TEXTURE_KEYS);
   const zipItemAlias: Record<string, string> = {
     golden_helmet: 'gold_helmet',
@@ -372,6 +408,7 @@ export async function importZipResourcePack(
   let replacedItems = 0;
   let replacedEntities = 0;
   let replacedGui = 0;
+  let replacedSounds = 0;
   let loadedBytes = 0;
 
   const zipEntityPaths: Record<string, string> = {
@@ -388,7 +425,21 @@ export async function importZipResourcePack(
 
   for (const [entryPath, data] of Object.entries(unzipped)) {
     const lower = entryPath.toLowerCase().replace(/\\/g, '/');
-    if (!lower.endsWith('.png') || data.byteLength < 40) continue;
+    if (data.byteLength < 40) continue;
+
+    // Match Resource Pack audio files (assets/minecraft/sounds/**/*.ogg|wav|mp3 or sounds/**/*.ogg|wav|mp3)
+    const soundMatch = lower.match(/(?:^|\/)sounds\/(.+)\.(ogg|wav|mp3)$/);
+    if (soundMatch) {
+      const relSoundKey = soundMatch[1];
+      const ext = soundMatch[2];
+      const mime = ext === 'mp3' ? 'audio/mpeg' : ext === 'wav' ? 'audio/wav' : 'audio/ogg';
+      soundBlobs[relSoundKey] = new Blob([data], { type: mime });
+      replacedSounds++;
+      loadedBytes += data.byteLength;
+      continue;
+    }
+
+    if (!lower.endsWith('.png')) continue;
 
     // Match block textures (both 1.16 "block/" and legacy "blocks/")
     const blockMatch = lower.match(/(?:textures\/blocks?\/)([^/]+)\.png$/);
@@ -454,17 +505,25 @@ export async function importZipResourcePack(
     }
   }
 
-  if (replacedBlocks === 0 && replacedItems === 0 && replacedEntities === 0 && replacedGui === 0) {
+  if (
+    replacedBlocks === 0 &&
+    replacedItems === 0 &&
+    replacedEntities === 0 &&
+    replacedGui === 0 &&
+    replacedSounds === 0
+  ) {
     throw new Error(
-      'File .zip không chứa thư mục textures/block/*.png, textures/item/*.png, textures/entity/*.png hoặc textures/gui/*.png chuẩn Minecraft 1.16.',
+      'File .zip không chứa thư mục textures/ hoặc sounds/ chuẩn Minecraft Resource Pack.',
     );
   }
 
   const record: CachedResourcePack = {
     id: 'active_pack',
     name: file.name.replace(/\.zip$/i, ''),
-    version: '1.16.5 ZIP',
-    sourceLabel: `Gói ZIP cục bộ (${replacedBlocks} block · ${replacedItems} vật phẩm · ${replacedEntities} mob · ${replacedGui} UI)`,
+    version: '26.3 ZIP',
+    sourceLabel: `Gói ZIP (${replacedBlocks} block · ${replacedItems} vật phẩm · ${replacedEntities} mob · ${replacedGui} UI${
+      replacedSounds > 0 ? ` · ${replacedSounds} âm thanh` : ' · âm thanh MC gốc'
+    })`,
     sourceType: 'zip-upload',
     downloadedAt: Date.now(),
     totalBytes: loadedBytes || file.size,
@@ -472,9 +531,10 @@ export async function importZipResourcePack(
     itemBlobs,
     entityBlobs,
     guiBlobs,
+    soundBlobs,
   };
   await saveResourcePack(record);
-  return { pack: record, replacedBlocks, replacedGui };
+  return { pack: record, replacedBlocks, replacedGui, replacedSounds };
 }
 
 function blobToImage(blob: Blob): Promise<HTMLImageElement> {
@@ -981,12 +1041,15 @@ export async function compileResourcePack(
       totalBytes: cached.totalBytes,
       blockCount: useHd32Only ? keys.length : Math.max(Object.keys(cached.blockBlobs).length, keys.length),
       guiCount: Object.keys(cached.guiBlobs).length,
+      soundCount: Object.keys(cached.soundBlobs || {}).length,
     },
     atlasTexture,
     atlasCanvas,
     uvMap,
     itemIcons,
     entityTextures,
+    soundBlobs: cached.soundBlobs || {},
+    soundsRootUrl: cached.soundsRootUrl,
     guiUrls: {
       widgets: widgetsUrl,
       icons: iconsUrl,

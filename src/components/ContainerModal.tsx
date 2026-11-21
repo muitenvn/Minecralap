@@ -1,7 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Flame, Hammer, Search, Shield, Trash2, X } from 'lucide-react';
+import { Flame, Hammer, Search, Shield, Sparkles, Trash2, X } from 'lucide-react';
 import { soundEngine } from '../game/audio';
 import { CreativeCategory, ITEM_DEFS } from '../game/blocks';
+import {
+  applyEnchantOffer,
+  combineAnvilItems,
+  EnchantOffer,
+  formatEnchantLabel,
+  formatItemEnchants,
+  generateEnchantOffers,
+  isEnchantableItem,
+} from '../game/enchanting';
 import {
   CRAFTING_RECIPES,
   CraftingRecipe,
@@ -19,6 +28,8 @@ interface ContainerModalProps {
   inventory: (ItemStack | null)[];
   armor: (ItemStack | null)[];
   furnace: FurnaceState;
+  playerLevel?: number;
+  enchantBookshelves?: number;
   pack: CompiledResourcePack;
   playerSkin: PlayerSkinConfig;
   onUpdateInventory: (
@@ -26,6 +37,7 @@ interface ContainerModalProps {
     armor?: (ItemStack | null)[],
     furnace?: FurnaceState,
   ) => void;
+  onSpendLevels?: (levels: number) => void;
   onClose: () => void;
 }
 
@@ -92,9 +104,12 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
   inventory,
   armor,
   furnace,
+  playerLevel = 0,
+  enchantBookshelves = 0,
   pack,
   playerSkin,
   onUpdateInventory,
+  onSpendLevels,
   onClose,
 }) => {
   const isCreativeCatalog = type === 'inventory' && gameMode === 'creative';
@@ -110,6 +125,11 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
   );
   const [smithBase, setSmithBase] = useState<ItemStack | null>(null);
   const [smithAdd, setSmithAdd] = useState<ItemStack | null>(null);
+  const [enchItem, setEnchItem] = useState<ItemStack | null>(null);
+  const [enchLapis, setEnchLapis] = useState<ItemStack | null>(null);
+  const [enchantSeed, setEnchantSeed] = useState(() => Math.floor(Math.random() * 100000));
+  const [anvilLeft, setAnvilLeft] = useState<ItemStack | null>(null);
+  const [anvilRight, setAnvilRight] = useState<ItemStack | null>(null);
 
   // Creative & Recipe Book filters
   const [creativeTab, setCreativeTab] = useState<'all' | CreativeCategory>('all');
@@ -128,6 +148,10 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
     setCraftGrid(Array.from({ length: gridSize * gridSize }, () => null));
     setSmithBase(null);
     setSmithAdd(null);
+    setEnchItem(null);
+    setEnchLapis(null);
+    setAnvilLeft(null);
+    setAnvilRight(null);
   }, [type, gridSize]);
 
   const handleSafeClose = () => {
@@ -136,6 +160,10 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
     for (const s of craftGrid) if (s) addStackToArray(nextInv, s);
     if (smithBase) addStackToArray(nextInv, smithBase);
     if (smithAdd) addStackToArray(nextInv, smithAdd);
+    if (enchItem) addStackToArray(nextInv, enchItem);
+    if (enchLapis) addStackToArray(nextInv, enchLapis);
+    if (anvilLeft) addStackToArray(nextInv, anvilLeft);
+    if (anvilRight) addStackToArray(nextInv, anvilRight);
     onUpdateInventory(nextInv);
     onClose();
   };
@@ -397,6 +425,58 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
     soundEngine.playAnvil();
   };
 
+  // --- Enchanting Table ---
+  const canEnchantCurrent =
+    type === 'enchanting' &&
+    Boolean(enchItem) &&
+    isEnchantableItem(enchItem!.itemId) &&
+    (!enchItem!.enchants || Object.keys(enchItem!.enchants).length === 0);
+
+  const enchantOffers = useMemo(() => {
+    if (!canEnchantCurrent || !enchItem) return [];
+    return generateEnchantOffers(enchItem.itemId, enchantBookshelves, enchantSeed);
+  }, [canEnchantCurrent, enchItem, enchantBookshelves, enchantSeed]);
+
+  const handleApplyEnchant = (offer: EnchantOffer) => {
+    if (!enchItem || !canEnchantCurrent) return;
+    const isCreative = gameMode === 'creative';
+    const lapisCount = enchLapis?.itemId === 'lapis_lazuli' ? enchLapis.count : 0;
+    if (!isCreative && (playerLevel < offer.minLevel || lapisCount < offer.lapisCost)) return;
+
+    const enchanted = applyEnchantOffer(enchItem, offer);
+    setEnchItem(enchanted);
+    if (!isCreative) {
+      if (enchLapis && enchLapis.itemId === 'lapis_lazuli') {
+        const left = enchLapis.count - offer.lapisCost;
+        setEnchLapis(left > 0 ? { ...enchLapis, count: left } : null);
+      }
+      onSpendLevels?.(offer.xpCost);
+    }
+    setEnchantSeed((s) => s + 17);
+    soundEngine.playLevelUp();
+  };
+
+  // --- Anvil ---
+  const anvilResult = useMemo(
+    () => (type === 'anvil' ? combineAnvilItems(anvilLeft, anvilRight) : null),
+    [type, anvilLeft, anvilRight],
+  );
+
+  const handleTakeAnvilOutput = () => {
+    if (!anvilResult || !anvilLeft || !anvilRight) return;
+    if (cursor) return;
+    const isCreative = gameMode === 'creative';
+    if (!isCreative && playerLevel < anvilResult.xpCost) return;
+
+    setCursor(anvilResult.output);
+    setAnvilLeft(null);
+    setAnvilRight(anvilRight.count > 1 ? { ...anvilRight, count: anvilRight.count - 1 } : null);
+    if (!isCreative) {
+      onSpendLevels?.(anvilResult.xpCost);
+    }
+    soundEngine.playAnvil();
+  };
+
   // --- Creative Catalog items ---
   const catalogItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -441,6 +521,8 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
     crafting: 'Bàn Chế Tạo',
     furnace: 'Lò Nung',
     smithing: 'Bàn Rèn',
+    enchanting: 'Bàn Phù Phép',
+    anvil: 'Đe Rèn',
   };
 
   const relevantRecipes = useMemo(() => {
@@ -1001,6 +1083,172 @@ export const ContainerModal: React.FC<ContainerModalProps> = ({
                 active={Boolean(smithOutput)}
                 onClick={handleForgeSmithing}
               />
+            </div>
+          </div>
+        )}
+
+        {/* --- ENCHANTING TABLE (BÀN PHÙ PHÉP) --- */}
+        {type === 'enchanting' && (
+          <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-3 sm:p-4 mb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3 text-xs font-mc font-bold text-[#222]">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-purple-700" />
+                <span>Bàn Phù Phép</span>
+              </div>
+              <div className="font-mono-num text-[11px] bg-[#2a2335] text-purple-200 px-2 py-0.5 border border-black">
+                Kệ sách: {enchantBookshelves}/15 · Cấp XP: {gameMode === 'creative' ? '∞' : playerLevel}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-3 items-center">
+              <div className="flex flex-col items-center gap-2 bg-[#a8a8a8] border-2 border-[#757575] p-3">
+                <div className="flex items-center gap-2.5">
+                  <McItemSlot
+                    stack={enchItem}
+                    pack={pack}
+                    size={50}
+                    placeholder="Đồ"
+                    onClick={() => interactSlot(enchItem, setEnchItem)}
+                  />
+                  <McItemSlot
+                    stack={enchLapis}
+                    pack={pack}
+                    size={50}
+                    placeholder="Ngọc"
+                    onClick={() =>
+                      interactSlot(enchLapis, setEnchLapis, false, (s) => s.itemId === 'lapis_lazuli')
+                    }
+                    onContextMenu={() =>
+                      interactSlot(enchLapis, setEnchLapis, true, (s) => s.itemId === 'lapis_lazuli')
+                    }
+                  />
+                </div>
+                <div className="text-[11px] text-center text-[#2f2f2f] leading-tight">
+                  Đặt vũ khí, dụng cụ, giáp hoặc Sách + Ngọc Lưu Ly
+                </div>
+                {enchItem?.enchants && Object.keys(enchItem.enchants).length > 0 && (
+                  <div className="w-full bg-[#241933] border border-black px-2 py-1 text-[11px] text-purple-200 text-center">
+                    {formatItemEnchants(enchItem.enchants).join(' · ')}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                {enchantOffers.length > 0 ? (
+                  enchantOffers.map((offer) => {
+                    const isCreative = gameMode === 'creative';
+                    const lapisCount = enchLapis?.itemId === 'lapis_lazuli' ? enchLapis.count : 0;
+                    const canAfford =
+                      isCreative || (playerLevel >= offer.minLevel && lapisCount >= offer.lapisCost);
+                    return (
+                      <button
+                        key={offer.tier}
+                        type="button"
+                        disabled={!canAfford}
+                        onClick={() => handleApplyEnchant(offer)}
+                        className={`w-full px-3 py-2 border-2 border-black text-left transition-colors flex items-center justify-between gap-2 ${
+                          canAfford
+                            ? 'bg-[#6b5344] hover:bg-[#7d5ba6] text-[#fde68a] cursor-pointer shadow-[inset_2px_2px_0_rgba(255,255,255,0.22)]'
+                            : 'bg-[#5c514a] text-[#b4a89e] opacity-70 cursor-not-allowed'
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <div className="text-[10px] tracking-widest opacity-80 truncate">
+                            {offer.runes}
+                          </div>
+                          <div className="font-mc text-xs sm:text-sm font-bold text-white mc-text-shadow-sm truncate">
+                            {formatEnchantLabel(offer.primaryId, offer.primaryLevel)}
+                            {offer.bonus ? ' + ...' : ''}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end shrink-0 font-mono-num text-[11px]">
+                          <span className={canAfford ? 'text-[#80ff20] font-bold' : 'text-red-300'}>
+                            Cấp {offer.minLevel}
+                          </span>
+                          <span className="text-sky-200 text-[10px]">
+                            {isCreative ? 'Miễn phí' : `${offer.lapisCost} Ngọc · -${offer.xpCost} XP`}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="bg-[#5c514a] border-2 border-black p-4 text-center text-xs text-zinc-200">
+                    {!enchItem
+                      ? 'Đặt kiếm, cuốc, rìu, cung, nỏ, đinh ba, chùy, giáp hoặc sách vào ô bên trái.'
+                      : enchItem.enchants && Object.keys(enchItem.enchants).length > 0
+                        ? 'Vật phẩm đã được phù phép! Hãy lấy ra hoặc ghép thêm trên Đe Rèn.'
+                        : 'Vật phẩm này không thể phù phép trên Bàn Phù Phép.'}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- ANVIL (ĐE RÈN) --- */}
+        {type === 'anvil' && (
+          <div className="bg-[#b8b8b8] border-2 border-[#8b8b8b] p-3 sm:p-4 mb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3 text-xs font-mc font-bold text-[#222]">
+              <div className="flex items-center gap-1.5">
+                <Hammer className="w-4 h-4" />
+                <span>Đe Rèn · Sửa Chữa &amp; Ghép Phù Phép</span>
+              </div>
+              <div className="font-mono-num text-[11px] bg-[#2a2a2a] text-[#80ff20] px-2 py-0.5 border border-black">
+                Cấp XP: {gameMode === 'creative' ? '∞' : playerLevel}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <McItemSlot
+                stack={anvilLeft}
+                pack={pack}
+                size={50}
+                placeholder="Trang bị"
+                onClick={() => interactSlot(anvilLeft, setAnvilLeft)}
+              />
+              <span className="text-xl font-bold text-[#333]">+</span>
+              <McItemSlot
+                stack={anvilRight}
+                pack={pack}
+                size={50}
+                placeholder="Sách/Đồ"
+                onClick={() => interactSlot(anvilRight, setAnvilRight)}
+              />
+              <span className="text-xl font-bold text-[#333]">→</span>
+              <McItemSlot
+                stack={anvilResult ? anvilResult.output : null}
+                pack={pack}
+                size={54}
+                active={Boolean(anvilResult)}
+                onClick={handleTakeAnvilOutput}
+              />
+            </div>
+
+            <div className="mt-3 text-center text-xs">
+              {anvilResult ? (
+                <div className="inline-flex flex-wrap items-center justify-center gap-2 bg-[#231d2c] border border-black px-3 py-1.5 text-white">
+                  <span className="text-purple-200 font-bold">{anvilResult.label}:</span>
+                  {anvilResult.output.enchants && (
+                    <span className="text-amber-200">
+                      {formatItemEnchants(anvilResult.output.enchants).join(' · ')}
+                    </span>
+                  )}
+                  <span
+                    className={`font-mono-num font-bold ${
+                      gameMode === 'creative' || playerLevel >= anvilResult.xpCost
+                        ? 'text-[#80ff20]'
+                        : 'text-red-400'
+                    }`}
+                  >
+                    {gameMode === 'creative' ? 'Miễn phí' : `Chi phí: ${anvilResult.xpCost} cấp`}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-[#444]">
+                  Ghép Sách Phù Phép vào vũ khí/giáp, ghép 2 đồ giống nhau lên cấp cao hơn, hoặc sửa độ bền bằng phôi/kim cương.
+                </span>
+              )}
             </div>
           </div>
         )}

@@ -2,7 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Camera, Maximize2, Minimize2, Pause } from 'lucide-react';
 import { autocompleteCommand } from '../game/commands';
 import { CompiledResourcePack } from '../game/resourcePack';
-import { ChatMessage, HudSnapshot, MinimapMode, TitleBanner } from '../game/types';
+import {
+  ChatMessage,
+  HudSnapshot,
+  MinimapMode,
+  TitleBanner,
+  TouchControlStyle,
+} from '../game/types';
 import { McButton, McHudIcon, McItemSlot, McSpriteSlice } from './McSprites';
 import { MinimapHud } from './MinimapHud';
 
@@ -17,6 +23,7 @@ interface HudOverlayProps {
   guiScale: 'auto' | 'small' | 'medium' | 'large';
   minimapMode: MinimapMode;
   touchVisible: boolean;
+  touchControlStyle?: TouchControlStyle;
   isFullscreen: boolean;
   onSelectSlot: (idx: number) => void;
   onChangeMinimapMode: (next: MinimapMode) => void;
@@ -41,6 +48,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
   guiScale,
   minimapMode,
   touchVisible,
+  touchControlStyle = 'dpad_buttons',
   isFullscreen,
   onSelectSlot,
   onChangeMinimapMode,
@@ -235,8 +243,68 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
         </div>
       )}
 
-      {/* Authentic Classic Minecraft Center Crosshair (+ with difference invert over bright/dark) */}
-      {!hud.dead && !chatOpen && (
+      {/* Spyglass Circular Telescope Vignette */}
+      {hud.spyglassZoom && !hud.dead && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(circle at center, transparent 32%, rgba(0,0,0,0.92) 34%, rgba(0,0,0,0.98) 100%)',
+          }}
+        >
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[64vmin] h-[64vmin] rounded-full border-4 border-[#9a5b32]/85 shadow-[inset_0_0_24px_rgba(0,0,0,0.65)]" />
+        </div>
+      )}
+
+      {/* Minecraft PE Touch-Anywhere Expanding Circular Break Indicator */}
+      {hud.touchBreakCircle && !hud.dead && (() => {
+        const { x, y, progress } = hud.touchBreakCircle;
+        const pct = Math.max(0.04, Math.min(1, progress));
+        const r = 24;
+        const circ = 2 * Math.PI * r;
+        const dashOffset = circ * (1 - pct);
+        return (
+          <div
+            className="fixed pointer-events-none z-[26]"
+            style={{
+              left: x,
+              top: y,
+              transform: 'translate(-50%, -50%)',
+            }}
+          >
+            <svg width="64" height="64" viewBox="0 0 64 64" className="drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)]">
+              <circle
+                cx="32"
+                cy="32"
+                r={r}
+                fill="rgba(255,255,255,0.12)"
+                stroke="rgba(255,255,255,0.42)"
+                strokeWidth="4"
+              />
+              <circle
+                cx="32"
+                cy="32"
+                r={r}
+                fill="none"
+                stroke="#ffffff"
+                strokeWidth="4.5"
+                strokeDasharray={circ}
+                strokeDashoffset={dashOffset}
+                transform="rotate(-90 32 32)"
+              />
+              <circle
+                cx="32"
+                cy="32"
+                r={4 + pct * 14}
+                fill="rgba(255,255,255,0.28)"
+              />
+            </svg>
+          </div>
+        );
+      })()}
+
+      {/* Authentic Classic Minecraft Center Crosshair (hidden in PE Touch-Anywhere mode) */}
+      {!hud.dead && !chatOpen && !(touchVisible && touchControlStyle === 'touch_screen') && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="relative w-[18px] h-[18px] mix-blend-difference opacity-95">
             <span className="absolute left-1/2 top-0 -translate-x-1/2 w-[2px] h-full bg-white" />

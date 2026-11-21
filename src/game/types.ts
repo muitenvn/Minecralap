@@ -2,15 +2,38 @@ export type DimensionId = 'overworld' | 'nether' | 'end';
 export type GameMode = 'survival' | 'creative' | 'adventure' | 'spectator';
 export type Difficulty = 'peaceful' | 'easy' | 'normal' | 'hard';
 export type WeatherType = 'clear' | 'rain' | 'thunder';
-export type ContainerType = 'none' | 'inventory' | 'crafting' | 'furnace' | 'smithing';
+export type ContainerType =
+  | 'none'
+  | 'inventory'
+  | 'crafting'
+  | 'furnace'
+  | 'smithing'
+  | 'enchanting'
+  | 'anvil';
 
 export type EnchantmentId =
   | 'efficiency'
   | 'sharpness'
+  | 'smite'
   | 'unbreaking'
   | 'protection'
+  | 'fire_protection'
+  | 'feather_falling'
+  | 'thorns'
   | 'fortune'
-  | 'fire_aspect';
+  | 'silk_touch'
+  | 'fire_aspect'
+  | 'knockback'
+  | 'looting'
+  | 'mending'
+  | 'power'
+  | 'flame'
+  | 'infinity'
+  | 'multishot'
+  | 'density'
+  | 'wind_burst'
+  | 'loyalty'
+  | 'channeling';
 
 export type EffectId =
   | 'speed'
@@ -97,6 +120,7 @@ export interface PlayerSkinConfig {
 }
 
 export type MinimapMode = 'compact' | 'expanded' | 'off';
+export type TouchControlStyle = 'dpad_buttons' | 'touch_screen';
 
 export interface VideoSettings {
   renderDistance: number; // 2..8 chunks
@@ -113,6 +137,7 @@ export interface VideoSettings {
   volume: number; // 0..1
   muted: boolean;
   touchMode: 'auto' | 'on' | 'off';
+  touchControlStyle?: TouchControlStyle;
   texturePreset: TexturePreset;
   minimapMode: MinimapMode;
 }
@@ -145,6 +170,7 @@ export const DEFAULT_VIDEO_SETTINGS: VideoSettings = {
   volume: 0.75,
   muted: false,
   touchMode: 'auto',
+  touchControlStyle: 'dpad_buttons',
   texturePreset: 'hd_plus',
   minimapMode: 'compact',
 };
@@ -286,6 +312,9 @@ export interface HudSnapshot {
     color: string;
   }[];
   darknessIntensity?: number; // 0..1
+  enchantBookshelves?: number; // 0..15 bookshelves around last opened Enchanting Table
+  spyglassZoom?: boolean;
+  touchBreakCircle?: { x: number; y: number; progress: number } | null;
 }
 
 export interface PackManifestFile {
@@ -320,6 +349,8 @@ export interface CachedResourcePack {
   itemBlobs?: Record<string, Blob>; // itemId -> PNG Blob
   entityBlobs?: Record<string, Blob>; // mob entity key -> PNG Blob
   guiBlobs: Record<string, Blob>; // widgets, icons, options_background, container_*, map_background, map_icons
+  soundBlobs?: Record<string, Blob>; // relative sound path without ext (e.g. "dig/stone1", "random/click_stereo") -> audio Blob
+  soundsRootUrl?: string; // optional GitHub raw sounds root for custom GitHub resource packs
 }
 
 export const WORLD_BORDER_DEFAULT = 29_999_984;

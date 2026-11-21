@@ -94,7 +94,12 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
       const existing = await loadActiveResourcePack();
       const res = await downloadCustomGithubRawPack(githubUrl, existing, (p) => setProgress({ ...p }));
       await onPackReady(res.pack);
-      setNotice(`Đã nạp thành công ${res.replacedBlocks} ảnh Block và ${res.replacedGui} tệp giao diện UI từ GitHub!`);
+      setNotice(
+        `Đã nạp thành công ${res.replacedBlocks} ảnh Block, ${res.replacedGui} tệp UI` +
+          (res.replacedSounds > 0
+            ? ` và ${res.replacedSounds}+ âm thanh từ GitHub!`
+            : ' (dùng âm thanh Minecraft gốc).'),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không thể tải gói tài nguyên từ URL GitHub.');
     } finally {
@@ -112,7 +117,12 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
       const existing = await loadActiveResourcePack();
       const res = await importZipResourcePack(file, existing, (p) => setProgress({ ...p }));
       await onPackReady(res.pack);
-      setNotice(`Đã giải nén & áp dụng ${res.replacedBlocks} ảnh Block và ${res.replacedGui} tệp UI từ ${file.name}!`);
+      setNotice(
+        `Đã áp dụng ${res.replacedBlocks} ảnh Block, ${res.replacedGui} tệp UI` +
+          (res.replacedSounds > 0
+            ? ` và ${res.replacedSounds} tệp âm thanh từ ${file.name}!`
+            : ` từ ${file.name} (dùng âm thanh Minecraft gốc).`),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể đọc tệp .zip Resource Pack.');
     } finally {
@@ -399,7 +409,11 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
                   <span>{compiledPack.meta.name}</span>
                 </div>
                 <div className="text-xs font-mono-num text-zinc-400">
-                  {compiledPack.meta.blockCount} block · {compiledPack.meta.guiCount} UI · {formatKB(compiledPack.meta.totalBytes)}
+                  {compiledPack.meta.blockCount} block · {compiledPack.meta.guiCount} UI ·{' '}
+                  {compiledPack.meta.soundCount > 0
+                    ? `${compiledPack.meta.soundCount} âm thanh gói`
+                    : 'Âm thanh MC gốc'}{' '}
+                  · {formatKB(compiledPack.meta.totalBytes)}
                 </div>
               </div>
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1">

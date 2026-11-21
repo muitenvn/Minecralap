@@ -1,5 +1,6 @@
 import React from 'react';
 import { ITEM_DEFS } from '../game/blocks';
+import { formatItemEnchants } from '../game/enchanting';
 import { CompiledResourcePack } from '../game/resourcePack';
 import { ItemStack } from '../game/types';
 import { soundEngine } from '../game/audio';
@@ -188,13 +189,14 @@ export const McItemSlot: React.FC<McItemSlotProps> = ({
 }) => {
   const def = stack ? ITEM_DEFS[stack.itemId] : null;
   const iconUrl = stack && pack ? pack.itemIcons[stack.itemId] : undefined;
-  const hasEnchant = Boolean(stack?.enchants && Object.keys(stack.enchants).length > 0);
-  const enchantText = hasEnchant
-    ? ' · ' +
-      Object.entries(stack!.enchants!)
-        .map(([k, v]) => `${k} ${v}`)
-        .join(', ')
-    : '';
+  const enchantLabels = stack?.enchants ? formatItemEnchants(stack.enchants) : [];
+  const hasEnchant = enchantLabels.length > 0;
+  const enchantText = hasEnchant ? ' · ' + enchantLabels.join(', ') : '';
+  const maxDur = def?.maxDurability;
+  const durRatio =
+    stack && maxDur && stack.durability !== undefined && stack.durability < maxDur
+      ? Math.max(0, Math.min(1, stack.durability / maxDur))
+      : null;
 
   const invTex = pack?.guiUrls.containerInventory;
   const widgetsTex = pack?.guiUrls.widgets;
@@ -275,8 +277,22 @@ export const McItemSlot: React.FC<McItemSlotProps> = ({
         </span>
       )}
       {hasEnchant && (
-        <span className="absolute top-0.5 left-1 z-[2] text-[9px] leading-none font-bold text-purple-200 mc-text-shadow-sm pointer-events-none">
-          ✦
+        <>
+          <span className="pointer-events-none absolute inset-[2px] z-[1] bg-purple-500/20 ring-1 ring-purple-400/65" />
+          <span className="absolute top-0.5 left-1 z-[2] text-[9px] leading-none font-bold text-purple-200 mc-text-shadow-sm pointer-events-none">
+            ✦
+          </span>
+        </>
+      )}
+      {durRatio !== null && (
+        <span className="pointer-events-none absolute bottom-[3px] left-[4px] right-[4px] h-[3px] bg-black z-[3]">
+          <span
+            className="block h-full"
+            style={{
+              width: `${Math.round(durRatio * 100)}%`,
+              backgroundColor: durRatio > 0.5 ? '#4ade80' : durRatio > 0.25 ? '#facc15' : '#ef4444',
+            }}
+          />
         </span>
       )}
     </button>

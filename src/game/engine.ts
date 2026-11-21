@@ -219,6 +219,13 @@ export class NetherCraftEngine {
   private mountedMobId: string | null = null;
   private mountDashCooldown = 0;
   private wardenNoiseCooldown = 0;
+  private enchantBookshelves = 0;
+
+  // Touch-anywhere direct block break/tap + PC mouse free-look fallback
+  private touchScreenBreakPos: { x: number; y: number } | null = null;
+  private pcFreeLookActive = false;
+  private lastMousePos: { x: number; y: number } | null = null;
+  private screenRaycaster = new THREE.Raycaster();
 
   // Raycast & Mining
   private targetBlock: TargetBlockInfo | null = null;
@@ -1123,6 +1130,7 @@ export class NetherCraftEngine {
     this.moonMesh.visible = false;
     this.starField.visible = false;
     this.borderWalls.forEach((w) => (w.visible = false));
+    soundEngine.stopMusic();
     this.exitPointerLock();
   }
 
@@ -1132,6 +1140,8 @@ export class NetherCraftEngine {
     this.generator = new WorldGenerator(this.world.seed);
     this.mode = 'playing';
     this.paused = false;
+    soundEngine.preloadCoreSounds();
+    soundEngine.setDimensionMusic(this.world.dimension);
     this.panoramaGroup.visible = false;
     this.handGroup.visible = this.cameraMode === 'first';
     if (this.playerRig) {
@@ -1225,12 +1235,65 @@ export class NetherCraftEngine {
 
   public setTouchBreak(active: boolean): void {
     this.touchBreak = active;
+    if (!active) this.touchScreenBreakPos = null;
     if (active) this.tryAttackMob();
+  }
+
+  private getScreenRayDirection(clientX: number, clientY: number): THREE.Vector3 {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const nx = ((clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1;
+    const ny = -(((clientY - rect.top) / Math.max(1, rect.height)) * 2 - 1);
+    this.screenRaycaster.setFromCamera(new THREE.Vector2(nx, ny), this.camera);
+    return this.screenRaycaster.ray.direction.clone().normalize();
+  }
+
+  public setTouchScreenBreak(active: boolean, clientX?: number, clientY?: number): void {
+    if (!active || clientX === undefined || clientY === undefined) {
+      this.touchBreak = false;
+      this.touchScreenBreakPos = null;
+      this.miningProgress = 0;
+      this.miningKey = '';
+      this.crackMesh.visible = false;
+      this.emitHud();
+      return;
+    }
+    const wasBreaking = this.touchBreak;
+    this.touchBreak = true;
+    this.touchScreenBreakPos = { x: clientX, y: clientY };
+    const dir = this.getScreenRayDirection(clientX, clientY);
+    const hit = this.raycastVoxelAlong(dir);
+    if (hit) {
+      this.targetBlock = hit;
+      this.positionHighlightBox(hit);
+    }
+    if (!wasBreaking) {
+      this.tryAttackMob(dir);
+    }
+  }
+
+  public triggerTouchScreenTap(clientX: number, clientY: number): void {
+    if (this.mode !== 'playing' || this.paused) return;
+    const dir = this.getScreenRayDirection(clientX, clientY);
+    if (this.tryAttackMob(dir)) return;
+    const hit = this.raycastVoxelAlong(dir);
+    if (hit) {
+      this.targetBlock = hit;
+      this.positionHighlightBox(hit);
+    }
+    this.performRightClickAction();
   }
 
   public triggerTouchUseOrPlace(): void {
     if (this.mode !== 'playing' || this.paused) return;
     this.performRightClickAction();
+  }
+
+  public spendPlayerLevels(levels: number): void {
+    if (!this.world || levels <= 0) return;
+    if (this.world.gameMode !== 'creative') {
+      this.world.player.level = Math.max(0, this.world.player.level - levels);
+    }
+    this.emitHud();
   }
 
   // --- UI / Inventory Mutations ---
@@ -1852,10 +1915,12 @@ export class NetherCraftEngine {
     }
 
     if (targetDim === 'end') {
+      soundEngine.playEndPortal();
       soundEngine.playDragonRoar();
     } else {
       soundEngine.playPortal();
     }
+    soundEngine.setDimensionMusic(targetDim);
     this.spawnInitialMobs();
     this.callbacks.onTitleBanner(
       'title',
@@ -1928,10 +1993,40 @@ export class NetherCraftEngine {
     if (isFire && (!this.world.gamerules.fireDamage || this.getEffectLevel('fire_resistance') > 0)) return;
     if (this.hurtImmunity > 0 && rawAmount < 100) return;
 
+    // Shield block while holding Shield and sneaking
+    const held = this.world.player.inventory[this.world.player.selectedSlot];
+    const sneaking = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || this.touchSneak;
+    if (!isFire && rawAmount < 100 && held?.itemId === 'shield' && sneaking) {
+      soundEngine.playShieldBlock();
+      this.hurtImmunity = 0.4;
+      this.showItemToast('Khiên đã đỡ đòn!');
+      return;
+    }
+
     const armor = this.getArmorDefense();
     const resLvl = this.getEffectLevel('resistance');
-    const reduction = Math.min(0.8, armor * 0.032 + resLvl * 0.16);
+    let extraReduce = 0;
+    if (isFire) {
+      const fp = this.world.player.armor.reduce((s, a) => s + (a?.enchants?.fire_protection || 0), 0);
+      extraReduce += Math.min(0.6, fp * 0.08);
+    }
+    if (reason.toLowerCase().includes('rơi')) {
+      const ff = this.world.player.armor[3]?.enchants?.feather_falling || 0;
+      extraReduce += Math.min(0.65, ff * 0.14);
+    }
+    const reduction = Math.min(0.86, armor * 0.032 + resLvl * 0.16 + extraReduce);
     const dmg = rawAmount >= 100 ? rawAmount : Math.max(1, Math.round(rawAmount * (1 - reduction)));
+
+    // Thorns enchantment reflects damage to nearest attacking mob
+    const thornsLv = this.world.player.armor.reduce((s, a) => s + (a?.enchants?.thorns || 0), 0);
+    if (thornsLv > 0 && !isFire && rawAmount < 100) {
+      const attacker = this.mobs.find(
+        (m) => m.hostile && Math.hypot(m.x - this.px, m.y - this.py, m.z - this.pz) < 4.0,
+      );
+      if (attacker) {
+        this.damageMobDirect(attacker, Math.min(6, thornsLv * 1.5), 0, 0);
+      }
+    }
 
     this.world.player.hp = Math.max(0, this.world.player.hp - dmg);
     this.damageFlash = 1.0;
@@ -1955,7 +2050,7 @@ export class NetherCraftEngine {
           { id: 'regeneration', amplifier: 1, remainingSec: 20 },
           { id: 'fire_resistance', amplifier: 0, remainingSec: 30 },
         ];
-        soundEngine.playLevelUp();
+        soundEngine.playTotem();
         this.heldItemToast = 'Vật Tổ Bất Tử đã cứu bạn!';
         this.heldItemToastAt = performance.now();
         this.callbacks.onChatMessage('Vật Tổ Bất Tử đã kích hoạt và cứu sống bạn!', 'gold');
@@ -2024,14 +2119,18 @@ export class NetherCraftEngine {
     });
   }
 
-  private tryAttackMob(): boolean {
+  private tryAttackMob(customDir?: THREE.Vector3): boolean {
     if (!this.world) return false;
-    this.camera.getWorldDirection(_camDir);
+    if (customDir) {
+      _camDir.copy(customDir);
+    } else {
+      this.camera.getWorldDirection(_camDir);
+    }
     const held = this.world.player.inventory[this.world.player.selectedSlot];
     const isSpear = Boolean(held?.itemId.endsWith('_spear'));
     const eyeY = this.py + 1.62;
     let hitMob: MobEntity | null = null;
-    let bestDist = isSpear ? 5.8 : 4.2;
+    let bestDist = isSpear ? 5.8 : 4.4;
 
     for (const mob of this.mobs) {
       const dx = mob.x - this.px;
@@ -2040,7 +2139,7 @@ export class NetherCraftEngine {
       const dist = Math.hypot(dx, dy, dz);
       if (dist > bestDist) continue;
       const dot = (dx * _camDir.x + dy * _camDir.y + dz * _camDir.z) / dist;
-      if (dot > (isSpear ? 0.87 : 0.9)) {
+      if (dot > (isSpear ? 0.87 : 0.89)) {
         bestDist = dist;
         hitMob = mob;
       }
@@ -2050,26 +2149,33 @@ export class NetherCraftEngine {
     const def = held ? ITEM_DEFS[held.itemId] : null;
     let dmg = def?.attackDamage || 2;
     if (held?.enchants?.sharpness) dmg += held.enchants.sharpness * 1.5;
-    if (held?.enchants?.fire_aspect) dmg += 2;
+    if (held?.enchants?.smite) {
+      const undead = ['zombie', 'zombified_piglin', 'bogged', 'parched', 'zombie_horse', 'zombie_nautilus', 'camel_husk', 'frostbite'];
+      if (undead.includes(hitMob.type)) dmg += held.enchants.smite * 2.5;
+    }
+    if (held?.enchants?.fire_aspect) {
+      dmg += held.enchants.fire_aspect * 2.5;
+      this.spawnBreakParticles(hitMob.x, hitMob.y + 1, hitMob.z, 0xf97316, 8);
+    }
     dmg += this.getEffectLevel('strength') * 3;
 
-    // Authentic Minecraft 1.21 Mace Smash Attack when falling!
+    // Authentic Minecraft 1.21 Mace Smash Attack + Density & Wind Burst enchantments!
     let isMaceSmash = false;
     if (held?.itemId === 'mace' && !this.onGround && (this.vy < -2.0 || this.fallPeakY - this.py > 1.5)) {
       const fallBlocks = Math.max(1.5, this.fallPeakY - this.py);
-      const smashBonus = Math.min(48, Math.round(fallBlocks * 5));
+      const densityBonus = (held.enchants?.density || 0) * 1.4;
+      const smashBonus = Math.min(60, Math.round(fallBlocks * (5 + densityBonus)));
       dmg += smashBonus;
       isMaceSmash = true;
-      // Negates fall damage & launches upward slightly like real Minecraft 1.21+ Mace!
       this.fallPeakY = this.py;
-      this.vy = Math.max(this.vy, 3.2);
-      soundEngine.playExplosion();
-      soundEngine.playLevelUp();
+      const windBurstLv = held.enchants?.wind_burst || 0;
+      this.vy = Math.max(this.vy, windBurstLv > 0 ? 9.5 + windBurstLv * 2.5 : 3.2);
+      soundEngine.playMaceSmash();
+      if (windBurstLv > 0) soundEngine.playWindBurst();
       this.cameraShake = 0.25;
       this.spawnBreakParticles(hitMob.x, hitMob.y + 0.4, hitMob.z, 0xe0f2fe, 18);
       this.spawnBreakParticles(hitMob.x, hitMob.y + 0.8, hitMob.z, 0xfacc15, 10);
       this.showItemToast(`ĐẬP CHÙY MACE! (+${smashBonus} sát thương)`);
-      // Knockback shockwave to nearby mobs
       for (const other of this.mobs) {
         if (other === hitMob) continue;
         const odx = other.x - hitMob.x;
@@ -2084,41 +2190,40 @@ export class NetherCraftEngine {
       }
     }
 
+    const kbMult = 1 + (held?.enchants?.knockback || 0) * 0.65;
     hitMob.hp -= dmg;
     hitMob.hurtTimer = 0.25;
-    hitMob.vy = isMaceSmash ? 8.2 : 5.2;
-    hitMob.vx += _camDir.x * (isMaceSmash ? 11 : isSpear ? 8.5 : 7);
-    hitMob.vz += _camDir.z * (isMaceSmash ? 11 : isSpear ? 8.5 : 7);
+    hitMob.vy = isMaceSmash ? 8.2 : 5.2 + (held?.enchants?.knockback || 0) * 1.1;
+    hitMob.vx += _camDir.x * (isMaceSmash ? 11 : isSpear ? 8.5 : 7) * kbMult;
+    hitMob.vz += _camDir.z * (isMaceSmash ? 11 : isSpear ? 8.5 : 7) * kbMult;
     if (hitMob.type === 'zombified_piglin') hitMob.hostile = true;
     this.handSwing = 1.0;
     this.hitstopTimer = isMaceSmash ? 0.07 : 0.035;
+    soundEngine.playAttack(!this.onGround && this.vy < -0.5);
     soundEngine.playHurt();
     this.spawnBreakParticles(hitMob.x, hitMob.y + 1, hitMob.z, isMaceSmash ? 0xfacc15 : 0xef4444, isMaceSmash ? 12 : 6);
 
     if (hitMob.hp <= 0) {
       const spec = MOB_SPECS[hitMob.type];
       if (this.mountedMobId === hitMob.id) this.mountedMobId = null;
-      this.addItemToInventory(spec.drop, spec.dropCount);
+      const lootingBonus = held?.enchants?.looting ? Math.floor(Math.random() * (held.enchants.looting + 1)) : 0;
+      const totalDrops = spec.dropCount + lootingBonus;
+      this.addItemToInventory(spec.drop, totalDrops);
       if (hitMob.type === 'ender_dragon') {
         this.addItemToInventory('dragon_breath', 4);
         this.addItemToInventory('dragon_head', 1);
         this.grantPlayerXp(120);
-        soundEngine.playDragonRoar();
+        soundEngine.playDragonDeath();
         this.callbacks.onTitleBanner('title', 'CHIẾN THẮNG! ĐÃ HẠ RỒNG ENDER!');
         this.callbacks.onTitleBanner('subtitle', 'Nhận Trứng Rồng, Đầu Rồng & Hơi Thở Rồng! Bước vào cổng giữa đảo để về nhà.');
       } else if (hitMob.type === 'sulfur_cube') {
         this.addItemToInventory('cinnabar_gem', 1);
       }
-      this.world.player.xp += hitMob.type === 'warden' ? 2.5 : 0.35;
-      while (this.world.player.xp >= 1) {
-        this.world.player.xp -= 1;
-        this.world.player.level += 1;
-        soundEngine.playLevelUp();
-      }
+      this.grantPlayerXp(hitMob.type === 'warden' ? 25 : 4);
       this.worldGroup.remove(hitMob.mesh);
       disposeMobMesh(hitMob.mesh);
       this.mobs = this.mobs.filter((m) => m !== hitMob);
-      this.callbacks.onChatMessage(`Đã hạ ${spec.nameVi} (+${spec.dropCount} ${ITEM_DEFS[spec.drop]?.nameVi || spec.drop})`, 'system');
+      this.callbacks.onChatMessage(`Đã hạ ${spec.nameVi} (+${totalDrops} ${ITEM_DEFS[spec.drop]?.nameVi || spec.drop})`, 'system');
       this.emitHud();
     }
     return true;
@@ -2160,18 +2265,23 @@ export class NetherCraftEngine {
     return false;
   }
 
-  // --- DDA Voxel Raycast ---
-  private updateTargetBlock(): void {
-    if (this.mode !== 'playing' || !this.world) {
-      this.targetBlock = null;
-      this.highlightBox.visible = false;
-      return;
-    }
-    this.camera.getWorldDirection(_camDir);
+  // --- DDA Voxel Raycast (supports both Crosshair & Touch-Anywhere screen coordinates) ---
+  private positionHighlightBox(tb: TargetBlockInfo): void {
+    const [minX, minY, minZ, maxX, maxY, maxZ] = getBlockSelectionBounds(tb.blockId);
+    this.highlightBox.scale.set(maxX - minX, maxY - minY, maxZ - minZ);
+    this.highlightBox.position.set(
+      tb.x - this.originCX * CHUNK_SIZE + (minX + maxX) * 0.5,
+      tb.y + (minY + maxY) * 0.5,
+      tb.z - this.originCZ * CHUNK_SIZE + (minZ + maxZ) * 0.5,
+    );
+    this.highlightBox.visible = true;
+  }
+
+  private raycastVoxelAlong(dir: THREE.Vector3): TargetBlockInfo | null {
     const ox = this.px;
     const oy = this.py + 1.62;
     const oz = this.pz;
-    const maxDist = 5.4;
+    const maxDist = 5.6;
     const step = 0.05;
 
     let prevX = Math.floor(ox);
@@ -2179,9 +2289,9 @@ export class NetherCraftEngine {
     let prevZ = Math.floor(oz);
 
     for (let d = 0.1; d <= maxDist; d += step) {
-      const rx = ox + _camDir.x * d;
-      const ry = oy + _camDir.y * d;
-      const rz = oz + _camDir.z * d;
+      const rx = ox + dir.x * d;
+      const ry = oy + dir.y * d;
+      const rz = oz + dir.z * d;
       const bx = Math.floor(rx);
       const by = Math.floor(ry);
       const bz = Math.floor(rz);
@@ -2190,7 +2300,7 @@ export class NetherCraftEngine {
         const id = this.getWorldBlock(bx, by, bz);
         if (id !== BLOCK.AIR && !isBlockLiquid(id)) {
           const def = BLOCK_DEFS[id];
-          this.targetBlock = {
+          return {
             x: bx,
             y: by,
             z: bz,
@@ -2198,23 +2308,36 @@ export class NetherCraftEngine {
             name: def?.nameVi || 'Khối',
             face: [prevX - bx, prevY - by, prevZ - bz],
           };
-          const [minX, minY, minZ, maxX, maxY, maxZ] = getBlockSelectionBounds(id);
-          this.highlightBox.scale.set(maxX - minX, maxY - minY, maxZ - minZ);
-          this.highlightBox.position.set(
-            bx - this.originCX * CHUNK_SIZE + (minX + maxX) * 0.5,
-            by + (minY + maxY) * 0.5,
-            bz - this.originCZ * CHUNK_SIZE + (minZ + maxZ) * 0.5,
-          );
-          this.highlightBox.visible = true;
-          return;
         }
         prevX = bx;
         prevY = by;
         prevZ = bz;
       }
     }
-    this.targetBlock = null;
-    this.highlightBox.visible = false;
+    return null;
+  }
+
+  private updateTargetBlock(): void {
+    if (this.mode !== 'playing' || !this.world) {
+      this.targetBlock = null;
+      this.highlightBox.visible = false;
+      return;
+    }
+    let dir: THREE.Vector3;
+    if (this.touchBreak && this.touchScreenBreakPos) {
+      dir = this.getScreenRayDirection(this.touchScreenBreakPos.x, this.touchScreenBreakPos.y);
+    } else {
+      this.camera.getWorldDirection(_camDir);
+      dir = _camDir;
+    }
+    const hit = this.raycastVoxelAlong(dir);
+    if (hit) {
+      this.targetBlock = hit;
+      this.positionHighlightBox(hit);
+    } else {
+      this.targetBlock = null;
+      this.highlightBox.visible = false;
+    }
   }
 
   private spawnBreakParticles(wx: number, wy: number, wz: number, colorHex: number, count: number): void {
@@ -2318,22 +2441,37 @@ export class NetherCraftEngine {
     this.spawnBreakParticles(tb.x, tb.y, tb.z, tb.blockId >= 31 ? 0x9f1239 : 0x9ca3af, 9);
     this.handSwing = 1.0;
 
-    if (this.world.gameMode === 'survival' && def.dropItem) {
+    if (this.world.gameMode === 'survival' && (def.dropItem || BLOCK_DEFS[tb.blockId]?.key)) {
       const held = this.world.player.inventory[this.world.player.selectedSlot];
       const itemDef = held ? ITEM_DEFS[held.itemId] : null;
       const tier = itemDef?.toolKind === def.tool ? itemDef.toolTier || 0 : 0;
-      if (!def.minTier || tier >= def.minTier) {
-        const fortuneBonus =
-          held?.enchants?.fortune && (def.category === 'ores')
-            ? Math.floor(Math.random() * (held.enchants.fortune + 1))
-            : 0;
-        this.addItemToInventory(def.dropItem, (def.dropCount || 1) + fortuneBonus);
-        if (def.category === 'ores') {
-          this.world.player.xp += 0.25;
-          if (this.world.player.xp >= 1) {
-            this.world.player.xp -= 1;
-            this.world.player.level += 1;
-            soundEngine.playLevelUp();
+      const hasSilk = Boolean(held?.enchants?.silk_touch);
+      if (!def.minTier || tier >= def.minTier || hasSilk) {
+        if (hasSilk && ITEM_DEFS[def.key]) {
+          this.addItemToInventory(def.key, 1);
+        } else if (def.dropItem) {
+          const fortuneBonus =
+            held?.enchants?.fortune && (def.category === 'ores' || def.key === 'gravel')
+              ? Math.floor(Math.random() * (held.enchants.fortune + 1))
+              : 0;
+          this.addItemToInventory(def.dropItem, (def.dropCount || 1) + fortuneBonus);
+          if (def.category === 'ores') {
+            this.grantPlayerXp(3);
+          }
+        }
+      }
+      // Durability wear with Unbreaking enchantment
+      if (held && itemDef?.maxDurability) {
+        const unbreaking = held.enchants?.unbreaking || 0;
+        if (Math.random() < 1 / (unbreaking + 1)) {
+          const curDur = held.durability ?? itemDef.maxDurability;
+          if (curDur <= 1) {
+            this.world.player.inventory[this.world.player.selectedSlot] = null;
+            soundEngine.playAnvil();
+            this.showItemToast(`${itemDef.nameVi} đã bị hỏng!`);
+            this.updateFirstPersonHeldVisual();
+          } else {
+            held.durability = curDur - 1;
           }
         }
       }
@@ -2343,6 +2481,18 @@ export class NetherCraftEngine {
 
   private grantPlayerXp(points: number): void {
     if (!this.world || points <= 0) return;
+    // Mending enchantment automatically repairs damaged held/equipped gear on XP pickup!
+    const repairable: (ItemStack | null)[] = [
+      this.world.player.inventory[this.world.player.selectedSlot],
+      ...this.world.player.armor,
+    ];
+    for (const st of repairable) {
+      if (!st?.enchants?.mending) continue;
+      const maxD = ITEM_DEFS[st.itemId]?.maxDurability;
+      if (maxD && st.durability !== undefined && st.durability < maxD) {
+        st.durability = Math.min(maxD, st.durability + points * 3);
+      }
+    }
     const prevLevel = this.world.player.level;
     const total = this.world.player.level * 10 + this.world.player.xp * 10 + points;
     this.world.player.level = Math.floor(total / 10);
@@ -2620,8 +2770,7 @@ export class NetherCraftEngine {
     }
 
     if (kind === 'wind_charge') {
-      soundEngine.playThrow();
-      soundEngine.playSplash();
+      soundEngine.playWindBurst();
       this.spawnBreakParticles(x, y + 0.15, z, 0xe0f2fe, 18);
       this.spawnBreakParticles(x, y + 0.25, z, 0x7dd3fc, 12);
       const blastRadius = 4.6;
@@ -3009,9 +3158,10 @@ export class NetherCraftEngine {
         return;
       }
 
-      // Bow & Crossbow -> fires 3D arrow!
+      // Bow & Crossbow -> fires 3D arrow (with Power, Flame, Infinity & Multishot enchantments!)
       if (id === 'bow' || id === 'crossbow') {
         let arrowId = 'arrow';
+        const hasInfinity = Boolean(held.enchants?.infinity);
         if (this.world.gameMode === 'survival') {
           const arrowSlot = this.world.player.inventory.findIndex(
             (s) => s && (s.itemId === 'arrow' || s.itemId === 'spectral_arrow' || s.itemId === 'tipped_arrow'),
@@ -3023,22 +3173,44 @@ export class NetherCraftEngine {
           }
           const st = this.world.player.inventory[arrowSlot]!;
           arrowId = st.itemId;
-          st.count -= 1;
-          if (st.count <= 0) this.world.player.inventory[arrowSlot] = null;
+          if (!hasInfinity) {
+            st.count -= 1;
+            if (st.count <= 0) this.world.player.inventory[arrowSlot] = null;
+          }
         }
         const isCrossbow = id === 'crossbow';
-        const arrowColor = arrowId === 'spectral_arrow' ? 0xfacc15 : arrowId === 'tipped_arrow' ? 0x22c55e : 0xd6d3d1;
-        this.spawnProjectile('arrow', arrowId, isCrossbow ? 38 : 32, arrowColor, isCrossbow ? 9 : 7, 11, 0.03);
+        const powerBonus = (held.enchants?.power || 0) * 2.5;
+        const hasFlame = Boolean(held.enchants?.flame);
+        const dmg = (isCrossbow ? 9 : 7) + powerBonus + (hasFlame ? 3 : 0);
+        const arrowColor = hasFlame
+          ? 0xf97316
+          : arrowId === 'spectral_arrow'
+            ? 0xfacc15
+            : arrowId === 'tipped_arrow'
+              ? 0x22c55e
+              : 0xd6d3d1;
+        this.spawnProjectile('arrow', arrowId, isCrossbow ? 38 : 32, arrowColor, dmg, 11, 0.03);
+        if (isCrossbow && held.enchants?.multishot) {
+          this.spawnProjectile('arrow', arrowId, 37, arrowColor, dmg, 11, 0.16);
+          this.spawnProjectile('arrow', arrowId, 37, arrowColor, dmg, 11, 0.16);
+        }
         soundEngine.playBowShoot();
         this.handSwing = 0.85;
         this.emitHud();
         return;
       }
 
-      // Trident -> throws cyan 3D spear!
+      // Trident -> throws cyan 3D spear (with Loyalty & Channeling lightning!)
       if (id === 'trident') {
-        this.spawnProjectile('trident', id, 29, 0x38bdf8, 10, 13, 0.05);
-        soundEngine.playThrow();
+        const hasChanneling = Boolean(held.enchants?.channeling);
+        this.spawnProjectile('trident', id, 29, hasChanneling ? 0x7dd3fc : 0x38bdf8, hasChanneling ? 15 : 10, 13, 0.05);
+        if (hasChanneling) {
+          this.lightningFlash = 0.85;
+          soundEngine.playThunder();
+          this.showItemToast('Đinh Ba Dẫn Sét triệu hồi sấm sét!');
+        } else {
+          soundEngine.playThrow();
+        }
         this.handSwing = 1.0;
         this.emitHud();
         return;
@@ -3540,6 +3712,51 @@ export class NetherCraftEngine {
     const sneaking = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || this.touchSneak;
     if (!sneaking) {
       const targetKey = BLOCK_DEFS[tb.blockId]?.key || '';
+      if (targetKey === 'enchanting_table') {
+        // Count surrounding bookshelves in a 5x2x5 ring around the Enchanting Table (max 15)
+        let shelves = 0;
+        const shelfId = BLOCK_BY_KEY['bookshelf']?.id;
+        if (shelfId !== undefined) {
+          for (let dx = -2; dx <= 2; dx++) {
+            for (let dz = -2; dz <= 2; dz++) {
+              if (Math.abs(dx) !== 2 && Math.abs(dz) !== 2) continue;
+              for (let dy = 0; dy <= 1; dy++) {
+                if (this.getWorldBlock(tb.x + dx, tb.y + dy, tb.z + dz) === shelfId) {
+                  shelves++;
+                }
+              }
+            }
+          }
+        }
+        this.enchantBookshelves = Math.min(15, shelves);
+        this.exitPointerLock();
+        soundEngine.playClick();
+        this.emitHud();
+        this.callbacks.onOpenContainer('enchanting');
+        return;
+      }
+      if (targetKey === 'anvil' || targetKey === 'chipped_anvil' || targetKey === 'damaged_anvil') {
+        this.exitPointerLock();
+        soundEngine.playAnvil();
+        this.callbacks.onOpenContainer('anvil');
+        return;
+      }
+      if (targetKey === 'grindstone') {
+        if (held?.enchants && Object.keys(held.enchants).length > 0) {
+          const totalLevels = Object.values(held.enchants).reduce((s, v) => s + (v || 0), 0);
+          delete held.enchants;
+          if (held.itemId === 'enchanted_book') held.itemId = 'book';
+          this.grantPlayerXp(totalLevels * 5);
+          soundEngine.playAnvil();
+          this.showItemToast(`Đá Mài: Đã gỡ phù phép & hoàn lại +${totalLevels * 5} XP!`);
+          this.emitHud();
+        } else {
+          soundEngine.playClick();
+          this.showItemToast('Cầm vật phẩm đã phù phép bấm chuột phải vào Đá Mài để gỡ & lấy XP!');
+          this.emitHud();
+        }
+        return;
+      }
       if (
         tb.blockId === BLOCK.CRAFTING_TABLE ||
         targetKey === 'crafter' ||
@@ -3547,8 +3764,7 @@ export class NetherCraftEngine {
         targetKey === 'stonecutter' ||
         targetKey === 'loom' ||
         targetKey === 'cartography_table' ||
-        targetKey === 'fletching_table' ||
-        targetKey === 'grindstone'
+        targetKey === 'fletching_table'
       ) {
         this.exitPointerLock();
         this.callbacks.onOpenContainer('crafting');
@@ -3827,7 +4043,7 @@ export class NetherCraftEngine {
       };
       if (waxMap[tKey] && BLOCK_BY_KEY[waxMap[tKey]]) {
         this.setWorldBlock(tb.x, tb.y, tb.z, BLOCK_BY_KEY[waxMap[tKey]].id, true);
-        soundEngine.playCopperScrape();
+        soundEngine.playWaxOn();
         this.spawnBreakParticles(tb.x + 0.5, tb.y + 0.8, tb.z + 0.5, 0xfacc15, 14);
         this.consumeHeldItem();
         this.showItemToast('Đã Phủ Sáp Ong chống Oxy hóa cho khối Đồng!');
@@ -4078,8 +4294,17 @@ export class NetherCraftEngine {
       this.vy = THREE.MathUtils.lerp(this.vy, jumpHeld ? 4.2 : -1.8, Math.min(1, dt * 8));
       this.fallPeakY = this.py;
     } else {
-      const grav = this.getEffectLevel('slow_falling') > 0 ? 7.5 : 26.5;
-      this.vy = Math.max(-42, this.vy - grav * dt);
+      const wearingElytra = this.world.player.armor[1]?.itemId === 'elytra';
+      if (wearingElytra && !this.onGround && this.vy < -1.2 && jumpHeld) {
+        // Authentic Elytra gliding in mid-air!
+        this.vy = Math.max(-2.6, this.vy - 4.5 * dt);
+        this.vx += -sinY * 9.5 * dt;
+        this.vz += -cosY * 9.5 * dt;
+        this.fallPeakY = Math.min(this.fallPeakY, this.py + 2.0);
+      } else {
+        const grav = this.getEffectLevel('slow_falling') > 0 ? 7.5 : 26.5;
+        this.vy = Math.max(-42, this.vy - grav * dt);
+      }
       if (jumpHeld && this.onGround) {
         this.vy = 8.7 + this.getEffectLevel('jump_boost') * 1.65;
         this.onGround = false;
@@ -5107,6 +5332,16 @@ export class NetherCraftEngine {
         : null,
       locatorMarkers,
       darknessIntensity,
+      enchantBookshelves: this.enchantBookshelves,
+      spyglassZoom: this.spyglassZoom,
+      touchBreakCircle:
+        this.touchBreak && this.touchScreenBreakPos
+          ? {
+              x: this.touchScreenBreakPos.x,
+              y: this.touchScreenBreakPos.y,
+              progress: Math.max(0, Math.min(1, this.miningProgress)),
+            }
+          : null,
     });
   }
 
@@ -5141,66 +5376,131 @@ export class NetherCraftEngine {
     }
   }
 
+  private normalizeKeyCode(e: KeyboardEvent): string {
+    if (e.code) return e.code;
+    const k = (e.key || '').toLowerCase();
+    if (k === 'w' || k === 'ư') return 'KeyW';
+    if (k === 'a' || k === 'ă' || k === 'â') return 'KeyA';
+    if (k === 's') return 'KeyS';
+    if (k === 'd' || k === 'đ') return 'KeyD';
+    if (k === 'e' || k === 'ê') return 'KeyE';
+    if (k === 't') return 'KeyT';
+    if (k === 'r') return 'KeyR';
+    if (k === ' ') return 'Space';
+    if (k === 'shift') return 'ShiftLeft';
+    if (k === 'control') return 'ControlLeft';
+    return e.key || '';
+  }
+
   private handleKeyDown(e: KeyboardEvent): void {
     if (this.mode !== 'playing') return;
-    const tag = (e.target as HTMLElement)?.tagName;
+    const activeEl = document.activeElement as HTMLElement | null;
+    const tag = activeEl?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    // If a HUD button kept focus after click, blur it so Space/Enter move/jump instead of re-clicking the button!
+    if (tag === 'BUTTON' && activeEl) {
+      activeEl.blur();
+    }
 
-    if (e.code === 'F3') {
+    const code = this.normalizeKeyCode(e);
+
+    if (code === 'F3') {
       e.preventDefault();
       this.callbacks.onToggleF3();
       return;
     }
-    if (e.code === 'F5') {
+    if (code === 'F5') {
       e.preventDefault();
       this.cycleCameraMode();
       return;
     }
-    if (e.code === 'Escape') {
+    if (code === 'Escape') {
+      this.pcFreeLookActive = false;
+      this.lastMousePos = null;
       if (this.mode === 'playing') this.callbacks.onPauseRequest();
       return;
     }
     if (this.paused || !this.world || this.world.player.hp <= 0) return;
 
-    if (e.code === 'KeyE') {
+    if (code === 'KeyE') {
       e.preventDefault();
+      this.pcFreeLookActive = false;
       this.exitPointerLock();
       this.callbacks.onOpenContainer('inventory');
       return;
     }
-    if (e.code === 'KeyT' || e.key === '/') {
+    if (code === 'KeyT' || e.key === '/') {
       e.preventDefault();
+      this.pcFreeLookActive = false;
       this.exitPointerLock();
       this.callbacks.onOpenChat(e.key === '/' ? '/' : '');
       return;
     }
-    if (e.code.startsWith('Digit')) {
-      const idx = parseInt(e.code.slice(5), 10) - 1;
+    if (code.startsWith('Digit')) {
+      const idx = parseInt(code.slice(5), 10) - 1;
       if (idx >= 0 && idx < 9) this.selectHotbarSlot(idx);
       return;
     }
-    if (e.code === 'Space' && !this.keys.has('Space')) {
+    if (
+      code === 'Space' ||
+      code === 'ArrowUp' ||
+      code === 'ArrowDown' ||
+      code === 'ArrowLeft' ||
+      code === 'ArrowRight'
+    ) {
+      e.preventDefault();
+    }
+    if (code === 'Space' && !this.keys.has('Space')) {
       this.triggerJumpPress();
     }
-    this.keys.add(e.code);
+    this.keys.add(code);
   }
 
   private handleKeyUp(e: KeyboardEvent): void {
-    this.keys.delete(e.code);
+    const code = this.normalizeKeyCode(e);
+    this.keys.delete(code);
+    if (e.code) this.keys.delete(e.code);
   }
 
   private handleMouseMove(e: MouseEvent): void {
-    if (this.mode !== 'playing' || this.paused || !this.pointerLocked) return;
-    const sens = 0.0022 * this.settings.sensitivity;
-    this.yaw -= e.movementX * sens;
-    this.pitch = THREE.MathUtils.clamp(this.pitch - e.movementY * sens, -Math.PI * 0.495, Math.PI * 0.495);
+    if (this.mode !== 'playing' || this.paused) return;
+    const sens = 0.0024 * this.settings.sensitivity;
+    if (this.pointerLocked) {
+      this.yaw -= e.movementX * sens;
+      this.pitch = THREE.MathUtils.clamp(this.pitch - e.movementY * sens, -Math.PI * 0.495, Math.PI * 0.495);
+      return;
+    }
+    // Seamless PC mouse-look fallback if Pointer Lock is blocked by browser/iframe or while dragging
+    if (this.pcFreeLookActive || (e.buttons & 1) !== 0 || (e.buttons & 2) !== 0) {
+      let dx = e.movementX;
+      let dy = e.movementY;
+      if (dx === 0 && dy === 0 && this.lastMousePos) {
+        dx = e.clientX - this.lastMousePos.x;
+        dy = e.clientY - this.lastMousePos.y;
+      }
+      this.lastMousePos = { x: e.clientX, y: e.clientY };
+      if (Math.abs(dx) < 180 && Math.abs(dy) < 180) {
+        this.yaw -= dx * sens * 1.25;
+        this.pitch = THREE.MathUtils.clamp(
+          this.pitch - dy * sens * 1.25,
+          -Math.PI * 0.495,
+          Math.PI * 0.495,
+        );
+      }
+    } else {
+      this.lastMousePos = { x: e.clientX, y: e.clientY };
+    }
   }
 
   private handleMouseDown(e: MouseEvent): void {
     if (this.mode !== 'playing' || this.paused) return;
+    if (document.activeElement instanceof HTMLElement && document.activeElement.tagName === 'BUTTON') {
+      document.activeElement.blur();
+    }
+    this.lastMousePos = { x: e.clientX, y: e.clientY };
     if (!this.pointerLocked) {
       this.requestPointerLock();
-      return;
+      this.pcFreeLookActive = true;
     }
     if (e.button === 0) {
       this.mouseLeft = true;
@@ -5235,6 +5535,7 @@ export class NetherCraftEngine {
     if (!this.pointerLocked) {
       this.mouseLeft = false;
       this.mouseRight = false;
+      this.pcFreeLookActive = false;
     }
     this.emitHud();
   }
@@ -5243,7 +5544,10 @@ export class NetherCraftEngine {
     this.keys.clear();
     this.mouseLeft = false;
     this.mouseRight = false;
+    this.pcFreeLookActive = false;
+    this.lastMousePos = null;
     this.touchBreak = false;
+    this.touchScreenBreakPos = null;
     this.touchMoveX = 0;
     this.touchMoveZ = 0;
   }
