@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { soundEngine } from './audio';
 import {
   BLOCK,
+  BLOCK_BY_KEY,
   BLOCK_DEFS,
   getBlockLightEmission,
   getBlockSelectionBounds,
@@ -77,6 +78,36 @@ interface BreakParticle {
   vy: number;
   vz: number;
   life: number;
+}
+
+type ProjectileKind =
+  | 'xp_bottle'
+  | 'ender_pearl'
+  | 'snowball'
+  | 'egg'
+  | 'arrow'
+  | 'trident'
+  | 'fireball'
+  | 'firework'
+  | 'eye_of_ender'
+  | 'splash_potion'
+  | 'wind_charge';
+
+interface ProjectileEntity {
+  kind: ProjectileKind;
+  mesh: THREE.Mesh;
+  x: number;
+  y: number;
+  z: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  gravity: number;
+  life: number;
+  colorHex: number;
+  damage: number;
+  itemId: string;
+  trailTimer: number;
 }
 
 export interface EngineCallbacks {
@@ -184,6 +215,7 @@ export class NetherCraftEngine {
   private lightningFlash = 0;
   private heldItemToast = '';
   private heldItemToastAt = 0;
+  private spyglassZoom = false;
 
   // Raycast & Mining
   private targetBlock: TargetBlockInfo | null = null;
@@ -205,9 +237,11 @@ export class NetherCraftEngine {
   private cameraMode: CameraMode = 'first';
   private walkAnimPhase = 0;
 
-  // Pooled break particles
+  // Pooled break particles & 3D projectiles
   private particles: BreakParticle[] = [];
   private particleGeo = new THREE.BoxGeometry(0.14, 0.14, 0.14);
+  private projectiles: ProjectileEntity[] = [];
+  private projectileGeo = new THREE.BoxGeometry(0.24, 0.24, 0.24);
 
   // Clouds, Rain, Sun/Moon, Stars, World Border wall
   private cloudGroup = new THREE.Group();
@@ -1671,6 +1705,11 @@ export class NetherCraftEngine {
       (p.mesh.material as THREE.Material).dispose();
     }
     this.particles = [];
+    for (const pr of this.projectiles) {
+      this.worldGroup.remove(pr.mesh);
+      (pr.mesh.material as THREE.Material).dispose();
+    }
+    this.projectiles = [];
     for (const pl of this.dynamicLights) {
       pl.visible = false;
       pl.intensity = 0;
@@ -1949,9 +1988,11 @@ export class NetherCraftEngine {
   private tryAttackMob(): boolean {
     if (!this.world) return false;
     this.camera.getWorldDirection(_camDir);
+    const held = this.world.player.inventory[this.world.player.selectedSlot];
+    const isSpear = Boolean(held?.itemId.endsWith('_spear'));
     const eyeY = this.py + 1.62;
     let hitMob: MobEntity | null = null;
-    let bestDist = 4.2;
+    let bestDist = isSpear ? 5.8 : 4.2;
 
     for (const mob of this.mobs) {
       const dx = mob.x - this.px;
@@ -1960,30 +2001,60 @@ export class NetherCraftEngine {
       const dist = Math.hypot(dx, dy, dz);
       if (dist > bestDist) continue;
       const dot = (dx * _camDir.x + dy * _camDir.y + dz * _camDir.z) / dist;
-      if (dot > 0.9) {
+      if (dot > (isSpear ? 0.87 : 0.9)) {
         bestDist = dist;
         hitMob = mob;
       }
     }
     if (!hitMob) return false;
 
-    const held = this.world.player.inventory[this.world.player.selectedSlot];
     const def = held ? ITEM_DEFS[held.itemId] : null;
     let dmg = def?.attackDamage || 2;
     if (held?.enchants?.sharpness) dmg += held.enchants.sharpness * 1.5;
     if (held?.enchants?.fire_aspect) dmg += 2;
     dmg += this.getEffectLevel('strength') * 3;
 
+    // Authentic Minecraft 1.21 Mace Smash Attack when falling!
+    let isMaceSmash = false;
+    if (held?.itemId === 'mace' && !this.onGround && (this.vy < -2.0 || this.fallPeakY - this.py > 1.5)) {
+      const fallBlocks = Math.max(1.5, this.fallPeakY - this.py);
+      const smashBonus = Math.min(48, Math.round(fallBlocks * 5));
+      dmg += smashBonus;
+      isMaceSmash = true;
+      // Negates fall damage & launches upward slightly like real Minecraft 1.21+ Mace!
+      this.fallPeakY = this.py;
+      this.vy = Math.max(this.vy, 3.2);
+      soundEngine.playExplosion();
+      soundEngine.playLevelUp();
+      this.cameraShake = 0.25;
+      this.spawnBreakParticles(hitMob.x, hitMob.y + 0.4, hitMob.z, 0xe0f2fe, 18);
+      this.spawnBreakParticles(hitMob.x, hitMob.y + 0.8, hitMob.z, 0xfacc15, 10);
+      this.showItemToast(`ĐẬP CHÙY MACE! (+${smashBonus} sát thương)`);
+      // Knockback shockwave to nearby mobs
+      for (const other of this.mobs) {
+        if (other === hitMob) continue;
+        const odx = other.x - hitMob.x;
+        const odz = other.z - hitMob.z;
+        const odist = Math.hypot(odx, other.y - hitMob.y, odz);
+        if (odist <= 4.2 && odist > 0.01) {
+          other.vx += (odx / odist) * 10;
+          other.vz += (odz / odist) * 10;
+          other.vy = Math.max(other.vy, 7.2);
+          other.hurtTimer = 0.25;
+        }
+      }
+    }
+
     hitMob.hp -= dmg;
     hitMob.hurtTimer = 0.25;
-    hitMob.vy = 5.2;
-    hitMob.vx += _camDir.x * 7;
-    hitMob.vz += _camDir.z * 7;
+    hitMob.vy = isMaceSmash ? 8.2 : 5.2;
+    hitMob.vx += _camDir.x * (isMaceSmash ? 11 : isSpear ? 8.5 : 7);
+    hitMob.vz += _camDir.z * (isMaceSmash ? 11 : isSpear ? 8.5 : 7);
     if (hitMob.type === 'zombified_piglin') hitMob.hostile = true;
     this.handSwing = 1.0;
-    this.hitstopTimer = 0.035;
+    this.hitstopTimer = isMaceSmash ? 0.07 : 0.035;
     soundEngine.playHurt();
-    this.spawnBreakParticles(hitMob.x, hitMob.y + 1, hitMob.z, 0xef4444, 6);
+    this.spawnBreakParticles(hitMob.x, hitMob.y + 1, hitMob.z, isMaceSmash ? 0xfacc15 : 0xef4444, isMaceSmash ? 12 : 6);
 
     if (hitMob.hp <= 0) {
       const spec = MOB_SPECS[hitMob.type];
@@ -2220,6 +2291,555 @@ export class NetherCraftEngine {
     this.emitHud();
   }
 
+  private grantPlayerXp(points: number): void {
+    if (!this.world || points <= 0) return;
+    const prevLevel = this.world.player.level;
+    const total = this.world.player.level * 10 + this.world.player.xp * 10 + points;
+    this.world.player.level = Math.floor(total / 10);
+    this.world.player.xp = (total % 10) / 10;
+    soundEngine.playXpOrb();
+    if (this.world.player.level > prevLevel) {
+      soundEngine.playLevelUp();
+    }
+    this.emitHud();
+  }
+
+  private applyPlayerEffect(id: EffectId, durationSec: number, amplifier = 0): void {
+    if (!this.world) return;
+    const idx = this.world.player.effects.findIndex((e) => e.id === id);
+    const nextEff: ActiveEffect = { id, amplifier, remainingSec: durationSec };
+    if (idx >= 0) this.world.player.effects[idx] = nextEff;
+    else this.world.player.effects.push(nextEff);
+  }
+
+  private showItemToast(msg: string): void {
+    this.heldItemToast = msg;
+    this.heldItemToastAt = performance.now();
+  }
+
+  private consumeHeldItem(replaceWithId?: string): void {
+    if (!this.world || this.world.gameMode !== 'survival') return;
+    const slot = this.world.player.selectedSlot;
+    const held = this.world.player.inventory[slot];
+    if (!held) return;
+    if (held.count > 1) {
+      held.count -= 1;
+      if (replaceWithId) this.addItemToInventory(replaceWithId, 1);
+    } else {
+      this.world.player.inventory[slot] = replaceWithId ? { itemId: replaceWithId, count: 1 } : null;
+    }
+    this.updateFirstPersonHeldVisual();
+  }
+
+  private damageMobDirect(mob: MobEntity, dmg: number, knockX: number, knockZ: number): void {
+    if (!this.world) return;
+    mob.hp -= dmg;
+    mob.hurtTimer = 0.25;
+    mob.vy = Math.max(mob.vy, 4.8);
+    mob.vx += knockX;
+    mob.vz += knockZ;
+    if (mob.type === 'zombified_piglin') mob.hostile = true;
+    soundEngine.playHurt();
+    this.spawnBreakParticles(mob.x, mob.y + 1, mob.z, 0xef4444, 6);
+    if (mob.hp <= 0) {
+      const spec = MOB_SPECS[mob.type];
+      this.addItemToInventory(spec.drop, spec.dropCount);
+      this.grantPlayerXp(4);
+      this.worldGroup.remove(mob.mesh);
+      disposeMobMesh(mob.mesh);
+      this.mobs = this.mobs.filter((m) => m !== mob);
+      this.callbacks.onChatMessage(
+        `Đã hạ ${spec.nameVi} (+${spec.dropCount} ${ITEM_DEFS[spec.drop]?.nameVi || spec.drop})`,
+        'system',
+      );
+      this.emitHud();
+    }
+  }
+
+  private findSafeTeleportY(wx: number, wy: number, wz: number): number {
+    const bx = Math.floor(wx);
+    const bz = Math.floor(wz);
+    const startY = Math.max(2, Math.min(WORLD_HEIGHT_MAX - 4, Math.floor(wy)));
+    for (let dy = 0; dy <= 14; dy++) {
+      const cy = startY + dy;
+      if (cy >= WORLD_HEIGHT_MAX - 2) break;
+      const b0 = this.getWorldBlock(bx, cy, bz);
+      const b1 = this.getWorldBlock(bx, cy + 1, bz);
+      if (!isBlockSolid(b0) && !isBlockSolid(b1)) {
+        return cy + 0.05;
+      }
+    }
+    return this.findSafeGroundY(bx, bz);
+  }
+
+  private detonateExplosion(cx: number, cy: number, cz: number, radius: number, colorHex: number, mobDamage: number): void {
+    soundEngine.playExplosion();
+    this.cameraShake = Math.max(this.cameraShake, 0.35);
+    const bx = Math.floor(cx);
+    const by = Math.floor(cy);
+    const bz = Math.floor(cz);
+    const r2 = radius * radius + 1;
+    for (let dx = -radius; dx <= radius; dx++) {
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dz = -radius; dz <= radius; dz++) {
+          if (dx * dx + dy * dy + dz * dz <= r2) {
+            const bid = this.getWorldBlock(bx + dx, by + dy, bz + dz);
+            if (bid !== BLOCK.AIR && bid !== BLOCK.BEDROCK && bid !== BLOCK.OBSIDIAN && bid !== BLOCK.ANCIENT_DEBRIS) {
+              this.setWorldBlock(bx + dx, by + dy, bz + dz, BLOCK.AIR, true);
+            }
+          }
+        }
+      }
+    }
+    this.spawnBreakParticles(cx, cy, cz, colorHex, 24);
+    if (mobDamage > 0) {
+      const blastRange = radius + 2.5;
+      for (const mob of [...this.mobs]) {
+        const d = Math.hypot(mob.x - cx, mob.y + 0.8 - cy, mob.z - cz);
+        if (d <= blastRange) {
+          const factor = 1 - d / (blastRange + 0.5);
+          const nx = d > 0.01 ? ((mob.x - cx) / d) * 10 : 0;
+          const nz = d > 0.01 ? ((mob.z - cz) / d) * 10 : 0;
+          this.damageMobDirect(mob, Math.max(2, Math.round(mobDamage * factor)), nx, nz);
+        }
+      }
+    }
+  }
+
+  private spawnProjectile(
+    kind: ProjectileKind,
+    itemId: string,
+    speed: number,
+    colorHex: number,
+    damage: number,
+    gravity: number,
+    extraUp = 0.08,
+  ): void {
+    this.camera.getWorldDirection(_camDir);
+    const mat = new THREE.MeshBasicMaterial({ color: colorHex });
+    const mesh = new THREE.Mesh(this.projectileGeo, mat);
+    if (kind === 'arrow' || kind === 'trident') {
+      mesh.scale.set(0.32, 0.32, kind === 'trident' ? 2.9 : 2.1);
+    } else if (kind === 'firework') {
+      mesh.scale.set(0.55, 1.35, 0.55);
+    } else if (kind === 'fireball') {
+      mesh.scale.set(1.45, 1.45, 1.45);
+    } else if (kind === 'wind_charge') {
+      mesh.scale.set(1.3, 1.3, 1.3);
+    } else if (kind === 'xp_bottle' || kind === 'splash_potion') {
+      mesh.scale.set(0.95, 1.15, 0.95);
+    }
+
+    const startX = this.px + _camDir.x * 0.7;
+    const startY = this.py + 1.48 + _camDir.y * 0.5;
+    const startZ = this.pz + _camDir.z * 0.7;
+
+    let vx = _camDir.x * speed;
+    let vy = (_camDir.y + extraUp) * speed;
+    let vz = _camDir.z * speed;
+
+    if (kind === 'firework') {
+      vx = _camDir.x * 4;
+      vy = 16;
+      vz = _camDir.z * 4;
+    } else if (kind === 'eye_of_ender') {
+      // Float smoothly toward world origin (0, 0) where the Overworld fortress/portal hub lies
+      const toX = -this.px;
+      const toZ = -this.pz;
+      const horiz = Math.hypot(toX, toZ) || 1;
+      vx = (toX / horiz) * 7.5;
+      vy = 4.2;
+      vz = (toZ / horiz) * 7.5;
+    }
+
+    mesh.position.set(
+      startX - this.originCX * CHUNK_SIZE,
+      startY,
+      startZ - this.originCZ * CHUNK_SIZE,
+    );
+    this.worldGroup.add(mesh);
+
+    this.projectiles.push({
+      kind,
+      mesh,
+      x: startX,
+      y: startY,
+      z: startZ,
+      vx,
+      vy,
+      vz,
+      gravity,
+      life: kind === 'firework' ? 1.15 : kind === 'eye_of_ender' ? 2.2 : 6.0,
+      colorHex,
+      damage,
+      itemId,
+      trailTimer: 0,
+    });
+  }
+
+  private handleProjectileImpact(pr: ProjectileEntity, hitMob: MobEntity | null): void {
+    const { x, y, z, kind, colorHex, itemId } = pr;
+    if (kind === 'xp_bottle') {
+      const gained = 5 + Math.floor(Math.random() * 8); // 5-12 XP points (0.5 - 1.2 levels!)
+      this.spawnBreakParticles(x, y + 0.15, z, 0xa3e635, 14);
+      this.spawnBreakParticles(x, y + 0.25, z, 0xfacc15, 8);
+      this.grantPlayerXp(gained);
+      this.showItemToast(`+${gained} XP (Cấp ${this.world?.player.level || 0})`);
+      return;
+    }
+
+    if (kind === 'ender_pearl') {
+      const safeY = this.findSafeTeleportY(x, y, z);
+      this.px = x;
+      this.py = safeY;
+      this.pz = z;
+      this.vx = 0;
+      this.vy = 0;
+      this.vz = 0;
+      this.fallPeakY = safeY;
+      this.spawnBreakParticles(x, safeY + 0.8, z, 0xa855f7, 20);
+      soundEngine.playPortal();
+      if (this.world?.gameMode === 'survival') {
+        this.damagePlayer(4, 'Ngọc Ender');
+      }
+      this.showItemToast('Đã dịch chuyển bằng Ngọc Ender!');
+      this.emitHud();
+      return;
+    }
+
+    if (kind === 'snowball') {
+      this.spawnBreakParticles(x, y, z, 0xf8fafc, 10);
+      soundEngine.playBlock('sand', 'break');
+      if (hitMob) {
+        const isNether =
+          hitMob.type === 'ghast' ||
+          hitMob.type === 'piglin' ||
+          hitMob.type === 'zombified_piglin' ||
+          hitMob.type === 'strider';
+        this.damageMobDirect(hitMob, isNether ? 3 : 0.5, pr.vx * 0.25, pr.vz * 0.25);
+      }
+      return;
+    }
+
+    if (kind === 'egg') {
+      this.spawnBreakParticles(x, y, z, 0xfef3c7, 10);
+      soundEngine.playClick();
+      if (hitMob) {
+        this.damageMobDirect(hitMob, 0.5, pr.vx * 0.22, pr.vz * 0.22);
+      }
+      if (Math.random() < 0.25 && this.mobs.length < 24) {
+        const hatchType: MobType = Math.random() < 0.5 ? 'pig' : 'sheep';
+        this.spawnMob(hatchType, x, Math.max(2, y + 0.2), z);
+        this.showItemToast(`Trứng nở ra ${MOB_SPECS[hatchType].nameVi}!`);
+      }
+      return;
+    }
+
+    if (kind === 'arrow' || kind === 'trident') {
+      const burstColor = kind === 'trident' ? 0x38bdf8 : itemId === 'spectral_arrow' ? 0xfacc15 : itemId === 'tipped_arrow' ? 0x22c55e : 0xe2e8f0;
+      this.spawnBreakParticles(x, y, z, burstColor, kind === 'trident' ? 12 : 7);
+      soundEngine.playBlock('wood', 'break');
+      if (hitMob) {
+        const bonus = itemId === 'tipped_arrow' ? 3 : 0;
+        this.damageMobDirect(hitMob, pr.damage + bonus, pr.vx * 0.18, pr.vz * 0.18);
+      }
+      return;
+    }
+
+    if (kind === 'fireball') {
+      this.detonateExplosion(x, y, z, 2, 0xf97316, 9);
+      return;
+    }
+
+    if (kind === 'firework') {
+      soundEngine.playFirework();
+      const palette = [0xef4444, 0xfacc15, 0x38bdf8, 0xc084fc, 0x4ade80];
+      for (const col of palette) {
+        this.spawnBreakParticles(x, y, z, col, 8);
+      }
+      return;
+    }
+
+    if (kind === 'eye_of_ender') {
+      this.spawnBreakParticles(x, y, z, 0x10b981, 14);
+      this.spawnBreakParticles(x, y, z, 0xa855f7, 8);
+      soundEngine.playXpOrb();
+      const distOrigin = Math.round(Math.hypot(this.px, this.pz));
+      this.showItemToast(`Mắt Ender chỉ về Tâm (0, 0) • cách ${distOrigin}m`);
+      return;
+    }
+
+    if (kind === 'wind_charge') {
+      soundEngine.playThrow();
+      soundEngine.playSplash();
+      this.spawnBreakParticles(x, y + 0.15, z, 0xe0f2fe, 18);
+      this.spawnBreakParticles(x, y + 0.25, z, 0x7dd3fc, 12);
+      const blastRadius = 4.6;
+      const pdx = this.px - x;
+      const pdy = this.py + 0.9 - y;
+      const pdz = this.pz - z;
+      const pDist = Math.hypot(pdx, pdy, pdz);
+      if (pDist <= 4.4) {
+        // Authentic Wind-Charge Jump for Mace Smash combos!
+        const horiz = Math.hypot(pdx, pdz) || 1;
+        this.vx += (pdx / horiz) * 6.5;
+        this.vz += (pdz / horiz) * 6.5;
+        this.vy = Math.max(this.vy, 14.5);
+        this.onGround = false;
+        this.fallPeakY = this.py;
+        this.showItemToast('Bật nhảy Cầu Gió (Wind Charge)!');
+      }
+      for (const mob of [...this.mobs]) {
+        const mdx = mob.x - x;
+        const mdy = mob.y + 0.8 - y;
+        const mdz = mob.z - z;
+        const mDist = Math.hypot(mdx, mdy, mdz);
+        if (mDist <= blastRadius) {
+          const h = Math.hypot(mdx, mdz) || 1;
+          mob.vy = Math.max(mob.vy, 10.5);
+          this.damageMobDirect(mob, 2, (mdx / h) * 12, (mdz / h) * 12);
+        }
+      }
+      return;
+    }
+
+    if (kind === 'splash_potion') {
+      soundEngine.playSplash();
+      this.spawnBreakParticles(x, y + 0.2, z, colorHex, 20);
+      const radius = 4.6;
+      const distPlayer = Math.hypot(this.px - x, this.py + 0.9 - y, this.pz - z);
+      const isHarmful =
+        itemId.includes('harming') || itemId.includes('poison');
+
+      if (distPlayer <= radius && this.world) {
+        if (itemId === 'splash_potion' || itemId.includes('regeneration') || itemId.includes('lingering')) {
+          this.world.player.hp = Math.min(this.world.player.maxHp, this.world.player.hp + 6);
+          this.applyPlayerEffect('regeneration', 20, 0);
+        } else if (itemId.includes('swiftness')) {
+          this.applyPlayerEffect('speed', 90, 0);
+        } else if (itemId.includes('strength')) {
+          this.applyPlayerEffect('strength', 90, 0);
+        } else if (itemId.includes('fire_resistance')) {
+          this.applyPlayerEffect('fire_resistance', 120, 0);
+        } else if (itemId.includes('night_vision')) {
+          this.applyPlayerEffect('night_vision', 120, 0);
+        } else if (isHarmful && this.world.gameMode === 'survival') {
+          this.damagePlayer(4, 'Thuốc Ném');
+        }
+        this.emitHud();
+      }
+
+      for (const mob of [...this.mobs]) {
+        const dm = Math.hypot(mob.x - x, mob.y + 0.8 - y, mob.z - z);
+        if (dm <= radius) {
+          if (isHarmful) {
+            this.damageMobDirect(mob, itemId.includes('harming') ? 8 : 5, (mob.x - x) * 1.5, (mob.z - z) * 1.5);
+          } else {
+            mob.hp = Math.min(mob.maxHp, mob.hp + 4);
+            this.spawnBreakParticles(mob.x, mob.y + 1, mob.z, colorHex, 6);
+          }
+        }
+      }
+      return;
+    }
+  }
+
+  private updateProjectiles(dt: number): void {
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const pr = this.projectiles[i];
+      pr.life -= dt;
+      pr.vy -= pr.gravity * dt;
+
+      const nextX = pr.x + pr.vx * dt;
+      const nextY = pr.y + pr.vy * dt;
+      const nextZ = pr.z + pr.vz * dt;
+
+      // Trail sparkles for iconic projectiles
+      pr.trailTimer += dt;
+      if (pr.trailTimer >= 0.055) {
+        pr.trailTimer = 0;
+        if (
+          pr.kind === 'xp_bottle' ||
+          pr.kind === 'ender_pearl' ||
+          pr.kind === 'firework' ||
+          pr.kind === 'fireball' ||
+          pr.kind === 'eye_of_ender' ||
+          pr.kind === 'splash_potion' ||
+          pr.kind === 'wind_charge'
+        ) {
+          this.spawnBreakParticles(pr.x, pr.y, pr.z, pr.colorHex, 1);
+        }
+      }
+
+      // Check Mob collision (skip for eye_of_ender & firework)
+      let hitMob: MobEntity | null = null;
+      if (pr.kind !== 'eye_of_ender' && pr.kind !== 'firework') {
+        for (const mob of this.mobs) {
+          const spec = MOB_SPECS[mob.type];
+          const dx = nextX - mob.x;
+          const dz = nextZ - mob.z;
+          if (
+            Math.hypot(dx, dz) < spec.width * 0.65 + 0.3 &&
+            nextY >= mob.y - 0.1 &&
+            nextY <= mob.y + spec.height + 0.2
+          ) {
+            hitMob = mob;
+            break;
+          }
+        }
+      }
+
+      const hitSolid =
+        pr.kind !== 'eye_of_ender' &&
+        isBlockSolid(this.getWorldBlock(Math.floor(nextX), Math.floor(nextY), Math.floor(nextZ)));
+
+      pr.x = nextX;
+      pr.y = nextY;
+      pr.z = nextZ;
+      pr.mesh.position.set(
+        pr.x - this.originCX * CHUNK_SIZE,
+        pr.y,
+        pr.z - this.originCZ * CHUNK_SIZE,
+      );
+
+      if (pr.kind === 'arrow' || pr.kind === 'trident') {
+        pr.mesh.lookAt(
+          pr.mesh.position.x + pr.vx,
+          pr.mesh.position.y + pr.vy,
+          pr.mesh.position.z + pr.vz,
+        );
+      } else {
+        pr.mesh.rotation.x += dt * 9;
+        pr.mesh.rotation.y += dt * 7;
+      }
+
+      if (hitMob || hitSolid || pr.life <= 0 || pr.y < 1) {
+        this.worldGroup.remove(pr.mesh);
+        (pr.mesh.material as THREE.Material).dispose();
+        this.projectiles.splice(i, 1);
+        this.handleProjectileImpact(pr, hitMob);
+      }
+    }
+  }
+
+  private growBoneMealAt(x: number, y: number, z: number): boolean {
+    const bid = this.getWorldBlock(x, y, z);
+    const key = BLOCK_DEFS[bid]?.key || '';
+
+    // 1. Grow 4-layer Tree from any sapling or mangrove propagule (Oak, Cherry, Pale Oak + Creaking Heart, Mangrove)!
+    if (key.endsWith('_sapling') || key === 'mangrove_propagule') {
+      const isCherry = key === 'cherry_sapling';
+      const isPale = key === 'pale_oak_sapling';
+      const isMangrove = key === 'mangrove_propagule';
+      const logId = isCherry
+        ? BLOCK_BY_KEY['cherry_log']?.id ?? BLOCK.OAK_LOG
+        : isPale
+          ? BLOCK_BY_KEY['pale_oak_log']?.id ?? BLOCK.OAK_LOG
+          : isMangrove
+            ? BLOCK_BY_KEY['mangrove_log']?.id ?? BLOCK.OAK_LOG
+            : BLOCK.OAK_LOG;
+      const leafId = isCherry
+        ? BLOCK_BY_KEY['cherry_leaves']?.id ?? BLOCK.OAK_LEAVES
+        : isPale
+          ? BLOCK_BY_KEY['pale_oak_leaves']?.id ?? BLOCK.OAK_LEAVES
+          : isMangrove
+            ? BLOCK_BY_KEY['mangrove_leaves']?.id ?? BLOCK.OAK_LEAVES
+            : BLOCK.OAK_LEAVES;
+      const heartId = BLOCK_BY_KEY['creaking_heart']?.id ?? logId;
+      const rootsId = BLOCK_BY_KEY['mangrove_roots']?.id ?? logId;
+
+      if (isMangrove) {
+        if (this.getWorldBlock(x + 1, y, z) === BLOCK.AIR) this.setWorldBlock(x + 1, y, z, rootsId, true);
+        if (this.getWorldBlock(x - 1, y, z) === BLOCK.AIR) this.setWorldBlock(x - 1, y, z, rootsId, true);
+        if (this.getWorldBlock(x, y, z + 1) === BLOCK.AIR) this.setWorldBlock(x, y, z + 1, rootsId, true);
+        if (this.getWorldBlock(x, y, z - 1) === BLOCK.AIR) this.setWorldBlock(x, y, z - 1, rootsId, true);
+      }
+
+      const trunkH = 4 + Math.floor(Math.random() * 2);
+      for (let ty = 0; ty < trunkH; ty++) {
+        const useHeart = isPale && ty === 1;
+        this.setWorldBlock(x, y + ty, z, useHeart ? heartId : logId, true);
+      }
+      const topY = y + trunkH - 1;
+      for (let ly = topY - 2; ly <= topY + 1; ly++) {
+        const radius = ly >= topY ? 1 : 2;
+        for (let lx = -radius; lx <= radius; lx++) {
+          for (let lz = -radius; lz <= radius; lz++) {
+            if (lx === 0 && lz === 0 && ly <= topY) continue;
+            if (radius === 2 && Math.abs(lx) === 2 && Math.abs(lz) === 2 && (ly === topY - 1 || Math.random() < 0.5)) continue;
+            if (radius === 1 && ly === topY + 1 && Math.abs(lx) === 1 && Math.abs(lz) === 1) continue;
+            if (this.getWorldBlock(x + lx, ly, z + lz) === BLOCK.AIR) {
+              this.setWorldBlock(x + lx, ly, z + lz, leafId, true);
+            }
+          }
+        }
+      }
+      this.spawnBreakParticles(x + 0.5, y + 1, z + 0.5, isCherry ? 0xf9a8d4 : isPale ? 0xe2e8f0 : 0x4ade80, 14);
+      soundEngine.playLevelUp();
+      this.showItemToast(
+        isCherry
+          ? 'Cây Hoa Anh Đào đã nở rộ!'
+          : isPale
+            ? 'Cây Sồi Nhợt (kèm Trái Tim Creaking) đã lớn!'
+            : isMangrove
+              ? 'Cây Đước đã mọc rễ!'
+              : 'Cây đã lớn bằng Bột Xương!',
+      );
+      return true;
+    }
+
+    // 2. Grow Giant Crimson / Warped Nether Fungus!
+    if (key === 'crimson_fungus' || key === 'warped_fungus') {
+      const isCrimson = key === 'crimson_fungus';
+      const stemId = isCrimson ? BLOCK.CRIMSON_STEM : BLOCK.WARPED_STEM;
+      const capId = isCrimson ? BLOCK.NETHER_WART_BLOCK : BLOCK.WARPED_WART_BLOCK;
+      const h = 5 + Math.floor(Math.random() * 2);
+      for (let ty = 0; ty < h; ty++) {
+        this.setWorldBlock(x, y + ty, z, stemId, true);
+      }
+      for (let ly = y + h - 2; ly <= y + h; ly++) {
+        const r = ly === y + h ? 1 : 2;
+        for (let lx = -r; lx <= r; lx++) {
+          for (let lz = -r; lz <= r; lz++) {
+            if (lx === 0 && lz === 0 && ly < y + h) continue;
+            if (this.getWorldBlock(x + lx, ly, z + lz) === BLOCK.AIR) {
+              this.setWorldBlock(x + lx, ly, z + lz, capId, true);
+            }
+          }
+        }
+      }
+      this.spawnBreakParticles(x + 0.5, y + 1, z + 0.5, isCrimson ? 0xe11d48 : 0x14b8a6, 14);
+      soundEngine.playLevelUp();
+      this.showItemToast(isCrimson ? 'Nấm Đỏ Khổng Lồ đã mọc!' : 'Nấm Cong Khổng Lồ đã mọc!');
+      return true;
+    }
+
+    // 3. Sprout wildflowers & tall grass on Grass Block!
+    if (bid === BLOCK.GRASS) {
+      const floraKeys = ['tall_grass', 'tall_grass', 'poppy', 'dandelion', 'cornflower', 'oxeye_daisy', 'blue_orchid'];
+      let sprouted = 0;
+      for (let i = 0; i < 9; i++) {
+        const dx = Math.floor(Math.random() * 5) - 2;
+        const dz = Math.floor(Math.random() * 5) - 2;
+        if (this.getWorldBlock(x + dx, y, z + dz) === BLOCK.GRASS && this.getWorldBlock(x + dx, y + 1, z + dz) === BLOCK.AIR) {
+          const pickKey = floraKeys[Math.floor(Math.random() * floraKeys.length)];
+          const fDef = BLOCK_BY_KEY[pickKey];
+          if (fDef) {
+            this.setWorldBlock(x + dx, y + 1, z + dz, fDef.id, true);
+            sprouted++;
+          }
+        }
+      }
+      if (sprouted > 0) {
+        this.spawnBreakParticles(x + 0.5, y + 1.2, z + 0.5, 0x4ade80, 12);
+        soundEngine.playBlock('grass', 'place');
+        this.showItemToast(`Bột Xương mọc thêm ${sprouted} hoa & cỏ!`);
+        return true;
+      }
+    }
+    return false;
+  }
+
   private performRightClickAction(): void {
     if (!this.world || this.paused || this.world.player.hp <= 0) return;
     if (this.placeCooldown > 0) return;
@@ -2251,34 +2871,240 @@ export class NetherCraftEngine {
       if (this.playerRig) updateRigArmorVisuals(this.playerRig, this.world.player.armor);
       soundEngine.playClick();
       this.handSwing = 0.85;
-      this.heldItemToast = `Đã mặc: ${itemDef.nameVi}`;
-      this.heldItemToastAt = performance.now();
+      this.showItemToast(`Đã mặc: ${itemDef.nameVi}`);
       this.updateFirstPersonHeldVisual();
       this.emitHud();
       return;
     }
 
-    // 1.75 Drink Potions & Milk Bucket on Right-Click / Tap Đặt!
+    // 1.6 Throwable & Ranged 3D Projectiles (Works in BOTH Creative & Survival!)
+    if (held && itemDef && this.world.gameMode !== 'spectator') {
+      const id = held.itemId;
+
+      // Bottle o' Enchanting -> throws glowing XP flask!
+      if (id === 'experience_bottle') {
+        this.spawnProjectile('xp_bottle', id, 15, 0xa3e635, 0, 20, 0.14);
+        soundEngine.playThrow();
+        this.handSwing = 0.95;
+        this.consumeHeldItem();
+        this.emitHud();
+        return;
+      }
+
+      // Splash & Lingering Potions -> throws colored glass flask!
+      if (id.startsWith('splash_potion') || id.startsWith('lingering_potion')) {
+        const hex = parseInt((itemDef.iconColor || '#ec4899').replace('#', ''), 16) || 0xec4899;
+        this.spawnProjectile('splash_potion', id, 15.5, hex, 0, 20, 0.14);
+        soundEngine.playThrow();
+        this.handSwing = 0.95;
+        this.consumeHeldItem();
+        this.emitHud();
+        return;
+      }
+
+      // Ender Pearl -> throws teleport pearl!
+      if (id === 'ender_pearl') {
+        this.spawnProjectile('ender_pearl', id, 22, 0x0d9488, 0, 18, 0.1);
+        soundEngine.playThrow();
+        this.handSwing = 0.95;
+        this.consumeHeldItem();
+        this.emitHud();
+        return;
+      }
+
+      // Snowball -> throws knocking snowball!
+      if (id === 'snowball') {
+        this.spawnProjectile('snowball', id, 21, 0xf8fafc, 0, 17, 0.08);
+        soundEngine.playThrow();
+        this.handSwing = 0.9;
+        this.consumeHeldItem();
+        this.emitHud();
+        return;
+      }
+
+      // Egg -> throws egg with 25% hatch chance!
+      if (id === 'egg') {
+        this.spawnProjectile('egg', id, 20, 0xfef3c7, 0, 18, 0.09);
+        soundEngine.playThrow();
+        this.handSwing = 0.9;
+        this.consumeHeldItem();
+        this.emitHud();
+        return;
+      }
+
+      // Bow & Crossbow -> fires 3D arrow!
+      if (id === 'bow' || id === 'crossbow') {
+        let arrowId = 'arrow';
+        if (this.world.gameMode === 'survival') {
+          const arrowSlot = this.world.player.inventory.findIndex(
+            (s) => s && (s.itemId === 'arrow' || s.itemId === 'spectral_arrow' || s.itemId === 'tipped_arrow'),
+          );
+          if (arrowSlot < 0) {
+            this.showItemToast('Cần có Mũi Tên trong túi đồ để bắn!');
+            this.emitHud();
+            return;
+          }
+          const st = this.world.player.inventory[arrowSlot]!;
+          arrowId = st.itemId;
+          st.count -= 1;
+          if (st.count <= 0) this.world.player.inventory[arrowSlot] = null;
+        }
+        const isCrossbow = id === 'crossbow';
+        const arrowColor = arrowId === 'spectral_arrow' ? 0xfacc15 : arrowId === 'tipped_arrow' ? 0x22c55e : 0xd6d3d1;
+        this.spawnProjectile('arrow', arrowId, isCrossbow ? 38 : 32, arrowColor, isCrossbow ? 9 : 7, 11, 0.03);
+        soundEngine.playBowShoot();
+        this.handSwing = 0.85;
+        this.emitHud();
+        return;
+      }
+
+      // Trident -> throws cyan 3D spear!
+      if (id === 'trident') {
+        this.spawnProjectile('trident', id, 29, 0x38bdf8, 10, 13, 0.05);
+        soundEngine.playThrow();
+        this.handSwing = 1.0;
+        this.emitHud();
+        return;
+      }
+
+      // Firework Rocket -> Elytra/Flight boost OR sky firework launch!
+      if (id === 'firework_rocket') {
+        const wearingElytra = this.world.player.armor[1]?.itemId === 'elytra';
+        if (this.flying || wearingElytra) {
+          this.camera.getWorldDirection(_camDir);
+          this.vx = _camDir.x * 24;
+          this.vy = Math.max(4, _camDir.y * 18 + 3);
+          this.vz = _camDir.z * 24;
+          soundEngine.playFirework();
+          this.spawnBreakParticles(this.px, this.py + 0.8, this.pz, 0xfef08a, 14);
+          this.showItemToast('Tăng tốc bằng Pháo Hoa!');
+        } else {
+          this.spawnProjectile('firework', id, 16, 0xf43f5e, 0, -4, 0.6);
+          soundEngine.playFirework();
+          this.showItemToast('Đã bắn Pháo Hoa!');
+        }
+        this.handSwing = 0.85;
+        this.consumeHeldItem();
+        this.emitHud();
+        return;
+      }
+
+      // Eye of Ender -> Activate End Portal Frame OR float toward (0,0)
+      if (id === 'eye_of_ender') {
+        const tbKey = this.targetBlock ? BLOCK_DEFS[this.targetBlock.blockId]?.key : '';
+        if (this.targetBlock && tbKey === 'end_portal_frame') {
+          this.spawnBreakParticles(this.targetBlock.x + 0.5, this.targetBlock.y + 1, this.targetBlock.z + 0.5, 0x10b981, 18);
+          soundEngine.playPortal();
+          this.showItemToast('Đã gắn Mắt Ender vào Khung Cổng End!');
+        } else {
+          this.spawnProjectile('eye_of_ender', id, 8, 0x10b981, 0, 0, 0);
+          soundEngine.playThrow();
+        }
+        this.handSwing = 0.9;
+        this.consumeHeldItem();
+        this.emitHud();
+        return;
+      }
+
+      // Wind Charge (1.21+) -> throws swirling Breeze orb that rocket-jumps & knocks back!
+      if (id === 'wind_charge') {
+        this.spawnProjectile('wind_charge', id, 28, 0xe0f2fe, 2, 0.5, 0.02);
+        soundEngine.playThrow();
+        this.handSwing = 0.95;
+        this.consumeHeldItem();
+        this.emitHud();
+        return;
+      }
+
+      // Fire Charge -> shoots Fireball when not lighting TNT/Obsidian/Soul Sand
+      if (id === 'fire_charge') {
+        const tBid = this.targetBlock?.blockId;
+        const canIgniteTarget =
+          this.targetBlock &&
+          (tBid === BLOCK.TNT || tBid === BLOCK.OBSIDIAN || tBid === BLOCK.SOUL_SAND || tBid === BLOCK.SOUL_SOIL);
+        if (!canIgniteTarget) {
+          this.spawnProjectile('fireball', id, 24, 0xf97316, 8, 1.5, 0.01);
+          soundEngine.playFirework();
+          this.handSwing = 0.95;
+          this.consumeHeldItem();
+          this.emitHud();
+          return;
+        }
+      }
+    }
+
+    // 1.7 Special Foods (Golden Apple, Enchanted Golden Apple, Chorus Fruit) - usable anytime!
+    if (held && itemDef) {
+      if (held.itemId === 'golden_apple') {
+        this.world.player.hunger = Math.min(20, this.world.player.hunger + 4);
+        this.world.player.hp = Math.min(this.world.player.maxHp, this.world.player.hp + 8);
+        this.applyPlayerEffect('regeneration', 10, 0);
+        this.applyPlayerEffect('resistance', 30, 0);
+        soundEngine.playEat();
+        soundEngine.playLevelUp();
+        this.spawnBreakParticles(this.px, this.py + 1.2, this.pz, 0xfacc15, 10);
+        this.handSwing = 0.85;
+        this.consumeHeldItem();
+        this.showItemToast('Táo Vàng: Hồi Máu + Kháng Sát Thương!');
+        this.emitHud();
+        return;
+      }
+      if (held.itemId === 'enchanted_golden_apple') {
+        this.world.player.hunger = 20;
+        this.world.player.hp = this.world.player.maxHp;
+        this.applyPlayerEffect('regeneration', 25, 1);
+        this.applyPlayerEffect('resistance', 120, 1);
+        this.applyPlayerEffect('fire_resistance', 180, 0);
+        soundEngine.playEat();
+        soundEngine.playLevelUp();
+        this.spawnBreakParticles(this.px, this.py + 1.2, this.pz, 0xc084fc, 16);
+        this.handSwing = 0.85;
+        this.consumeHeldItem();
+        this.showItemToast('Táo Vàng Phù Phép: Bất Tử + Kháng Lửa!');
+        this.emitHud();
+        return;
+      }
+      if (held.itemId === 'chorus_fruit') {
+        this.world.player.hunger = Math.min(20, this.world.player.hunger + 4);
+        const ang = Math.random() * Math.PI * 2;
+        const dist = 4 + Math.random() * 5;
+        const tx = this.px + Math.cos(ang) * dist;
+        const tz = this.pz + Math.sin(ang) * dist;
+        const ty = this.findSafeTeleportY(tx, this.py, tz);
+        this.px = tx;
+        this.py = ty;
+        this.pz = tz;
+        this.fallPeakY = ty;
+        soundEngine.playEat();
+        soundEngine.playPortal();
+        this.spawnBreakParticles(tx, ty + 0.9, tz, 0xc084fc, 16);
+        this.handSwing = 0.85;
+        this.consumeHeldItem();
+        this.showItemToast('Trái Điệp Khúc: Dịch chuyển tức thời!');
+        this.emitHud();
+        return;
+      }
+    }
+
+    // 1.75 Drink Potions, Water Bottle, Awkward Potion, Milk Bucket & Honey Bottle
     if (
       held &&
       itemDef &&
       (itemDef.potionEffect ||
         held.itemId === 'milk_bucket' ||
         held.itemId === 'potion_healing' ||
+        held.itemId === 'potion_poison' ||
+        held.itemId === 'potion_harming' ||
+        held.itemId === 'water_bottle' ||
+        held.itemId === 'awkward_potion' ||
         held.itemId === 'honey_bottle')
     ) {
       if (held.itemId === 'milk_bucket') {
         this.world.player.effects = [];
-        if (this.world.gameMode === 'survival') {
-          this.world.player.inventory[this.world.player.selectedSlot] = { itemId: 'bucket', count: 1 };
-        }
+        this.consumeHeldItem('bucket');
       } else {
         if (itemDef.potionEffect) {
-          const eff = itemDef.potionEffect;
-          const idx = this.world.player.effects.findIndex((e) => e.id === eff.id);
-          const nextEff = { id: eff.id, amplifier: eff.amplifier, remainingSec: eff.durationSec };
-          if (idx >= 0) this.world.player.effects[idx] = nextEff;
-          else this.world.player.effects.push(nextEff);
+          this.applyPlayerEffect(itemDef.potionEffect.id, itemDef.potionEffect.durationSec, itemDef.potionEffect.amplifier);
         }
         if (itemDef.healRestore) {
           this.world.player.hp = Math.min(this.world.player.maxHp, this.world.player.hp + itemDef.healRestore);
@@ -2286,34 +3112,296 @@ export class NetherCraftEngine {
         if (itemDef.foodRestore) {
           this.world.player.hunger = Math.min(20, this.world.player.hunger + itemDef.foodRestore);
         }
-        if (this.world.gameMode === 'survival') {
-          if (held.count > 1) {
-            held.count -= 1;
-            this.addItemToInventory('glass_bottle', 1);
-          } else {
-            this.world.player.inventory[this.world.player.selectedSlot] = { itemId: 'glass_bottle', count: 1 };
-          }
+        if (held.itemId === 'potion_harming' && this.world.gameMode === 'survival') {
+          this.damagePlayer(6, 'Thuốc Gây Hại');
+        } else if (held.itemId === 'potion_poison') {
+          this.applyPlayerEffect('slowness', 12, 0);
         }
+        this.consumeHeldItem('glass_bottle');
       }
       soundEngine.playLevelUp();
       this.handSwing = 0.85;
-      this.heldItemToast = `Đã uống: ${itemDef.nameVi}`;
-      this.heldItemToastAt = performance.now();
-      this.updateFirstPersonHeldVisual();
+      this.showItemToast(`Đã uống: ${itemDef.nameVi}`);
       this.emitHud();
       return;
     }
 
-    // 2. Try eating food if hungry or hurt
-    if (itemDef?.foodRestore && this.world.gameMode === 'survival' && (this.world.player.hunger < 20 || this.world.player.hp < 20)) {
+    // 1.8 Utility, Musical, Exploration & Combat Support Items (usable in air!)
+    if (held && itemDef) {
+      const id = held.itemId;
+      if (id === 'clock') {
+        const mcTicks = ((this.world.timeOfDay % 24000) + 24000) % 24000;
+        const totalMin = Math.floor(((mcTicks + 6000) % 24000) / (24000 / 1440));
+        const hh = String(Math.floor(totalMin / 60)).padStart(2, '0');
+        const mm = String(totalMin % 60).padStart(2, '0');
+        const phase = mcTicks < 1000 ? 'Bình minh' : mcTicks < 12000 ? 'Ban ngày' : mcTicks < 13500 ? 'Hoàng hôn' : 'Ban đêm';
+        soundEngine.playClick();
+        this.showItemToast(`Đồng Hồ: ${hh}:${mm} (${phase})`);
+        this.emitHud();
+        return;
+      }
+      if (id === 'compass' || id === 'lodestone_compass' || id === 'recovery_compass') {
+        const [sx, , sz] = this.world.player.spawnPoint;
+        const dx = sx - this.px;
+        const dz = sz - this.pz;
+        const dist = Math.round(Math.hypot(dx, dz));
+        const dir =
+          Math.abs(dx) > Math.abs(dz)
+            ? dx > 0 ? 'Đông' : 'Tây'
+            : dz > 0 ? 'Nam' : 'Bắc';
+        const label = id === 'recovery_compass' ? 'La Bàn Phục Hồi' : 'La Bàn';
+        soundEngine.playClick();
+        this.showItemToast(
+          dist <= 3
+            ? `${label}: Bạn đang ở ngay Điểm Hồi Sinh!`
+            : `${label} chỉ hướng ${dir} • cách điểm lưu ${dist}m`,
+        );
+        this.emitHud();
+        return;
+      }
+      if (id === 'spyglass') {
+        this.spyglassZoom = !this.spyglassZoom;
+        soundEngine.playClick();
+        this.showItemToast(this.spyglassZoom ? 'Ống Nhòm: Phóng to 3× (bấm lại để tắt)' : 'Đã tắt Ống Nhòm');
+        this.emitHud();
+        return;
+      }
+      if (id === 'goat_horn') {
+        soundEngine.playPortal();
+        soundEngine.playLevelUp();
+        this.applyPlayerEffect('speed', 10, 0);
+        this.spawnBreakParticles(this.px, this.py + 1.5, this.pz, 0xfef08a, 10);
+        this.handSwing = 0.85;
+        this.showItemToast('Thổi Sừng Dê vang vọng núi rừng! (+Tốc độ 10s)');
+        this.emitHud();
+        return;
+      }
+      if (id === 'ominous_bottle') {
+        this.applyPlayerEffect('strength', 120, 1);
+        this.applyPlayerEffect('resistance', 60, 0);
+        soundEngine.playPortal();
+        soundEngine.playLevelUp();
+        this.spawnBreakParticles(this.px, this.py + 1.2, this.pz, 0x1e293b, 14);
+        this.handSwing = 0.85;
+        this.consumeHeldItem('glass_bottle');
+        this.showItemToast('Điềm Gở Thử Thách (Trial Omen): Sức Mạnh II + Kháng Đòn!');
+        this.emitHud();
+        return;
+      }
+      if (id === 'blue_harness' || id === 'red_harness') {
+        this.applyPlayerEffect('jump_boost', 20, 1);
+        this.applyPlayerEffect('slow_falling', 20, 0);
+        this.applyPlayerEffect('speed', 20, 0);
+        soundEngine.playLevelUp();
+        this.spawnBreakParticles(this.px, this.py + 1.1, this.pz, id === 'blue_harness' ? 0x38bdf8 : 0xf43f5e, 14);
+        this.handSwing = 0.85;
+        this.showItemToast('Yên Cưỡi Ghast Hạnh Phúc: Lướt nhẹ trên bầu trời 20s!');
+        this.emitHud();
+        return;
+      }
+      if (id === 'bundle') {
+        const used = this.world.player.inventory.filter(Boolean).length;
+        soundEngine.playClick();
+        this.showItemToast(`Túi Vải (Bundle): Túi đồ đang chứa ${used}/36 ô vật phẩm`);
+        this.emitHud();
+        return;
+      }
+      if (id.endsWith('_spear')) {
+        // Authentic Mounts of Mayhem Spear Lunge Thrust!
+        this.camera.getWorldDirection(_camDir);
+        this.vx += _camDir.x * 12.5;
+        this.vz += _camDir.z * 12.5;
+        this.vy = Math.max(this.vy, 2.2);
+        this.handSwing = 1.0;
+        soundEngine.playThrow();
+        const hit = this.tryAttackMob();
+        this.showItemToast(hit ? 'Đâm Giáo Xung Phong trúng đích!' : 'Xung Phong bằng Giáo!');
+        this.emitHud();
+        return;
+      }
+      if (id === 'map' || id === 'filled_map') {
+        if (id === 'map' && this.world.gameMode === 'survival') {
+          this.consumeHeldItem('filled_map');
+        }
+        const biome: AnyBiome =
+          this.generator?.getBiomeAt(this.world.dimension, Math.floor(this.px), Math.floor(this.pz)) || 'plains';
+        soundEngine.playClick();
+        this.showItemToast(
+          `Bản Đồ: ${BIOME_LABELS[biome] || biome} (${Math.floor(this.px)}, ${Math.floor(this.py)}, ${Math.floor(this.pz)})`,
+        );
+        this.emitHud();
+        return;
+      }
+      if (id === 'shield') {
+        this.applyPlayerEffect('resistance', 3.5, 1);
+        soundEngine.playShieldBlock();
+        this.handSwing = 0.7;
+        this.showItemToast('Giơ Khiên Phòng Thủ (Kháng sát thương 3.5s)');
+        this.emitHud();
+        return;
+      }
+      if (id === 'enchanted_book') {
+        const targetIdx = this.world.player.inventory.findIndex((st, idx) => {
+          if (!st || idx === this.world!.player.selectedSlot || idx >= 9) return false;
+          const d = ITEM_DEFS[st.itemId];
+          return Boolean(d?.toolKind || d?.armorSlot !== undefined || st.itemId.endsWith('_sword') || st.itemId === 'bow' || st.itemId === 'trident');
+        });
+        if (targetIdx >= 0) {
+          const targetStack = this.world.player.inventory[targetIdx]!;
+          const tDef = ITEM_DEFS[targetStack.itemId];
+          const enchId: EnchantmentId =
+            tDef?.armorSlot !== undefined
+              ? 'protection'
+              : tDef?.toolKind === 'sword' || targetStack.itemId === 'trident' || targetStack.itemId === 'bow'
+                ? 'sharpness'
+                : 'efficiency';
+          const nextLvl = Math.min(5, (targetStack.enchants?.[enchId] || 0) + 1);
+          targetStack.enchants = { ...(targetStack.enchants || {}), [enchId]: nextLvl };
+          soundEngine.playLevelUp();
+          this.spawnBreakParticles(this.px, this.py + 1.2, this.pz, 0xc084fc, 14);
+          this.consumeHeldItem();
+          this.showItemToast(`Đã phù phép ${tDef?.nameVi || targetStack.itemId} (+${enchId} ${nextLvl})!`);
+        } else {
+          this.showItemToast('Hãy đặt Vũ Khí, Công Cụ hoặc Giáp trên thanh phím tắt để phù phép!');
+        }
+        this.emitHud();
+        return;
+      }
+      if (id.startsWith('music_disc_')) {
+        soundEngine.playMusicDisc(id);
+        this.spawnBreakParticles(this.px, this.py + 1.4, this.pz, 0x38bdf8, 8);
+        this.handSwing = 0.75;
+        this.showItemToast(`Đang phát: ${itemDef.nameVi} ♪`);
+        this.emitHud();
+        return;
+      }
+      if (id === 'fishing_rod') {
+        this.handSwing = 0.95;
+        let nearWater =
+          this.getWorldBlock(Math.floor(this.px), Math.floor(this.py), Math.floor(this.pz)) === BLOCK.WATER ||
+          this.getWorldBlock(Math.floor(this.px), Math.floor(this.py - 1), Math.floor(this.pz)) === BLOCK.WATER;
+        if (!nearWater) {
+          this.camera.getWorldDirection(_camDir);
+          for (let d = 1; d <= 8; d += 0.5) {
+            const wx = Math.floor(this.px + _camDir.x * d);
+            const wy = Math.floor(this.py + 1.5 + _camDir.y * d);
+            const wz = Math.floor(this.pz + _camDir.z * d);
+            if (this.getWorldBlock(wx, wy, wz) === BLOCK.WATER || this.getWorldBlock(wx, wy - 1, wz) === BLOCK.WATER) {
+              nearWater = true;
+              this.spawnBreakParticles(wx + 0.5, wy + 0.5, wz + 0.5, 0x38bdf8, 12);
+              break;
+            }
+          }
+        }
+        if (nearWater) {
+          const catches = [
+            'raw_cod', 'raw_cod', 'raw_cod',
+            'raw_salmon', 'raw_salmon',
+            'tropical_fish', 'pufferfish',
+            'nautilus_shell', 'name_tag', 'saddle', 'enchanted_book',
+          ];
+          const caught = catches[Math.floor(Math.random() * catches.length)];
+          this.addItemToInventory(caught, 1);
+          this.grantPlayerXp(3);
+          soundEngine.playSplash();
+          this.showItemToast(`Câu được: ${ITEM_DEFS[caught]?.nameVi || caught}! (+3 XP)`);
+        } else {
+          soundEngine.playThrow();
+          this.showItemToast('Hãy hướng Cần Câu về phía mặt nước để câu cá!');
+        }
+        this.emitHud();
+        return;
+      }
+      if (id === 'shears') {
+        let sheared = false;
+        for (const mob of this.mobs) {
+          if (mob.type === 'sheep' && Math.hypot(mob.x - this.px, mob.y - this.py, mob.z - this.pz) <= 5) {
+            const woolCount = 1 + Math.floor(Math.random() * 3);
+            this.addItemToInventory('white_wool', woolCount);
+            soundEngine.playClick();
+            this.spawnBreakParticles(mob.x, mob.y + 0.8, mob.z, 0xf8fafc, 12);
+            this.handSwing = 0.9;
+            this.showItemToast(`Đã xén lông Cừu (+${woolCount} Len Trắng)!`);
+            sheared = true;
+            break;
+          }
+        }
+        if (sheared) {
+          this.emitHud();
+          return;
+        }
+      }
+      if (id === 'saddle' || id === 'name_tag' || id === 'lead' || id === 'warped_fungus_on_a_stick' || id === 'carrot_on_a_stick') {
+        const nearest = this.mobs.find((m) => Math.hypot(m.x - this.px, m.y - this.py, m.z - this.pz) <= 5.5);
+        if (nearest) {
+          nearest.hp = nearest.maxHp;
+          this.spawnBreakParticles(nearest.x, nearest.y + 1, nearest.z, 0xf43f5e, 10);
+          soundEngine.playLevelUp();
+          this.handSwing = 0.85;
+          if (id === 'warped_fungus_on_a_stick' || id === 'carrot_on_a_stick') {
+            this.applyPlayerEffect('speed', 8, 0);
+            this.showItemToast(`Dẫn dụ ${MOB_SPECS[nearest.type].nameVi} (+Tăng Tốc 8s)!`);
+          } else {
+            this.showItemToast(`Đã tương tác ${itemDef.nameVi} với ${MOB_SPECS[nearest.type].nameVi}!`);
+          }
+          this.emitHud();
+          return;
+        } else if (id === 'warped_fungus_on_a_stick' || id === 'carrot_on_a_stick') {
+          this.applyPlayerEffect('speed', 5, 0);
+          soundEngine.playClick();
+          this.showItemToast(`${itemDef.nameVi}: Tăng tốc di chuyển 5s!`);
+          this.emitHud();
+          return;
+        }
+      }
+      if (id === 'book' || id === 'writable_book' || id === 'written_book') {
+        const tips = [
+          'Mẹo 1.16: Nung Mảnh Cổ Đại trong Lò để tạo Phế Liệu Netherite!',
+          'Mẹo 1.16: Cầm Thỏi Vàng bấm chuột phải vào Piglin để trao đổi đồ quý!',
+          'Mẹo 1.16: Mặc 1 món Giáp Vàng để Piglin không tấn công bạn ở Nether!',
+          'Mẹo 1.16: Dùng Bàn Rèn (Smithing Table) nâng cấp đồ Kim Cương lên Netherite!',
+          'Mẹo 1.16: Đừng bấm Giường ở Nether hoặc Neo Hồi Sinh ở Overworld — sẽ nổ tung!',
+        ];
+        soundEngine.playClick();
+        this.showItemToast(tips[Math.floor(Math.random() * tips.length)]);
+        this.emitHud();
+        return;
+      }
+      if (id.endsWith('_boat') || id.endsWith('minecart')) {
+        this.camera.getWorldDirection(_camDir);
+        this.vx = _camDir.x * 16;
+        this.vz = _camDir.z * 16;
+        this.applyPlayerEffect('speed', 6, 1);
+        soundEngine.playBlock('wood', 'place');
+        this.handSwing = 0.85;
+        this.showItemToast(`Lướt nhanh với ${itemDef.nameVi}!`);
+        this.emitHud();
+        return;
+      }
+    }
+
+    // 2. Try eating regular food (works in Survival when hungry/hurt, AND tastable in Creative!)
+    if (
+      held &&
+      itemDef?.foodRestore &&
+      (this.world.gameMode === 'creative' || this.world.player.hunger < 20 || this.world.player.hp < 20)
+    ) {
       this.world.player.hunger = Math.min(20, this.world.player.hunger + itemDef.foodRestore);
       if (itemDef.healRestore) {
         this.world.player.hp = Math.min(this.world.player.maxHp, this.world.player.hp + itemDef.healRestore);
       }
-      held!.count -= 1;
-      if (held!.count <= 0) this.world.player.inventory[this.world.player.selectedSlot] = null;
+      if (held.itemId === 'rotten_flesh' || held.itemId === 'poisonous_potato' || held.itemId === 'pufferfish') {
+        this.applyPlayerEffect('slowness', 6, 0);
+      }
+      const isStew =
+        held.itemId === 'mushroom_stew' ||
+        held.itemId === 'rabbit_stew' ||
+        held.itemId === 'beetroot_soup' ||
+        held.itemId === 'suspicious_stew';
+      this.consumeHeldItem(isStew ? 'bowl' : undefined);
       soundEngine.playEat();
-      this.updateFirstPersonHeldVisual();
+      this.handSwing = 0.85;
+      this.showItemToast(`Đã ăn: ${itemDef.nameVi} (+${itemDef.foodRestore} đói)`);
       this.emitHud();
       return;
     }
@@ -2327,6 +3415,7 @@ export class NetherCraftEngine {
       const targetKey = BLOCK_DEFS[tb.blockId]?.key || '';
       if (
         tb.blockId === BLOCK.CRAFTING_TABLE ||
+        targetKey === 'crafter' ||
         targetKey === 'brewing_stand' ||
         targetKey === 'stonecutter' ||
         targetKey === 'loom' ||
@@ -2337,6 +3426,45 @@ export class NetherCraftEngine {
         this.exitPointerLock();
         this.callbacks.onOpenContainer('crafting');
         return;
+      }
+      if (targetKey === 'lightning_rod') {
+        this.lightningFlash = 1.0;
+        soundEngine.playThunder();
+        this.spawnBreakParticles(tb.x + 0.5, tb.y + 1.2, tb.z + 0.5, 0x38bdf8, 16);
+        this.showItemToast('Cột Thu Lôi dẫn sét!');
+        this.emitHud();
+        return;
+      }
+      if (targetKey === 'sculk_sensor' || targetKey === 'sculk_shrieker') {
+        soundEngine.playPortal();
+        this.spawnBreakParticles(tb.x + 0.5, tb.y + 0.8, tb.z + 0.5, 0x06b6d4, 16);
+        this.showItemToast(targetKey === 'sculk_shrieker' ? 'Cảnh báo: Sculk Shrieker gầm vang Deep Dark!' : 'Cảm Biến Sculk bắt sóng rung động!');
+        this.emitHud();
+        return;
+      }
+      if (targetKey === 'vault' || targetKey === 'trial_spawner') {
+        const isOminous = held?.itemId === 'ominous_trial_key';
+        const isKey = held?.itemId === 'trial_key' || isOminous;
+        if (isKey) {
+          const vaultPool = isOminous
+            ? ['heavy_core', 'enchanted_golden_apple', 'netherite_upgrade_smithing_template', 'diamond', 'wind_charge', 'music_disc_creator']
+            : ['wind_charge', 'breeze_rod', 'emerald', 'diamond', 'golden_apple', 'music_disc_precipice'];
+          const loot = vaultPool[Math.floor(Math.random() * vaultPool.length)];
+          const qty = loot === 'wind_charge' ? 8 : loot === 'emerald' || loot === 'breeze_rod' ? 4 : loot === 'diamond' ? 2 : 1;
+          this.addItemToInventory(loot, qty);
+          this.grantPlayerXp(8);
+          this.consumeHeldItem();
+          soundEngine.playLevelUp();
+          this.spawnBreakParticles(tb.x + 0.5, tb.y + 1.1, tb.z + 0.5, isOminous ? 0x22d3ee : 0xf97316, 20);
+          this.showItemToast(`Mở Kho Báu Trial! Nhận ${qty}x ${ITEM_DEFS[loot]?.nameVi || loot} (+8 XP)`);
+          this.emitHud();
+          return;
+        } else {
+          soundEngine.playClick();
+          this.showItemToast('Hãy cầm Chìa Khóa Thử Thách (Trial Key) để mở Kho Báu Vault!');
+          this.emitHud();
+          return;
+        }
       }
       if (
         tb.blockId === BLOCK.FURNACE ||
@@ -2354,12 +3482,30 @@ export class NetherCraftEngine {
         this.callbacks.onOpenContainer('smithing');
         return;
       }
+      if (targetKey === 'jukebox') {
+        soundEngine.playMusicDisc('music_disc_pigstep');
+        this.spawnBreakParticles(tb.x + 0.5, tb.y + 1.1, tb.z + 0.5, 0xf59e0b, 10);
+        this.showItemToast('Máy Hát đang phát: Pigstep ♪');
+        this.emitHud();
+        return;
+      }
+      if (targetKey === 'note_block') {
+        soundEngine.playXpOrb();
+        this.spawnBreakParticles(tb.x + 0.5, tb.y + 1.1, tb.z + 0.5, 0x4ade80, 6);
+        return;
+      }
+      if (targetKey === 'bell') {
+        soundEngine.playLevelUp();
+        this.spawnBreakParticles(tb.x + 0.5, tb.y + 0.8, tb.z + 0.5, 0xfacc15, 8);
+        this.showItemToast('Chuông Làng vang lên!');
+        this.emitHud();
+        return;
+      }
       if (targetKey === 'cake') {
         this.world.player.hunger = Math.min(20, this.world.player.hunger + 3);
         this.world.player.hp = Math.min(this.world.player.maxHp, this.world.player.hp + 1);
         soundEngine.playEat();
-        this.heldItemToast = 'Đã ăn Bánh Kem (+3 đói)';
-        this.heldItemToastAt = performance.now();
+        this.showItemToast('Đã ăn Bánh Kem (+3 đói)');
         this.emitHud();
         return;
       }
@@ -2376,8 +3522,7 @@ export class NetherCraftEngine {
           return;
         } else {
           this.setWorldBlock(tb.x, tb.y, tb.z, BLOCK.AIR, true);
-          soundEngine.playExplosion();
-          this.spawnBreakParticles(tb.x, tb.y, tb.z, 0xf97316, 24);
+          this.detonateExplosion(tb.x + 0.5, tb.y + 0.5, tb.z + 0.5, 2, 0xf97316, 10);
           this.damagePlayer(12, 'Giường phát nổ ở Nether');
           return;
         }
@@ -2392,8 +3537,7 @@ export class NetherCraftEngine {
         } else {
           // Authentic 1.16 mechanic: Respawn Anchor explodes in Overworld!
           this.setWorldBlock(tb.x, tb.y, tb.z, BLOCK.AIR, true);
-          soundEngine.playExplosion();
-          this.spawnBreakParticles(tb.x, tb.y, tb.z, 0xa855f7, 24);
+          this.detonateExplosion(tb.x + 0.5, tb.y + 0.5, tb.z + 0.5, 2, 0xa855f7, 10);
           this.damagePlayer(10, 'Neo Hồi Sinh phát nổ ở Overworld');
           return;
         }
@@ -2406,16 +3550,140 @@ export class NetherCraftEngine {
     const placeY = tb.y + tb.face[1];
     const placeZ = tb.z + tb.face[2];
 
-    // 3.5 Buckets (Water / Lava / Empty)
-    if (held.itemId === 'water_bucket' || held.itemId === 'lava_bucket') {
-      const liquidId = held.itemId === 'water_bucket' ? BLOCK.WATER : BLOCK.LAVA;
-      this.setWorldBlock(placeX, placeY, placeZ, liquidId, true);
-      soundEngine.playBlock('grass', 'place');
-      this.handSwing = 0.9;
-      if (this.world.gameMode === 'survival') {
-        this.world.player.inventory[this.world.player.selectedSlot] = { itemId: 'bucket', count: 1 };
-        this.updateFirstPersonHeldVisual();
+    // 3.1 Mob Spawn Eggs (8 authentic 3D mobs!)
+    if (held.itemId.endsWith('_spawn_egg')) {
+      const mobType = held.itemId.replace('_spawn_egg', '') as MobType;
+      if (MOB_SPECS[mobType]) {
+        this.spawnMob(mobType, placeX + 0.5, placeY + 0.05, placeZ + 0.5);
+        this.spawnBreakParticles(placeX + 0.5, placeY + 0.8, placeZ + 0.5, 0xf8fafc, 12);
+        soundEngine.playClick();
+        this.handSwing = 0.9;
+        this.consumeHeldItem();
+        this.showItemToast(`Đã triệu hồi: ${MOB_SPECS[mobType].nameVi}!`);
+        this.emitHud();
+        return;
       }
+    }
+
+    // 3.25 Archaeology Brush (1.20+) -> excavate Suspicious Sand / Suspicious Gravel (or Sand/Gravel)!
+    if (held.itemId === 'brush') {
+      const bKey = BLOCK_DEFS[tb.blockId]?.key || '';
+      if (bKey === 'suspicious_sand' || bKey === 'suspicious_gravel' || tb.blockId === BLOCK.SAND || tb.blockId === BLOCK.GRAVEL) {
+        const isSusp = bKey === 'suspicious_sand' || bKey === 'suspicious_gravel';
+        const archPool = ['emerald', 'amethyst_shard', 'diamond', 'echo_shard', 'armadillo_scute', 'sniffer_egg', 'music_disc_relic', 'gold_ingot'];
+        const found = archPool[Math.floor(Math.random() * archPool.length)];
+        if (isSusp) {
+          this.setWorldBlock(tb.x, tb.y, tb.z, bKey === 'suspicious_sand' ? BLOCK.SAND : BLOCK.GRAVEL, true);
+        }
+        this.addItemToInventory(found, 1);
+        this.grantPlayerXp(4);
+        soundEngine.playBlock('sand', 'break');
+        soundEngine.playXpOrb();
+        this.spawnBreakParticles(tb.x + 0.5, tb.y + 0.9, tb.z + 0.5, 0xfde68a, 14);
+        this.handSwing = 0.9;
+        this.showItemToast(`Khảo Cổ: Quét tìm được ${ITEM_DEFS[found]?.nameVi || found}!`);
+        this.emitHud();
+        return;
+      }
+    }
+
+    // 3.2 Bone Meal -> grow trees, giant Nether fungi, or wildflowers!
+    if (held.itemId === 'bone_meal') {
+      if (this.growBoneMealAt(tb.x, tb.y, tb.z)) {
+        this.handSwing = 0.9;
+        this.consumeHeldItem();
+        this.emitHud();
+        return;
+      }
+    }
+
+    // 3.3 Tools interacting with terrain: Hoe -> Farmland, Shovel -> Grass Path, Axe -> Strip Log!
+    if (itemDef.toolKind === 'hoe' && (tb.blockId === BLOCK.GRASS || tb.blockId === BLOCK.DIRT)) {
+      const farm = BLOCK_BY_KEY['farmland'];
+      if (farm) {
+        this.setWorldBlock(tb.x, tb.y, tb.z, farm.id, true);
+        soundEngine.playBlock('grass', 'place');
+        this.handSwing = 0.9;
+        this.showItemToast('Đã cuốc thành Đất Trồng Trọt!');
+        this.emitHud();
+        return;
+      }
+    }
+    if (itemDef.toolKind === 'shovel' && tb.blockId === BLOCK.GRASS) {
+      const path = BLOCK_BY_KEY['grass_path'];
+      if (path) {
+        this.setWorldBlock(tb.x, tb.y, tb.z, path.id, true);
+        soundEngine.playBlock('grass', 'break');
+        this.handSwing = 0.9;
+        this.showItemToast('Đã tạo Đường Cỏ!');
+        this.emitHud();
+        return;
+      }
+    }
+    if (itemDef.toolKind === 'axe') {
+      const tKey = BLOCK_DEFS[tb.blockId]?.key || '';
+      if (tKey === 'oak_log' || tKey === 'crimson_stem' || tKey === 'warped_stem' || tKey.endsWith('_log')) {
+        const stripped =
+          BLOCK_BY_KEY[`stripped_${tKey}`] ||
+          (tKey === 'crimson_stem' ? BLOCK_BY_KEY['crimson_planks'] : tKey === 'warped_stem' ? BLOCK_BY_KEY['warped_planks'] : BLOCK_BY_KEY['oak_planks']);
+        if (stripped) {
+          this.setWorldBlock(tb.x, tb.y, tb.z, stripped.id, true);
+          soundEngine.playBlock('wood', 'break');
+          this.handSwing = 0.9;
+          this.showItemToast('Đã bóc vỏ gỗ!');
+          this.emitHud();
+          return;
+        }
+      }
+    }
+
+    // 3.4 Plant Seeds, Nether Wart & Sweet Berries into 3D Crop Blocks!
+    const seedCropMap: Record<string, string> = {
+      wheat_seeds: 'wheat_crop',
+      melon_seeds: 'wheat_crop',
+      pumpkin_seeds: 'wheat_crop',
+      beetroot_seeds: 'wheat_crop',
+      nether_wart: 'nether_wart_crop',
+      sweet_berries: 'sweet_berry_bush',
+      kelp: 'tall_grass',
+    };
+    const plantKey = seedCropMap[held.itemId];
+    if (plantKey && tb.face[1] === 1) {
+      const cropDef = BLOCK_BY_KEY[plantKey];
+      const groundKey = BLOCK_DEFS[tb.blockId]?.key || '';
+      const validGround =
+        plantKey === 'nether_wart_crop'
+          ? tb.blockId === BLOCK.SOUL_SAND || tb.blockId === BLOCK.SOUL_SOIL || tb.blockId === BLOCK.NETHERRACK
+          : tb.blockId === BLOCK.GRASS || tb.blockId === BLOCK.DIRT || groundKey === 'farmland' || groundKey === 'podzol';
+      if (cropDef && validGround && this.getWorldBlock(placeX, placeY, placeZ) === BLOCK.AIR) {
+        this.setWorldBlock(placeX, placeY, placeZ, cropDef.id, true);
+        soundEngine.playBlock('grass', 'place');
+        this.handSwing = 0.9;
+        this.consumeHeldItem();
+        this.showItemToast(`Đã gieo trồng: ${itemDef.nameVi}`);
+        this.emitHud();
+        return;
+      }
+    }
+
+    // 3.5 Buckets (Water / Lava / Fish Buckets / Empty Bucket) & Glass Bottle Water Scoop
+    if (
+      held.itemId === 'water_bucket' ||
+      held.itemId === 'lava_bucket' ||
+      held.itemId === 'cod_bucket' ||
+      held.itemId === 'salmon_bucket' ||
+      held.itemId === 'pufferfish_bucket' ||
+      held.itemId === 'tropical_fish_bucket'
+    ) {
+      const liquidId = held.itemId === 'lava_bucket' ? BLOCK.LAVA : BLOCK.WATER;
+      this.setWorldBlock(placeX, placeY, placeZ, liquidId, true);
+      soundEngine.playSplash();
+      this.handSwing = 0.9;
+      if (held.itemId.endsWith('_bucket') && held.itemId !== 'water_bucket' && held.itemId !== 'lava_bucket') {
+        this.spawnBreakParticles(placeX + 0.5, placeY + 0.5, placeZ + 0.5, 0x38bdf8, 12);
+        this.showItemToast(`Đã thả ${itemDef.nameVi} xuống nước!`);
+      }
+      this.consumeHeldItem('bucket');
       this.emitHud();
       return;
     }
@@ -2424,26 +3692,40 @@ export class NetherCraftEngine {
       if (frontBlock === BLOCK.WATER || frontBlock === BLOCK.LAVA) {
         const filledId = frontBlock === BLOCK.WATER ? 'water_bucket' : 'lava_bucket';
         this.setWorldBlock(placeX, placeY, placeZ, BLOCK.AIR, true);
-        soundEngine.playBlock('grass', 'break');
+        soundEngine.playSplash();
         this.handSwing = 0.9;
-        if (this.world.gameMode === 'survival') {
-          if (held.count > 1) {
-            held.count -= 1;
-            this.addItemToInventory(filledId, 1);
-          } else {
-            this.world.player.inventory[this.world.player.selectedSlot] = { itemId: filledId, count: 1 };
-          }
-          this.updateFirstPersonHeldVisual();
-        }
+        this.consumeHeldItem(filledId);
+        this.emitHud();
+        return;
+      }
+    }
+    if (held.itemId === 'glass_bottle') {
+      const frontBlock = this.getWorldBlock(placeX, placeY, placeZ);
+      if (frontBlock === BLOCK.WATER || tb.blockId === BLOCK.WATER) {
+        soundEngine.playSplash();
+        this.handSwing = 0.85;
+        this.consumeHeldItem('water_bottle');
+        this.showItemToast('Đã múc Chai Nước!');
         this.emitHud();
         return;
       }
     }
 
-    // 4. Flint & Steel -> Ignite Nether Portal or Soul Fire!
-    if (itemDef.isFlintAndSteel) {
+    // 3.6 End Crystal on Obsidian/Bedrock -> explosive End Crystal!
+    if (held.itemId === 'end_crystal' && (tb.blockId === BLOCK.OBSIDIAN || tb.blockId === BLOCK.BEDROCK)) {
+      this.detonateExplosion(placeX + 0.5, placeY + 0.5, placeZ + 0.5, 3, 0xe879f9, 14);
+      this.handSwing = 1.0;
+      this.consumeHeldItem();
+      this.showItemToast('Pha Lê End phát nổ!');
+      this.emitHud();
+      return;
+    }
+
+    // 4. Flint & Steel (and Fire Charge on ignitable blocks) -> Ignite Nether Portal, Soul Fire or TNT!
+    if (itemDef.isFlintAndSteel || held.itemId === 'fire_charge') {
       if (this.tryIgniteNetherPortal(placeX, placeY, placeZ)) {
         this.handSwing = 1.0;
+        if (held.itemId === 'fire_charge') this.consumeHeldItem();
         return;
       }
       const under = this.getWorldBlock(placeX, placeY - 1, placeZ);
@@ -2451,24 +3733,11 @@ export class NetherCraftEngine {
         this.setWorldBlock(placeX, placeY, placeZ, BLOCK.SOUL_FIRE, true);
         soundEngine.playBlock('grass', 'place');
         this.handSwing = 1.0;
+        if (held.itemId === 'fire_charge') this.consumeHeldItem();
       } else if (tb.blockId === BLOCK.TNT) {
-        // Detonate TNT!
         this.setWorldBlock(tb.x, tb.y, tb.z, BLOCK.AIR, true);
-        soundEngine.playExplosion();
-        this.cameraShake = 0.35;
-        for (let dx = -2; dx <= 2; dx++) {
-          for (let dy = -2; dy <= 2; dy++) {
-            for (let dz = -2; dz <= 2; dz++) {
-              if (dx * dx + dy * dy + dz * dz <= 5) {
-                const bid = this.getWorldBlock(tb.x + dx, tb.y + dy, tb.z + dz);
-                if (bid !== BLOCK.BEDROCK && bid !== BLOCK.OBSIDIAN && bid !== BLOCK.ANCIENT_DEBRIS) {
-                  this.setWorldBlock(tb.x + dx, tb.y + dy, tb.z + dz, BLOCK.AIR, true);
-                }
-              }
-            }
-          }
-        }
-        this.spawnBreakParticles(tb.x, tb.y, tb.z, 0xf97316, 24);
+        this.detonateExplosion(tb.x + 0.5, tb.y + 0.5, tb.z + 0.5, 2, 0xf97316, 12);
+        if (held.itemId === 'fire_charge') this.consumeHeldItem();
       }
       return;
     }
@@ -2550,8 +3819,12 @@ export class NetherCraftEngine {
     this.vx = THREE.MathUtils.lerp(this.vx, wishX, Math.min(1, dt * accel));
     this.vz = THREE.MathUtils.lerp(this.vz, wishZ, Math.min(1, dt * accel));
 
-    // Smooth sprint FOV widening
-    const targetFov = this.settings.fov + (sprinting && mag > 0.2 ? 9 : 0);
+    // Smooth Spyglass 3x Zoom OR Sprint FOV widening
+    const curHeld = this.world.player.inventory[this.world.player.selectedSlot];
+    if (this.spyglassZoom && curHeld?.itemId !== 'spyglass') {
+      this.spyglassZoom = false;
+    }
+    const targetFov = this.spyglassZoom ? 22 : this.settings.fov + (sprinting && mag > 0.2 ? 9 : 0);
     if (Math.abs(this.camera.fov - targetFov) > 0.05) {
       this.camera.fov = THREE.MathUtils.damp(this.camera.fov, targetFov, 10, dt);
       this.camera.updateProjectionMatrix();
@@ -2973,15 +4246,25 @@ export class NetherCraftEngine {
       m.mesh.rotation.y = m.yaw;
     }
 
-    // Occasional ambient mob spawn
-    if (this.world.gamerules.doMobSpawning && this.mobs.length < 7) {
+    // Occasional ambient mob spawn (includes modern 1.19–26.3 biome mobs!)
+    if (this.world.gamerules.doMobSpawning && this.mobs.length < 8) {
       this.mobSpawnTick += dt;
       if (this.mobSpawnTick > 14) {
         this.mobSpawnTick = 0;
-        const pool: MobType[] =
-          this.world.dimension === 'overworld'
-            ? this.world.timeOfDay > 13000 ? ['zombie', 'creeper'] : ['pig', 'sheep']
-            : ['piglin', 'strider', 'zombified_piglin'];
+        const curBiome = this.generator.getBiomeAt(this.world.dimension, Math.floor(this.px), Math.floor(this.pz));
+        const isNight = this.world.timeOfDay > 13000;
+        let pool: MobType[];
+        if (this.world.dimension === 'nether') {
+          pool = ['piglin', 'strider', 'zombified_piglin', 'ghast'];
+        } else if (curBiome === 'pale_garden') {
+          pool = isNight ? ['creaking', 'creaking', 'zombie'] : ['creaking', 'sheep'];
+        } else if (curBiome === 'mangrove_swamp') {
+          pool = isNight ? ['bogged', 'zombie', 'frog'] : ['frog', 'frog', 'pig'];
+        } else if (curBiome === 'cherry_grove') {
+          pool = isNight ? ['breeze', 'creeper'] : ['allay', 'sheep', 'pig'];
+        } else {
+          pool = isNight ? ['zombie', 'creeper', 'bogged', 'breeze'] : ['pig', 'sheep', 'copper_golem'];
+        }
         const pick = pool[Math.floor(Math.random() * pool.length)];
         const ang = Math.random() * Math.PI * 2;
         const sx = this.px + Math.cos(ang) * 22;
@@ -2991,7 +4274,11 @@ export class NetherCraftEngine {
       }
     }
 
-    // 6. Update Break Particles
+    // 6. Update 3D Projectiles & Break Particles
+    if (this.projectiles.length > 0) {
+      this.updateProjectiles(dt);
+    }
+
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.life -= dt;
@@ -3753,6 +5040,7 @@ export class NetherCraftEngine {
     this.transMat.dispose();
     this.emissiveMat.dispose();
     this.particleGeo.dispose();
+    this.projectileGeo.dispose();
     this.renderer.dispose();
     if (this.renderer.domElement.parentNode === this.container) {
       this.container.removeChild(this.renderer.domElement);

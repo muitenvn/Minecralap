@@ -962,17 +962,52 @@ function classifyBlockShape(def: BlockDef): BlockShape {
     k === 'nether_sprouts' ||
     k === 'vine' ||
     k === 'sea_pickle' ||
-    k === 'brewing_stand'
+    k === 'brewing_stand' ||
+    k === 'poppy' ||
+    k === 'dandelion' ||
+    k === 'cornflower' ||
+    k === 'blue_orchid' ||
+    k === 'allium' ||
+    k === 'oxeye_daisy' ||
+    k === 'lily_of_the_valley' ||
+    k === 'wither_rose' ||
+    k === 'sunflower' ||
+    k === 'rose_bush' ||
+    k === 'red_mushroom' ||
+    k === 'brown_mushroom' ||
+    k === 'crimson_fungus' ||
+    k === 'warped_fungus' ||
+    k === 'tall_grass' ||
+    k === 'dead_bush' ||
+    k === 'wheat_crop' ||
+    k === 'nether_wart_crop' ||
+    k === 'sweet_berry_bush' ||
+    k === 'open_eyeblossom' ||
+    k === 'firefly_bush' ||
+    k === 'cactus_flower' ||
+    k === 'glow_lichen' ||
+    k === 'hanging_roots' ||
+    k === 'pointed_dripstone' ||
+    k === 'amethyst_cluster' ||
+    k === 'mangrove_propagule' ||
+    k === 'torchflower' ||
+    k === 'bush' ||
+    k === 'short_dry_grass'
   ) {
     return 'cross';
   }
+  if (k === 'copper_torch' || k === 'candle') return 'torch';
+  if (k === 'copper_lantern') return 'lantern';
+  if (k === 'copper_chain' || k === 'lightning_rod') return 'chain';
+  if (k === 'heavy_core') return 'conduit';
+  if (k === 'sculk_sensor' || k === 'sculk_shrieker') return 'slab';
   if (k.endsWith('_slab')) return 'slab';
   if (k.endsWith('_stairs')) return 'stairs';
   if (k.endsWith('_fence_gate')) return 'fence_gate';
   if (k.endsWith('_fence')) return 'fence';
   if (k.endsWith('_wall')) return 'wall';
-  if (k === 'glass_pane' || k === 'iron_bars') return 'pane';
-  if (k.endsWith('_carpet') || k === 'lily_pad') return 'carpet';
+  if (k === 'glass_pane' || k === 'iron_bars' || k === 'copper_bars') return 'pane';
+  if (k.endsWith('_carpet') || k === 'lily_pad' || k === 'pink_petals' || k === 'wildflowers' || k === 'leaf_litter') return 'carpet';
   if (k.endsWith('_pressure_plate')) return 'pressure_plate';
   if (k.endsWith('_button')) return 'button';
   if (k === 'rail' || k.endsWith('_rail')) return 'rail';
@@ -1015,24 +1050,49 @@ function classifyLightEmission(def: BlockDef): LightEmission {
     k === 'lantern' ||
     k === 'campfire' ||
     k === 'redstone_lamp' ||
-    k === 'lava'
+    k === 'lava' ||
+    k === 'ochre_froglight' ||
+    k === 'copper_bulb'
   ) {
     return { level: 15, r: 1.0, g: 0.85, b: 0.56 };
+  }
+  if (k === 'verdant_froglight' || k === 'copper_lantern') {
+    return { level: 15, r: 0.55, g: 1.0, b: 0.78 };
+  }
+  if (k === 'pearlescent_froglight') {
+    return { level: 15, r: 0.96, g: 0.78, b: 1.0 };
   }
   if (k === 'sea_lantern' || k === 'beacon' || k === 'conduit') {
     return { level: 15, r: 0.78, g: 0.96, b: 1.0 };
   }
-  if (k === 'torch') {
+  if (k === 'torch' || k === 'candle') {
     return { level: 14, r: 1.0, g: 0.84, b: 0.52 };
+  }
+  if (k === 'copper_torch') {
+    return { level: 14, r: 0.45, g: 1.0, b: 0.72 };
   }
   if (k === 'end_rod') {
     return { level: 14, r: 0.96, g: 0.9, b: 1.0 };
   }
-  if (k === 'respawn_anchor' || k === 'nether_portal' || k === 'crying_obsidian') {
+  if (k === 'respawn_anchor' || k === 'nether_portal' || k === 'crying_obsidian' || k === 'amethyst_cluster') {
     return { level: 11, r: 0.78, g: 0.42, b: 1.0 };
   }
-  if (k === 'soul_lantern' || k === 'soul_torch' || k === 'soul_fire' || k === 'soul_campfire') {
+  if (
+    k === 'soul_lantern' ||
+    k === 'soul_torch' ||
+    k === 'soul_fire' ||
+    k === 'soul_campfire' ||
+    k === 'sculk_catalyst' ||
+    k === 'sculk_sensor' ||
+    k === 'sculk_shrieker'
+  ) {
     return { level: 11, r: 0.36, g: 0.92, b: 1.0 };
+  }
+  if (k === 'creaking_heart' || k === 'open_eyeblossom' || k === 'trial_spawner' || k === 'vault' || k === 'torchflower') {
+    return { level: 10, r: 1.0, g: 0.52, b: 0.16 };
+  }
+  if (k === 'firefly_bush' || k === 'glow_lichen') {
+    return { level: 9, r: 0.85, g: 0.98, b: 0.65 };
   }
   if (k === 'redstone_torch' || k === 'redstone_block' || k === 'powered_rail') {
     return { level: 8, r: 1.0, g: 0.35, b: 0.28 };

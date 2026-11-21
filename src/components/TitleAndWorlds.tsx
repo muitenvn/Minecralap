@@ -24,11 +24,11 @@ import { GameMode, WorldSave } from '../game/types';
 import { McButton, McDirtBackdrop, McTitleLogo } from './McSprites';
 
 const SPLASHES = [
-  'Nether Update 1.16.5!',
-  'Chơi mượt trên PC & Mobile!',
-  'Đầy đủ giáp & công cụ!',
-  'Thế giới vô hạn!',
-  'Hỗ trợ lệnh Minecraft!',
+  'Minecraft 26.3 Mới Nhất!',
+  'Chùy Mace + Cầu Gió Wind Charge!',
+  'Rừng Anh Đào, Pale Garden & Đầm Đước!',
+  '16 Mob 3D: Warden, Breeze, Creaking!',
+  'Giáo Spear + Giáp & Golem Đồng!',
 ];
 
 interface TitleAndWorldsProps {
@@ -162,7 +162,7 @@ export const TitleAndWorlds: React.FC<TitleAndWorldsProps> = ({
         </div>
 
         <div className="w-full flex items-center justify-between gap-2 text-xs text-white/90 mc-text-shadow-sm px-1">
-          <span className="font-mono-num">NetherCraft 1.16.5</span>
+          <span className="font-mono-num">NetherCraft 26.3</span>
           <span className="font-mono-num">{pack.meta.name}</span>
         </div>
       </div>

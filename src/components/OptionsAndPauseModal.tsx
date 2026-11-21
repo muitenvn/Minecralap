@@ -371,7 +371,7 @@ export const VideoOptionsModal: React.FC<VideoOptionsModalProps> = ({
               : settings.texturePreset === 'hd_plus'
                 ? 'Texture: HD+ (Faithful 32x)'
                 : settings.texturePreset === 'original'
-                  ? 'Texture: Chính Gốc 1.16'
+                  ? 'Texture: Chính Gốc 26.3'
                   : 'Texture: 32×32 Offline'}
           </McButton>
         </div>

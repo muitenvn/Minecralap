@@ -1,11 +1,19 @@
-import { BLOCK } from './blocks';
+import { BLOCK, BLOCK_BY_KEY } from './blocks';
 import { SeededNoise } from './noise';
 import { CHUNK_SIZE, DimensionId, SUBCHUNK_COUNT, WORLD_HEIGHT_MAX } from './types';
 
 export const SEA_LEVEL = 62;
 export const NETHER_LAVA_LEVEL = 31;
 
-export type OverworldBiome = 'plains' | 'forest' | 'mountains' | 'desert' | 'snowy_tundra';
+export type OverworldBiome =
+  | 'plains'
+  | 'forest'
+  | 'cherry_grove'
+  | 'pale_garden'
+  | 'mangrove_swamp'
+  | 'mountains'
+  | 'desert'
+  | 'snowy_tundra';
 export type NetherBiome =
   | 'nether_wastes'
   | 'crimson_forest'
@@ -18,14 +26,17 @@ export type AnyBiome = OverworldBiome | NetherBiome;
 export const BIOME_LABELS: Record<AnyBiome, string> = {
   plains: 'Đồng Bằng (Plains)',
   forest: 'Rừng Sồi (Forest)',
+  cherry_grove: 'Rừng Hoa Anh Đào (Cherry Grove)',
+  pale_garden: 'Vườn Nhợt Nhạt (Pale Garden)',
+  mangrove_swamp: 'Đầm Lầy Đước (Mangrove Swamp)',
   mountains: 'Núi Đá (Mountains)',
   desert: 'Sa Mạc (Desert)',
   snowy_tundra: 'Đồng Tuyết (Snowy Tundra)',
   nether_wastes: 'Hoang Mạc Nether (Nether Wastes)',
-  crimson_forest: 'Rừng Đỏ Crimson (1.16)',
-  warped_forest: 'Rừng Xanh Warped (1.16)',
-  soul_sand_valley: 'Thung Lũng Cát Linh Hồn (1.16)',
-  basalt_deltas: 'Đồng Bằng Đá Bazan (1.16)',
+  crimson_forest: 'Rừng Đỏ Crimson',
+  warped_forest: 'Rừng Xanh Warped',
+  soul_sand_valley: 'Thung Lũng Cát Linh Hồn',
+  basalt_deltas: 'Đồng Bằng Đá Bazan',
 };
 
 export interface ChunkColumn {
@@ -79,7 +90,10 @@ export class WorldGenerator {
     const temp = this.biomeNoise.fbm2D(wx * 0.0028, wz * 0.0028, 3);
     const moist = this.detailNoise.fbm2D(wx * 0.0028 + 100, wz * 0.0028 - 100, 3);
     const ridge = this.noise.fbm2D(wx * 0.0045 + 31, wz * 0.0045 + 17, 2);
-    if (ridge > 0.38) return 'mountains';
+    if (ridge > 0.42) return 'mountains';
+    if (ridge > 0.27 && moist > 0.05 && temp > -0.1) return 'cherry_grove';
+    if (temp < -0.15 && moist > 0.24) return 'pale_garden';
+    if (temp > 0.14 && moist > 0.32) return 'mangrove_swamp';
     if (temp > 0.34 && moist < 0.08) return 'desert';
     if (temp < -0.35) return 'snowy_tundra';
     if (moist > 0.12) return 'forest';
@@ -192,24 +206,61 @@ export class WorldGenerator {
             }
           }
 
-          let blockId: number = BLOCK.STONE;
+          const deepslateId = BLOCK_BY_KEY['deepslate']?.id ?? BLOCK.STONE;
+          const dsIronId = BLOCK_BY_KEY['deepslate_iron_ore']?.id ?? BLOCK.IRON_ORE;
+          const dsGoldId = BLOCK_BY_KEY['deepslate_gold_ore']?.id ?? BLOCK.GOLD_ORE;
+          const dsDiamondId = BLOCK_BY_KEY['deepslate_diamond_ore']?.id ?? BLOCK.DIAMOND_ORE;
+          const copperOreId = BLOCK_BY_KEY['copper_ore']?.id ?? BLOCK.IRON_ORE;
+          const tuffId = BLOCK_BY_KEY['tuff']?.id ?? BLOCK.STONE;
+          const amethystId = BLOCK_BY_KEY['amethyst_block']?.id ?? BLOCK.STONE;
+          const calciteId = BLOCK_BY_KEY['calcite']?.id ?? BLOCK.STONE;
+          const paleMossId = BLOCK_BY_KEY['pale_moss_block']?.id ?? BLOCK.GRASS;
+          const mudId = BLOCK_BY_KEY['mud']?.id ?? BLOCK.DIRT;
+          const sculkId = BLOCK_BY_KEY['sculk']?.id ?? deepslateId;
+          const sculkSensorId = BLOCK_BY_KEY['sculk_sensor']?.id ?? sculkId;
+          const dripstoneId = BLOCK_BY_KEY['dripstone_block']?.id ?? BLOCK.STONE;
+          const mossId = BLOCK_BY_KEY['moss_block']?.id ?? BLOCK.GRASS;
+          const suspSandId = BLOCK_BY_KEY['suspicious_sand']?.id ?? BLOCK.SAND;
+          const suspGravelId = BLOCK_BY_KEY['suspicious_gravel']?.id ?? BLOCK.GRAVEL;
+
+          const isDeepLayer = y <= 20 || (y <= 24 && this.noise.rand3(wx, y, wz) > (y - 20) * 0.25);
+          let blockId: number = isDeepLayer ? deepslateId : BLOCK.STONE;
           if (y === surfY) {
-            if (surfY < SEA_LEVEL - 1) blockId = BLOCK.SAND;
-            else if (biome === 'desert') blockId = BLOCK.SAND;
-            else if (biome === 'snowy_tundra') blockId = BLOCK.SNOW;
+            if (surfY < SEA_LEVEL - 1) {
+              blockId = this.noise.rand2(wx, wz, 515) > 0.96 ? suspSandId : BLOCK.SAND;
+            } else if (biome === 'desert') {
+              blockId = this.noise.rand2(wx, wz, 516) > 0.975 ? suspSandId : BLOCK.SAND;
+            } else if (biome === 'mangrove_swamp') {
+              blockId = this.noise.rand2(wx, wz, 517) > 0.22 ? mudId : BLOCK.GRASS;
+            } else if (biome === 'snowy_tundra') blockId = BLOCK.SNOW;
+            else if (biome === 'pale_garden' && this.noise.rand2(wx, wz, 404) > 0.35) blockId = paleMossId;
             else if (biome === 'mountains' && surfY > 94) blockId = BLOCK.SNOW;
             else if (biome === 'mountains' && surfY > 82) blockId = BLOCK.STONE;
             else blockId = BLOCK.GRASS;
           } else if (y >= surfY - 3) {
-            blockId = biome === 'desert' || surfY < SEA_LEVEL ? BLOCK.SAND : BLOCK.DIRT;
+            blockId =
+              biome === 'desert' || surfY < SEA_LEVEL
+                ? BLOCK.SAND
+                : biome === 'mangrove_swamp'
+                  ? mudId
+                  : BLOCK.DIRT;
           } else {
-            // Minecraft 1.16 ore distribution
+            // Modern Minecraft (1.18–26.3) ore, deepslate, Deep Dark sculk, Lush moss, Dripstone & Amethyst distribution
             const oreR = this.noise.rand3(wx, y, wz);
-            if (y >= 5 && y <= 15 && oreR > 0.989) blockId = BLOCK.DIAMOND_ORE;
-            else if (y >= 8 && y <= 32 && oreR > 0.985) blockId = BLOCK.GOLD_ORE;
-            else if (y >= 6 && y <= 58 && oreR > 0.968) blockId = BLOCK.IRON_ORE;
-            else if (y >= 10 && y <= 76 && oreR > 0.955) blockId = BLOCK.COAL_ORE;
-            else if (y >= 20 && y <= 52 && oreR < 0.025) blockId = BLOCK.GRAVEL;
+            if (y >= 4 && y <= 16 && oreR > 0.988) blockId = isDeepLayer ? dsDiamondId : BLOCK.DIAMOND_ORE;
+            else if (y >= 8 && y <= 32 && oreR > 0.984) blockId = isDeepLayer ? dsGoldId : BLOCK.GOLD_ORE;
+            else if (y >= 6 && y <= 58 && oreR > 0.968) blockId = isDeepLayer ? dsIronId : BLOCK.IRON_ORE;
+            else if (y >= 16 && y <= 70 && oreR > 0.955 && oreR <= 0.968) blockId = copperOreId;
+            else if (y >= 20 && y <= 78 && oreR > 0.942 && oreR <= 0.955) blockId = BLOCK.COAL_ORE;
+            else if (isDeepLayer && y <= 15 && oreR < 0.032) blockId = oreR < 0.004 ? sculkSensorId : sculkId;
+            else if (isDeepLayer && oreR >= 0.032 && oreR < 0.075) blockId = tuffId;
+            else if (!isDeepLayer && y >= 22 && y <= 46 && oreR < 0.016) blockId = dripstoneId;
+            else if (!isDeepLayer && y >= 28 && y <= 50 && oreR >= 0.016 && oreR < 0.028) blockId = mossId;
+            else if (y >= 14 && y <= 38 && oreR > 0.002 && oreR < 0.006) blockId = amethystId;
+            else if (y >= 14 && y <= 38 && oreR >= 0.006 && oreR < 0.011) blockId = calciteId;
+            else if (!isDeepLayer && y >= 25 && y <= 52 && oreR >= 0.028 && oreR < 0.044) {
+              blockId = oreR < 0.031 ? suspGravelId : BLOCK.GRAVEL;
+            }
           }
           setChunkBlock(col, lx, y, lz, blockId);
         }
@@ -219,31 +270,100 @@ export class WorldGenerator {
           setChunkBlock(col, lx, y, lz, biome === 'snowy_tundra' && y === SEA_LEVEL ? BLOCK.ICE : BLOCK.WATER);
         }
 
-        // Trees (safe interior margin so canopy stays inside chunk cleanly)
+        // Modern Surface Flora (Pink Petals, Wildflowers, Open Eyeblossom, Firefly Bush, Cactus Flower, Mangrove Propagule)
+        const surfBlock = getChunkBlock(col, lx, surfY, lz);
+        if (surfY >= SEA_LEVEL + 1 && getChunkBlock(col, lx, surfY + 1, lz) === BLOCK.AIR) {
+          const floraR = this.noise.rand2(wx, wz, 912);
+          if (biome === 'cherry_grove' && surfBlock === BLOCK.GRASS && floraR > 0.8) {
+            const pId = BLOCK_BY_KEY['pink_petals']?.id;
+            if (pId) setChunkBlock(col, lx, surfY + 1, lz, pId);
+          } else if (biome === 'pale_garden' && floraR > 0.93) {
+            const eId = BLOCK_BY_KEY['open_eyeblossom']?.id;
+            if (eId) setChunkBlock(col, lx, surfY + 1, lz, eId);
+          } else if (biome === 'mangrove_swamp' && floraR > 0.93) {
+            const mpId = BLOCK_BY_KEY['mangrove_propagule']?.id || BLOCK_BY_KEY['firefly_bush']?.id;
+            if (mpId) setChunkBlock(col, lx, surfY + 1, lz, mpId);
+          } else if (biome === 'plains' && surfBlock === BLOCK.GRASS && floraR > 0.955) {
+            const wId = BLOCK_BY_KEY['wildflowers']?.id;
+            if (wId) setChunkBlock(col, lx, surfY + 1, lz, wId);
+          } else if (biome === 'forest' && surfBlock === BLOCK.GRASS && floraR > 0.975) {
+            const fId = BLOCK_BY_KEY['firefly_bush']?.id;
+            if (fId) setChunkBlock(col, lx, surfY + 1, lz, fId);
+          } else if (biome === 'desert' && surfBlock === BLOCK.SAND && floraR > 0.985) {
+            const cId = BLOCK_BY_KEY['cactus_flower']?.id;
+            if (cId) setChunkBlock(col, lx, surfY + 1, lz, cId);
+          }
+        }
+
+        // Trees (Oak, Cherry Grove, Pale Garden + Creaking Heart, and Mangrove Swamp + Roots!)
+        const validTreeGround =
+          surfBlock === BLOCK.GRASS ||
+          surfBlock === (BLOCK_BY_KEY['pale_moss_block']?.id ?? -1) ||
+          surfBlock === (BLOCK_BY_KEY['mud']?.id ?? -1);
         if (
           lx >= 2 && lx <= 13 && lz >= 2 && lz <= 13 &&
           surfY >= SEA_LEVEL + 1 &&
-          (biome === 'forest' || biome === 'plains') &&
-          getChunkBlock(col, lx, surfY, lz) === BLOCK.GRASS
+          (biome === 'forest' ||
+            biome === 'plains' ||
+            biome === 'cherry_grove' ||
+            biome === 'pale_garden' ||
+            biome === 'mangrove_swamp') &&
+          validTreeGround
         ) {
-          const treeChance = biome === 'forest' ? 0.962 : 0.991;
+          const treeChance =
+            biome === 'pale_garden'
+              ? 0.948
+              : biome === 'mangrove_swamp'
+                ? 0.954
+                : biome === 'forest'
+                  ? 0.962
+                  : biome === 'cherry_grove'
+                    ? 0.968
+                    : 0.991;
           if (this.noise.rand2(wx, wz, 777) > treeChance) {
+            const logId =
+              biome === 'cherry_grove'
+                ? BLOCK_BY_KEY['cherry_log']?.id ?? BLOCK.OAK_LOG
+                : biome === 'pale_garden'
+                  ? BLOCK_BY_KEY['pale_oak_log']?.id ?? BLOCK.OAK_LOG
+                  : biome === 'mangrove_swamp'
+                    ? BLOCK_BY_KEY['mangrove_log']?.id ?? BLOCK.OAK_LOG
+                    : BLOCK.OAK_LOG;
+            const leafId =
+              biome === 'cherry_grove'
+                ? BLOCK_BY_KEY['cherry_leaves']?.id ?? BLOCK.OAK_LEAVES
+                : biome === 'pale_garden'
+                  ? BLOCK_BY_KEY['pale_oak_leaves']?.id ?? BLOCK.OAK_LEAVES
+                  : biome === 'mangrove_swamp'
+                    ? BLOCK_BY_KEY['mangrove_leaves']?.id ?? BLOCK.OAK_LEAVES
+                    : BLOCK.OAK_LEAVES;
+            const heartId = BLOCK_BY_KEY['creaking_heart']?.id ?? logId;
+            const rootsId = BLOCK_BY_KEY['mangrove_roots']?.id ?? logId;
+
             const trunkH = 4 + Math.floor(this.noise.rand2(wx, wz, 778) * 3);
+            if (biome === 'mangrove_swamp') {
+              // Stilt mangrove roots around base!
+              setChunkBlock(col, lx + 1, surfY + 1, lz, rootsId);
+              setChunkBlock(col, lx - 1, surfY + 1, lz, rootsId);
+              setChunkBlock(col, lx, surfY + 1, lz + 1, rootsId);
+              setChunkBlock(col, lx, surfY + 1, lz - 1, rootsId);
+            }
             for (let ty = 1; ty <= trunkH; ty++) {
-              setChunkBlock(col, lx, surfY + ty, lz, BLOCK.OAK_LOG);
+              const isHeart = biome === 'pale_garden' && ty === 2 && this.noise.rand2(wx, wz, 808) > 0.65;
+              setChunkBlock(col, lx, surfY + ty, lz, isHeart ? heartId : logId);
             }
             const topY = surfY + trunkH;
-            // Authentic 4-layer Minecraft Oak Tree canopy (dy = -2, -1: 5x5; dy = 0: 3x3; dy = +1: + crown)
+            // Authentic 4-layer Minecraft Tree canopy
             for (let dy = -2; dy <= 1; dy++) {
               const rad = dy <= -1 ? 2 : 1;
               for (let dx = -rad; dx <= rad; dx++) {
                 for (let dz = -rad; dz <= rad; dz++) {
                   const isCorner = Math.abs(dx) === rad && Math.abs(dz) === rad;
-                  if (dy === 1 && isCorner) continue; // Plus-shaped top crown
+                  if (dy === 1 && isCorner) continue;
                   if (dy === 0 && isCorner && this.noise.rand2(wx + dx, wz + dz, 781) > 0.45) continue;
                   if (dy <= -1 && isCorner && this.noise.rand2(wx + dx, wz + dz, 782 + dy) > 0.62) continue;
                   if (dx === 0 && dz === 0 && dy <= 0) continue;
-                  setChunkBlock(col, lx + dx, topY + dy, lz + dz, BLOCK.OAK_LEAVES);
+                  setChunkBlock(col, lx + dx, topY + dy, lz + dz, leafId);
                 }
               }
             }

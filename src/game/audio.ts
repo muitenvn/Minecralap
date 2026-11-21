@@ -142,6 +142,57 @@ class SoundEngine {
     this.noiseBurst(0.09, 1100, 1.3, 0.18);
   }
 
+  playXpOrb(): void {
+    const base = 740 + Math.random() * 420;
+    this.tone('sine', base, base * 1.18, 0.11, 0.16);
+    setTimeout(() => this.tone('triangle', base * 1.32, base * 1.48, 0.09, 0.12), 45);
+  }
+
+  playThrow(): void {
+    this.noiseBurst(0.07, 1650, 1.8, 0.14);
+    this.tone('sine', 420, 210, 0.08, 0.08);
+  }
+
+  playBowShoot(): void {
+    this.tone('triangle', 310, 130, 0.12, 0.18);
+    this.noiseBurst(0.09, 1900, 1.6, 0.16);
+  }
+
+  playSplash(): void {
+    this.noiseBurst(0.14, 2400, 1.4, 0.22);
+    this.tone('sine', 1420, 620, 0.11, 0.14);
+  }
+
+  playFirework(): void {
+    this.noiseBurst(0.28, 1200, 0.8, 0.28);
+    this.tone('triangle', 680, 190, 0.22, 0.18);
+    setTimeout(() => this.noiseBurst(0.16, 2800, 2.0, 0.18), 90);
+  }
+
+  playShieldBlock(): void {
+    this.tone('square', 460, 290, 0.11, 0.16);
+    this.noiseBurst(0.07, 1400, 2.4, 0.18);
+  }
+
+  playMusicDisc(discId: string): void {
+    const ctx = this.ensureCtx();
+    if (!ctx) return;
+    // Play a distinctive 8-note Minecraft-style chiptune motif per disc
+    const scales: Record<string, number[]> = {
+      music_disc_pigstep: [294, 349, 440, 392, 349, 294, 523, 440],
+      music_disc_cat: [523, 659, 784, 659, 880, 784, 659, 523],
+      music_disc_blocks: [330, 392, 494, 587, 494, 392, 440, 330],
+      music_disc_chirp: [587, 659, 740, 880, 740, 659, 587, 494],
+      music_disc_stal: [262, 311, 392, 466, 392, 311, 349, 262],
+      music_disc_ward: [220, 262, 330, 392, 440, 392, 330, 220],
+      music_disc_wait: [392, 494, 587, 784, 659, 587, 494, 392],
+    };
+    const notes = scales[discId] || [392, 440, 523, 587, 659, 587, 523, 440];
+    notes.forEach((freq, idx) => {
+      setTimeout(() => this.tone('triangle', freq, freq * 1.005, 0.17, 0.13), idx * 140);
+    });
+  }
+
   playByName(name: string): void {
     switch (name) {
       case 'portal': this.playPortal(); break;
@@ -150,6 +201,9 @@ class SoundEngine {
       case 'levelup': this.playLevelUp(); break;
       case 'thunder': this.playThunder(); break;
       case 'hurt': this.playHurt(); break;
+      case 'xp': this.playXpOrb(); break;
+      case 'splash': this.playSplash(); break;
+      case 'firework': this.playFirework(); break;
       default: this.playClick(); break;
     }
   }

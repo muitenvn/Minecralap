@@ -71,7 +71,7 @@ export default function App() {
   const compiledPackRef = useRef<CompiledResourcePack | null>(null);
 
   const [screen, setScreen] = useState<AppScreen>('boot');
-  const [bootStatus, setBootStatus] = useState('Đang khởi động NetherCraft 1.16...');
+  const [bootStatus, setBootStatus] = useState('Đang khởi động NetherCraft 26.3...');
   const [bootProgress, setBootProgress] = useState<DownloadProgress | null>(null);
   const [returnScreen, setReturnScreen] = useState<AppScreen>('title');
   const [compiledPack, setCompiledPack] = useState<CompiledResourcePack | null>(null);
@@ -368,7 +368,7 @@ export default function App() {
     let alive = true;
     (async () => {
       try {
-        setBootStatus('Đang kiểm tra gói tài nguyên 1.16...');
+        setBootStatus('Đang kiểm tra gói tài nguyên Minecraft 26.3...');
         let [cachedPack, savedWorlds] = await Promise.all([
           loadActiveResourcePack(),
           listWorlds(),
@@ -380,21 +380,21 @@ export default function App() {
           cachedPack.sourceType === 'github-default' ||
           cachedPack.sourceType === 'hd-32' ||
           (cachedPack.sourceType === 'faithful-32x' &&
-            cachedPack.version !== '1.16.5-faithful32-hdplus-v3')
+            cachedPack.version !== '26.3-faithful32-hdplus-v1')
         ) {
-          setBootStatus('Đang nạp gói chính thức HD+ Faithful 32x (Block, Vật phẩm, Mob, UI & Bản đồ)...');
+          setBootStatus('Đang nạp gói chính thức HD+ Faithful 32x (Minecraft 26.3)...');
           cachedPack = await buildFaithfulHdPlusPack(cachedPack?.guiBlobs);
           if (!alive) return;
         } else if (
           cachedPack.sourceType === 'original-classic' &&
-          cachedPack.version !== '1.16.5-official-v5'
+          cachedPack.version !== '26.3-official-v1'
         ) {
-          setBootStatus('Đang cập nhật Minecraft 1.16.5 Chính Gốc (Block, Vật phẩm, Mob, UI & Bản đồ)...');
+          setBootStatus('Đang cập nhật Minecraft 26.3 Chính Gốc (Block, Vật phẩm, Mob, UI & Bản đồ)...');
           cachedPack = await buildOriginalMinecraftPack(cachedPack.guiBlobs);
           if (!alive) return;
         }
 
-        setBootStatus('Đang biên dịch Texture Atlas 32×32 HD+ & icon vật phẩm 1.16...');
+        setBootStatus('Đang biên dịch Texture Atlas 32×32 HD+ & icon vật phẩm 26.3...');
         await applyCompiledPack(cachedPack);
         if (!alive) return;
 
@@ -413,9 +413,9 @@ export default function App() {
 
         let targetWorld = savedWorlds[0];
         if (!targetWorld) {
-          setBootStatus('Đang khởi tạo thế giới NetherCraft 1.16...');
+          setBootStatus('Đang khởi tạo thế giới NetherCraft 26.3...');
           targetWorld = createNewWorldRecord({
-            name: 'Thế Giới Nether 1.16',
+            name: 'Thế Giới Minecraft 26.3',
             gameMode: 'survival',
             cheatsEnabled: true,
           });
@@ -537,7 +537,7 @@ export default function App() {
       {screen === 'boot' && (
         <div className="fixed inset-0 z-40 bg-[#141019]/92 flex flex-col items-center justify-center px-6 gap-4 text-white">
           <div className="font-mc text-2xl sm:text-3xl font-bold text-[#fde68a] mc-text-shadow tracking-wider">
-            NETHERCRAFT 1.16.5
+            NETHERCRAFT 26.3
           </div>
           <div className="w-full max-w-[380px] space-y-2">
             <div className="flex items-center justify-between text-xs font-mono-num text-zinc-200">

@@ -337,7 +337,7 @@ export const McTitleLogo: React.FC<{ splashText: string }> = ({ splashText }) =>
         fontSize="14"
         letterSpacing="4"
       >
-        1.16.5 EDITION
+        26.3 LATEST EDITION
       </text>
     </svg>
     <div className="mc-splash absolute -bottom-2 right-1 sm:right-6 text-[#ffff55] font-mc font-bold text-xs sm:text-sm whitespace-nowrap">

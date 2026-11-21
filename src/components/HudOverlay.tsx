@@ -209,7 +209,7 @@ export const HudOverlay: React.FC<HudOverlayProps> = ({
       {showF3 && (
         <div className="absolute top-2 left-2 right-2 flex justify-between gap-4 text-[11px] sm:text-xs font-mono-num text-white mc-text-shadow-sm">
           <div className="space-y-0.5 bg-black/55 px-2 py-1.5">
-            <div>NetherCraft 1.16.5 (Static WebGL · Sub-Chunk 16³)</div>
+            <div>NetherCraft 26.3 (1.16–26.3 · Static WebGL · Sub-Chunk 16³)</div>
             <div>{hud.fps} fps · Chunks: {hud.loadedChunks} · Mobs: {hud.mobCount}</div>
             <div>
               XYZ: {hud.x.toFixed(2)} / {hud.y.toFixed(2)} / {hud.z.toFixed(2)}

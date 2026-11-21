@@ -98,7 +98,23 @@ const VALID_ENCHANTS: EnchantmentId[] = [
 ];
 
 const VALID_MOBS: (MobType | 'lightning_bolt')[] = [
-  'pig', 'sheep', 'zombie', 'creeper', 'piglin', 'strider', 'zombified_piglin', 'ghast', 'lightning_bolt',
+  'pig',
+  'sheep',
+  'zombie',
+  'creeper',
+  'piglin',
+  'strider',
+  'zombified_piglin',
+  'ghast',
+  'warden',
+  'breeze',
+  'creaking',
+  'allay',
+  'frog',
+  'bogged',
+  'happy_ghast',
+  'copper_golem',
+  'lightning_bolt',
 ];
 
 export function autocompleteCommand(input: string): string[] {
@@ -142,7 +158,7 @@ export function executeCommand(rawInput: string, ctx: CommandContext): void {
 
   // Non-cheat informational commands
   if (cmd === 'help') {
-    ctx.reply('=== 26 Lệnh Minecraft 1.16 Khả Dụng (nhấn Tab để gợi ý) ===', 'gold');
+    ctx.reply('=== 26 Lệnh Minecraft 26.3 Khả Dụng (nhấn Tab để gợi ý) ===', 'gold');
     ctx.reply('Thế giới: /tp, /spawnpoint, /setworldspawn, /worldborder, /seed, /locate, /locatebiome', 'system');
     ctx.reply('Luật chơi: /gamemode, /time, /weather, /difficulty, /gamerule', 'system');
     ctx.reply('Khối & Đồ: /setblock, /fill, /clone, /give, /clear, /enchant, /xp', 'system');

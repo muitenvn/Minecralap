@@ -1177,21 +1177,27 @@ export function paintOriginalBlockCanvas(key: string): HTMLCanvasElement {
 }
 
 const FAITHFUL_32X_MIRRORS = [
-  'https://cdn.jsdelivr.net/gh/Faithful-Resource-Pack/Faithful-32x-Java@1.16.5/assets/minecraft/textures',
-  'https://raw.githubusercontent.com/Faithful-Resource-Pack/Faithful-32x-Java/1.16.5/assets/minecraft/textures',
+  'https://cdn.jsdelivr.net/gh/Faithful-Resource-Pack/Faithful-32x-Java@java-latest/assets/minecraft/textures',
+  'https://raw.githubusercontent.com/Faithful-Resource-Pack/Faithful-32x-Java/java-latest/assets/minecraft/textures',
 ];
 
 const OFFICIAL_MC116_MIRRORS = [
-  'https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@1.16.5/assets/minecraft/textures',
-  'https://assets.mcasset.cloud/1.16.5/assets/minecraft/textures',
-  'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.16.5/assets/minecraft/textures',
+  'https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@26.3/assets/minecraft/textures',
+  'https://assets.mcasset.cloud/1.21.11/assets/minecraft/textures',
+  'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/26.3/assets/minecraft/textures',
 ];
 
-const FAITHFUL_CACHE_ID = 'faithful_32x_hd_plus_v3';
-const FAITHFUL_CACHE_VERSION = '1.16.5-faithful32-hdplus-v3';
+// Legacy 1.16.5/1.19 GUI atlas mirrors for widgets.png, icons.png, options_background.png & map_icons.png (split into sprites in 1.20.2+)
+const LEGACY_FAITHFUL_GUI_MIRROR =
+  'https://cdn.jsdelivr.net/gh/Faithful-Resource-Pack/Faithful-32x-Java@1.16.5/assets/minecraft/textures';
+const LEGACY_OFFICIAL_GUI_MIRROR =
+  'https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@1.16.5/assets/minecraft/textures';
 
-const ORIGINAL_CACHE_ID = 'original_mc116_cache_v5';
-const ORIGINAL_CACHE_VERSION = '1.16.5-official-v5';
+const FAITHFUL_CACHE_ID = 'faithful_32x_hd_plus_26_3_v1';
+const FAITHFUL_CACHE_VERSION = '26.3-faithful32-hdplus-v1';
+
+const ORIGINAL_CACHE_ID = 'original_mc26_3_cache_v1';
+const ORIGINAL_CACHE_VERSION = '26.3-official-v1';
 
 // Map internal texture keys to exact official Minecraft Java Edition 1.16.5 block filenames
 function mapKeyToOfficialMc116Block(key: string): string {
@@ -1298,6 +1304,31 @@ function mapKeyToOfficialMc116Block(key: string): string {
     nether_brick_wall: 'nether_bricks',
     blackstone_stairs: 'blackstone',
     blackstone_slab: 'blackstone',
+    sunflower: 'sunflower_front',
+    rose_bush: 'rose_bush_top',
+    tall_grass: 'short_grass',
+    wheat_crop: 'wheat_stage7',
+    nether_wart_crop: 'nether_wart_stage2',
+    sweet_berry_bush: 'sweet_berry_bush_stage3',
+    sculk_catalyst: 'sculk_catalyst_top',
+    ochre_froglight: 'ochre_froglight_side',
+    verdant_froglight: 'verdant_froglight_side',
+    pearlescent_froglight: 'pearlescent_froglight_side',
+    chiseled_bookshelf: 'chiseled_bookshelf_occupied',
+    copper_bulb: 'copper_bulb_lit',
+    trial_spawner: 'trial_spawner_side_active',
+    vault: 'vault_front_on',
+    crafter: 'crafter_top',
+    creaking_heart: 'creaking_heart_awake',
+    dried_ghast: 'dried_ghast_hydration_0_north',
+    pointed_dripstone: 'pointed_dripstone_up_tip',
+    sculk_sensor: 'sculk_sensor_top',
+    sculk_shrieker: 'sculk_shrieker_top',
+    mangrove_roots: 'mangrove_roots_side',
+    suspicious_sand: 'suspicious_sand_0',
+    suspicious_gravel: 'suspicious_gravel_0',
+    copper_door: 'copper_door_bottom',
+    moss_carpet: 'moss_block',
   };
   if (exactMap[key]) return exactMap[key];
   if (key.endsWith('_carpet')) return key.replace('_carpet', '_wool');
@@ -1337,12 +1368,13 @@ function mapItemIdToOfficialMc116Path(itemId: string): string | null {
   if (!def || def.blockId !== undefined) return null;
 
   // Potions & banners are composited from base + tinted overlay separately
+  // Note: Minecraft 1.21.5+ / 26.3 includes dedicated custom-illustrated item/*_spawn_egg.png textures!
   if (
     itemId.startsWith('potion_') ||
     itemId === 'water_bottle' ||
     itemId === 'awkward_potion' ||
-    itemId === 'splash_potion' ||
-    itemId === 'lingering_potion' ||
+    itemId.startsWith('splash_potion') ||
+    itemId.startsWith('lingering_potion') ||
     itemId === 'tipped_arrow' ||
     itemId.endsWith('_banner')
   ) {
@@ -1365,6 +1397,8 @@ function mapItemIdToOfficialMc116Path(itemId: string): string | null {
     enchanted_golden_apple: 'item/golden_apple',
     clock: 'item/clock_00',
     compass: 'item/compass_00',
+    lodestone_compass: 'item/compass_00',
+    recovery_compass: 'item/recovery_compass_00',
     crossbow: 'item/crossbow_standby',
     warped_fungus_on_a_stick: 'item/warped_fungus_on_a_stick',
     carrot_on_a_stick: 'item/carrot_on_a_stick',
@@ -1533,6 +1567,7 @@ async function compositeTwoLayerItem(
   overlayBlob: Blob,
   overlayHex: string,
   overlayFirst = true,
+  baseHex?: string,
 ): Promise<Blob> {
   try {
     const [baseImg, overImg] = await Promise.all([blobToImg(baseBlob), blobToImg(overlayBlob)]);
@@ -1543,27 +1578,35 @@ async function compositeTwoLayerItem(
     const ctx = c.getContext('2d')!;
     ctx.imageSmoothingEnabled = false;
 
-    const oc = document.createElement('canvas');
-    oc.width = s;
-    oc.height = s;
-    const octx = oc.getContext('2d')!;
-    octx.imageSmoothingEnabled = false;
-    octx.drawImage(overImg, 0, 0, s, s, 0, 0, s, s);
-    const oData = octx.getImageData(0, 0, s, s);
-    const [tr, tg, tb] = hexToRgb(overlayHex);
-    for (let i = 0; i < oData.data.length; i += 4) {
-      if (oData.data[i + 3] === 0) continue;
-      oData.data[i] = Math.round((oData.data[i] * tr) / 255);
-      oData.data[i + 1] = Math.round((oData.data[i + 1] * tg) / 255);
-      oData.data[i + 2] = Math.round((oData.data[i + 2] * tb) / 255);
-    }
-    octx.putImageData(oData, 0, 0);
+    const tintLayer = (img: HTMLImageElement, hex?: string): HTMLCanvasElement => {
+      const lc = document.createElement('canvas');
+      lc.width = s;
+      lc.height = s;
+      const lctx = lc.getContext('2d')!;
+      lctx.imageSmoothingEnabled = false;
+      lctx.drawImage(img, 0, 0, s, s, 0, 0, s, s);
+      if (hex) {
+        const lData = lctx.getImageData(0, 0, s, s);
+        const [tr, tg, tb] = hexToRgb(hex);
+        for (let i = 0; i < lData.data.length; i += 4) {
+          if (lData.data[i + 3] === 0) continue;
+          lData.data[i] = Math.round((lData.data[i] * tr) / 255);
+          lData.data[i + 1] = Math.round((lData.data[i + 1] * tg) / 255);
+          lData.data[i + 2] = Math.round((lData.data[i + 2] * tb) / 255);
+        }
+        lctx.putImageData(lData, 0, 0);
+      }
+      return lc;
+    };
+
+    const bc = tintLayer(baseImg, baseHex);
+    const oc = tintLayer(overImg, overlayHex);
 
     if (overlayFirst) {
       ctx.drawImage(oc, 0, 0);
-      ctx.drawImage(baseImg, 0, 0, s, s, 0, 0, s, s);
+      ctx.drawImage(bc, 0, 0);
     } else {
-      ctx.drawImage(baseImg, 0, 0, s, s, 0, 0, s, s);
+      ctx.drawImage(bc, 0, 0);
       ctx.drawImage(oc, 0, 0);
     }
     return await canvasToBlob(c);
@@ -1744,6 +1787,8 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
     uniqueRelPaths.add('item/potion_overlay');
     uniqueRelPaths.add('item/tipped_arrow_base');
     uniqueRelPaths.add('item/tipped_arrow_head');
+    uniqueRelPaths.add('item/spawn_egg');
+    uniqueRelPaths.add('item/spawn_egg_overlay');
 
     const fetchedByPath = new Map<string, Blob>();
     const pathList = Array.from(uniqueRelPaths);
@@ -1822,7 +1867,7 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
       }
     }
 
-    // --- Composite ALL 17+ real Potions & Tipped Arrow using real potion.png + potion_overlay.png ---
+    // --- Composite ALL Potions, Splash Potions, Lingering Potions & Tipped Arrow ---
     const potionBase = fetchedByPath.get('item/potion');
     const splashBase = fetchedByPath.get('item/splash_potion') || potionBase;
     const lingerBase = fetchedByPath.get('item/lingering_potion') || potionBase;
@@ -1833,15 +1878,15 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
           it.id.startsWith('potion_') ||
           it.id === 'water_bottle' ||
           it.id === 'awkward_potion' ||
-          it.id === 'splash_potion' ||
-          it.id === 'lingering_potion',
+          it.id.startsWith('splash_potion') ||
+          it.id.startsWith('lingering_potion'),
       );
       await Promise.all(
         potionItems.map(async (it) => {
           const flask =
-            it.id === 'splash_potion'
+            it.id.startsWith('splash_potion')
               ? splashBase!
-              : it.id === 'lingering_potion'
+              : it.id.startsWith('lingering_potion')
                 ? lingerBase!
                 : potionBase;
           const comp = await compositeTwoLayerItem(
@@ -1849,6 +1894,26 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
             potionOverlay,
             it.iconColor || '#38bdf8',
             true,
+          );
+          itemBlobs[it.id] = comp;
+          totalBytes += comp.size;
+        }),
+      );
+    }
+
+    // --- Fallback Spawn Egg compositing only if custom 26.3 spawn_egg PNG wasn't fetched ---
+    const eggBase = fetchedByPath.get('item/spawn_egg');
+    const eggOverlay = fetchedByPath.get('item/spawn_egg_overlay');
+    if (eggBase && eggOverlay) {
+      const eggItems = Object.values(ITEM_DEFS).filter((it) => it.id.endsWith('_spawn_egg') && !itemBlobs[it.id]);
+      await Promise.all(
+        eggItems.map(async (it) => {
+          const comp = await compositeTwoLayerItem(
+            eggBase,
+            eggOverlay,
+            it.iconAccent || '#ffffff',
+            false,
+            it.iconColor || '#9ca3af',
           );
           itemBlobs[it.id] = comp;
           totalBytes += comp.size;
@@ -1864,7 +1929,7 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
       totalBytes += comp.size;
     }
 
-    // --- Official Resource Pack Mob Entity Textures (8 Mobs + Sheep Wool) ---
+    // --- Official Resource Pack Mob Entity Textures (11 Mobs incl. Warden, Breeze, Creaking + Sheep Wool) ---
     const entityFetchMap: [string, string][] = [
       ['pig', 'entity/pig/pig.png'],
       ['sheep', 'entity/sheep/sheep.png'],
@@ -1875,6 +1940,9 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
       ['zombified_piglin', 'entity/piglin/zombified_piglin.png'],
       ['strider', 'entity/strider/strider.png'],
       ['ghast', 'entity/ghast/ghast.png'],
+      ['warden', 'entity/warden/warden.png'],
+      ['breeze', 'entity/breeze/breeze.png'],
+      ['creaking', 'entity/creaking/creaking.png'],
     ];
 
     // --- Official Resource Pack GUI, Container & Map sprites ---
@@ -1890,6 +1958,8 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
       ['map_background', 'map/map_background.png'],
       ['map_icons', 'map/map_icons.png'],
     ];
+    const legacyGuiMirror =
+      opts.sourceType === 'faithful-32x' ? LEGACY_FAITHFUL_GUI_MIRROR : LEGACY_OFFICIAL_GUI_MIRROR;
     await Promise.all([
       ...entityFetchMap.map(async ([eKey, relPath]) => {
         const blob = await fetchWithTimeout(`${mirror}/${relPath}`, 3000);
@@ -1899,7 +1969,9 @@ async function downloadFullMinecraftPackFromMirrors(opts: {
         }
       }),
       ...guiFetchMap.map(async ([gKey, relPath]) => {
-        const blob = await fetchWithTimeout(`${mirror}/${relPath}`, 3000);
+        const blob =
+          (await fetchWithTimeout(`${mirror}/${relPath}`, 2600)) ||
+          (await fetchWithTimeout(`${legacyGuiMirror}/${relPath}`, 2600));
         if (blob) guiBlobs[gKey] = blob;
       }),
     ]);
@@ -1963,9 +2035,9 @@ export async function buildFaithfulHdPlusPack(
     cacheId: FAITHFUL_CACHE_ID,
     version: FAITHFUL_CACHE_VERSION,
     sourceType: 'faithful-32x',
-    onlineName: 'HD+ Faithful 32×32 (Chính Thức)',
+    onlineName: 'HD+ Faithful 32×32 (26.3 Mới Nhất)',
     offlineName: 'HD+ 32×32 (Ngoại Tuyến)',
-    onlineLabelPrefix: 'Faithful 32x 1.16.5 HD+',
+    onlineLabelPrefix: 'Faithful 32x 26.3 HD+',
     offlineLabel: 'HD+ 32×32 (Chế độ ngoại tuyến)',
     hdPlusVibrancy: true,
     baseGuiBlobs,
@@ -1974,7 +2046,7 @@ export async function buildFaithfulHdPlusPack(
 }
 
 /**
- * Official Minecraft Java 1.16.5 Vanilla Pack (full blocks + items + potions + GUI).
+ * Official Minecraft Java 26.3 Vanilla Pack (full blocks + items + potions + mobs + GUI).
  */
 export async function buildOriginalMinecraftPack(
   baseGuiBlobs?: Record<string, Blob>,
@@ -1985,10 +2057,10 @@ export async function buildOriginalMinecraftPack(
     cacheId: ORIGINAL_CACHE_ID,
     version: ORIGINAL_CACHE_VERSION,
     sourceType: 'original-classic',
-    onlineName: 'Minecraft 1.16.5 Chính Gốc (Vanilla)',
-    offlineName: 'Minecraft 1.16 Chính Gốc (Ngoại Tuyến)',
-    onlineLabelPrefix: 'Minecraft 1.16.5 Chính Gốc',
-    offlineLabel: 'Texture 1.16 Chính Gốc (Chế độ ngoại tuyến)',
+    onlineName: 'Minecraft 26.3 Chính Gốc (Vanilla)',
+    offlineName: 'Minecraft 26.3 Chính Gốc (Ngoại Tuyến)',
+    onlineLabelPrefix: 'Minecraft 26.3 Chính Gốc',
+    offlineLabel: 'Texture 26.3 Chính Gốc (Chế độ ngoại tuyến)',
     hdPlusVibrancy: false,
     baseGuiBlobs,
     forceRefresh,

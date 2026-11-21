@@ -10,7 +10,15 @@ export type MobType =
   | 'piglin'
   | 'strider'
   | 'zombified_piglin'
-  | 'ghast';
+  | 'ghast'
+  | 'warden'
+  | 'breeze'
+  | 'creaking'
+  | 'allay'
+  | 'frog'
+  | 'bogged'
+  | 'happy_ghast'
+  | 'copper_golem';
 
 export interface MobEntity {
   id: string;
@@ -44,10 +52,18 @@ export const MOB_SPECS: Record<
   sheep: { nameVi: 'Cừu', hp: 8, hostile: false, speed: 2.1, damage: 0, drop: 'raw_porkchop', dropCount: 1, width: 0.7, height: 1.2 },
   zombie: { nameVi: 'Thây Ma (Zombie)', hp: 20, hostile: true, speed: 2.7, damage: 3, drop: 'iron_ingot', dropCount: 1, width: 0.65, height: 1.85 },
   creeper: { nameVi: 'Creeper', hp: 20, hostile: true, speed: 2.6, damage: 8, drop: 'coal', dropCount: 2, width: 0.65, height: 1.75 },
-  piglin: { nameVi: 'Piglin (1.16)', hp: 16, hostile: true, speed: 3.1, damage: 4, drop: 'gold_ingot', dropCount: 1, width: 0.65, height: 1.9 },
-  strider: { nameVi: 'Strider (1.16)', hp: 20, hostile: false, speed: 2.4, damage: 0, drop: 'obsidian', dropCount: 1, width: 0.85, height: 1.65 },
-  zombified_piglin: { nameVi: 'Zombified Piglin (1.16)', hp: 20, hostile: false, speed: 2.6, damage: 5, drop: 'gold_ingot', dropCount: 1, width: 0.65, height: 1.9 },
+  piglin: { nameVi: 'Piglin', hp: 16, hostile: true, speed: 3.1, damage: 4, drop: 'gold_ingot', dropCount: 1, width: 0.65, height: 1.9 },
+  strider: { nameVi: 'Strider', hp: 20, hostile: false, speed: 2.4, damage: 0, drop: 'obsidian', dropCount: 1, width: 0.85, height: 1.65 },
+  zombified_piglin: { nameVi: 'Zombified Piglin', hp: 20, hostile: false, speed: 2.6, damage: 5, drop: 'gold_ingot', dropCount: 1, width: 0.65, height: 1.9 },
   ghast: { nameVi: 'Ghast Nether', hp: 12, hostile: true, speed: 2.2, damage: 5, drop: 'quartz', dropCount: 3, width: 2.6, height: 2.6 },
+  warden: { nameVi: 'Warden (Deep Dark)', hp: 85, hostile: true, speed: 3.3, damage: 10, drop: 'echo_shard', dropCount: 2, width: 1.1, height: 2.9 },
+  breeze: { nameVi: 'Breeze (Phòng Thử Thách)', hp: 24, hostile: true, speed: 3.5, damage: 4, drop: 'breeze_rod', dropCount: 2, width: 0.75, height: 1.8 },
+  creaking: { nameVi: 'Creaking (Vườn Nhợt Nhạt)', hp: 30, hostile: true, speed: 3.4, damage: 5, drop: 'resin_clump', dropCount: 3, width: 0.8, height: 2.65 },
+  allay: { nameVi: 'Allay (Tiên Nhặt Đồ)', hp: 20, hostile: false, speed: 3.4, damage: 0, drop: 'amethyst_shard', dropCount: 1, width: 0.5, height: 0.7 },
+  frog: { nameVi: 'Ếch (Frog)', hp: 10, hostile: false, speed: 2.3, damage: 0, drop: 'ochre_froglight', dropCount: 1, width: 0.6, height: 0.55 },
+  bogged: { nameVi: 'Bogged (Xương Rêu Đầm Lầy)', hp: 16, hostile: true, speed: 2.6, damage: 4, drop: 'arrow', dropCount: 3, width: 0.65, height: 1.9 },
+  happy_ghast: { nameVi: 'Happy Ghast (Ghast Vui Vẻ)', hp: 30, hostile: false, speed: 2.8, damage: 0, drop: 'dried_ghast', dropCount: 1, width: 2.6, height: 2.6 },
+  copper_golem: { nameVi: 'Copper Golem (Người Máy Đồng)', hp: 24, hostile: false, speed: 2.2, damage: 0, drop: 'copper_ingot', dropCount: 2, width: 0.65, height: 1.15 },
 };
 
 const PX = 1 / 16;
@@ -640,6 +656,211 @@ function buildFallbackProceduralMob(type: MobType): { group: THREE.Group; limbs:
     return { group, limbs };
   }
 
+  // --- Modern Minecraft 1.19–26.3 Boss & Biome Mobs: Warden, Breeze, Creaking ---
+  if (type === 'warden') {
+    const bodyCol = 0x0d2b33;
+    const boneCol = 0xd6d3c4;
+    const glowCol = 0x2dd4bf;
+    for (const sx of [-0.26, 0.26]) {
+      const leg = partBox(0.36, 0.9, 0.38, bodyCol, 0.75);
+      leg.position.set(sx, 0.45, 0);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    const torso = partBox(0.95, 1.15, 0.62, bodyCol, 0.72);
+    torso.position.set(0, 1.45, 0);
+    const core = partBox(0.46, 0.48, 0.08, glowCol, 0.15, 0, glowCol);
+    core.position.set(0, 1.48, 0.31);
+    const ribs = partBox(0.68, 0.78, 0.66, boneCol, 0.8);
+    ribs.position.set(0, 1.48, 0);
+    const head = partBox(0.76, 0.76, 0.56, bodyCol, 0.75);
+    head.position.set(0, 2.38, 0.04);
+    const mouth = partBox(0.46, 0.22, 0.06, 0x051418, 0.4);
+    mouth.position.set(0, 2.22, 0.31);
+    for (const sx of [-0.48, 0.48]) {
+      const horn = partBox(0.28, 0.46, 0.12, glowCol, 0.2, 0, 0x0ea5a4);
+      horn.position.set(sx, 2.58, 0.02);
+      horn.rotation.z = sx < 0 ? 0.25 : -0.25;
+      group.add(horn);
+      const arm = partBox(0.34, 1.32, 0.36, bodyCol, 0.76);
+      arm.position.set(sx * 1.35, 1.32, 0.1);
+      group.add(arm);
+      limbs.push(arm);
+    }
+    group.add(torso, ribs, core, head, mouth);
+    return { group, limbs };
+  }
+
+  if (type === 'breeze') {
+    const skinCol = 0xaf94df;
+    const windCol = 0xdbeafe;
+    const eyeCol = 0xfef08a;
+    const head = partBox(0.52, 0.52, 0.52, skinCol, 0.6);
+    head.position.set(0, 1.42, 0);
+    const brow = partBox(0.56, 0.12, 0.56, 0x6d529e, 0.65);
+    brow.position.set(0, 1.54, 0);
+    const eyeL = partBox(0.11, 0.09, 0.05, eyeCol, 0.15, 0, 0xfacc15);
+    eyeL.position.set(-0.12, 1.42, 0.26);
+    const eyeR = eyeL.clone();
+    eyeR.position.x = 0.12;
+    const rod = partBox(0.22, 0.92, 0.22, 0x8b6dc4, 0.5, 0.2);
+    rod.position.set(0, 0.72, 0);
+    const swirlTop = partBox(0.76, 0.24, 0.76, windCol, 0.3, 0, 0x93c5fd);
+    swirlTop.position.set(0, 0.92, 0);
+    const swirlMid = partBox(0.56, 0.22, 0.56, windCol, 0.3, 0, 0x7dd3fc);
+    swirlMid.position.set(0, 0.6, 0);
+    const swirlBot = partBox(0.36, 0.18, 0.36, windCol, 0.3, 0, 0x60a5fa);
+    swirlBot.position.set(0, 0.32, 0);
+    group.add(head, brow, eyeL, eyeR, rod, swirlTop, swirlMid, swirlBot);
+    limbs.push(swirlTop, swirlMid, swirlBot);
+    return { group, limbs };
+  }
+
+  if (type === 'creaking') {
+    const barkCol = 0x4f4c4d;
+    const mossCol = 0x787d76;
+    const eyeCol = 0xf97316;
+    for (const sx of [-0.2, 0.2]) {
+      const leg = partBox(0.2, 1.2, 0.22, barkCol, 0.9);
+      leg.position.set(sx, 0.6, 0);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    const torso = partBox(0.58, 1.05, 0.32, barkCol, 0.9);
+    torso.position.set(0, 1.68, 0);
+    const heartGlow = partBox(0.24, 0.32, 0.34, eyeCol, 0.2, 0, 0xea580c);
+    heartGlow.position.set(0, 1.72, 0);
+    const head = partBox(0.46, 0.58, 0.42, barkCol, 0.88);
+    head.position.set(0.06, 2.38, 0);
+    head.rotation.z = -0.14;
+    const crown = partBox(0.56, 0.22, 0.46, mossCol, 0.9);
+    crown.position.set(0.08, 2.66, 0);
+    for (const [ex, ey] of [[-0.08, 2.44], [0.14, 2.42], [0.03, 2.28]] as [number, number][]) {
+      const eye = partBox(0.08, 0.08, 0.05, eyeCol, 0.15, 0, 0xf97316);
+      eye.position.set(ex, ey, 0.22);
+      group.add(eye);
+    }
+    const armL = partBox(0.18, 1.25, 0.18, barkCol, 0.9);
+    armL.position.set(-0.42, 1.55, 0.1);
+    const armR = partBox(0.18, 1.25, 0.18, barkCol, 0.9);
+    armR.position.set(0.42, 1.55, 0.1);
+    group.add(torso, heartGlow, head, crown, armL, armR);
+    limbs.push(armL, armR);
+    return { group, limbs };
+  }
+
+  if (type === 'allay') {
+    const cyan = 0x38e8ff;
+    const head = partBox(0.36, 0.36, 0.36, cyan, 0.2, 0, 0x0ea5e9);
+    head.position.set(0, 1.35, 0);
+    const body = partBox(0.24, 0.34, 0.18, 0x06b6d4, 0.25, 0, 0x0284c7);
+    body.position.set(0, 1.02, 0);
+    const wingL = partBox(0.04, 0.34, 0.5, 0xbae6fd, 0.15, 0, 0x38bdf8);
+    wingL.position.set(-0.18, 1.15, -0.18);
+    wingL.rotation.y = 0.4;
+    const wingR = wingL.clone();
+    wingR.position.x = 0.18;
+    wingR.rotation.y = -0.4;
+    group.add(head, body, wingL, wingR);
+    limbs.push(wingL, wingR);
+    return { group, limbs };
+  }
+
+  if (type === 'frog') {
+    const bodyCol = 0xd97742;
+    const bellyCol = 0xfef3c7;
+    const body = partBox(0.56, 0.28, 0.58, bodyCol, 0.75);
+    body.position.set(0, 0.24, 0);
+    const belly = partBox(0.48, 0.1, 0.48, bellyCol, 0.8);
+    belly.position.set(0, 0.11, 0);
+    for (const sx of [-0.18, 0.18]) {
+      const eye = partBox(0.14, 0.14, 0.14, bodyCol, 0.6);
+      eye.position.set(sx, 0.42, 0.16);
+      const pupil = partBox(0.08, 0.08, 0.04, 0x18181b, 0.2);
+      pupil.position.set(sx, 0.42, 0.23);
+      const leg = partBox(0.16, 0.14, 0.24, bodyCol, 0.8);
+      leg.position.set(sx * 1.6, 0.08, -0.1);
+      group.add(eye, pupil, leg);
+      limbs.push(leg);
+    }
+    group.add(body, belly);
+    return { group, limbs };
+  }
+
+  if (type === 'bogged') {
+    const boneCol = 0x9aa88c;
+    const mossCol = 0x4d7c2e;
+    for (const sx of [-0.15, 0.15]) {
+      const leg = partBox(0.14, 0.72, 0.14, boneCol, 0.8);
+      leg.position.set(sx, 0.36, 0);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    const torso = partBox(0.46, 0.68, 0.24, mossCol, 0.85);
+    torso.position.set(0, 1.04, 0);
+    const head = partBox(0.48, 0.48, 0.48, boneCol, 0.78);
+    head.position.set(0, 1.62, 0);
+    const mush = partBox(0.16, 0.16, 0.16, 0xdc2626, 0.7);
+    mush.position.set(0.14, 1.92, 0);
+    const armL = partBox(0.14, 0.66, 0.14, boneCol, 0.8);
+    armL.position.set(-0.34, 1.06, 0.22);
+    armL.rotation.x = -Math.PI * 0.42;
+    const armR = armL.clone();
+    armR.position.x = 0.34;
+    group.add(torso, head, mush, armL, armR);
+    return { group, limbs };
+  }
+
+  if (type === 'happy_ghast') {
+    const head = partBox(2.2, 2.2, 2.2, 0xf8fafc, 0.82);
+    head.position.set(0, 2.1, 0);
+    const harness = partBox(2.3, 0.6, 2.3, 0x2563eb, 0.6);
+    harness.position.set(0, 2.75, 0);
+    const goggleL = partBox(0.46, 0.3, 0.12, 0x38bdf8, 0.2, 0.4);
+    goggleL.position.set(-0.5, 2.32, 1.12);
+    const goggleR = goggleL.clone();
+    goggleR.position.x = 0.5;
+    const smile = partBox(0.66, 0.18, 0.08, 0xf472b6, 0.4);
+    smile.position.set(0, 1.72, 1.12);
+    group.add(head, harness, goggleL, goggleR, smile);
+    for (let i = -1; i <= 1; i++) {
+      for (let j = -1; j <= 1; j++) {
+        const len = 0.78 + ((i + j + 4) % 2) * 0.2;
+        const tent = partBox(0.24, len, 0.24, 0xe2e8f0, 0.86);
+        tent.position.set(i * 0.62, 0.98 - len * 0.5, j * 0.62);
+        group.add(tent);
+        limbs.push(tent);
+      }
+    }
+    return { group, limbs };
+  }
+
+  if (type === 'copper_golem') {
+    const copperCol = 0xc46c4a;
+    const oxCol = 0x52a384;
+    for (const sx of [-0.14, 0.14]) {
+      const leg = partBox(0.18, 0.34, 0.18, copperCol, 0.35, 0.75);
+      leg.position.set(sx, 0.17, 0);
+      group.add(leg);
+      limbs.push(leg);
+    }
+    const torso = partBox(0.44, 0.44, 0.32, copperCol, 0.35, 0.75);
+    torso.position.set(0, 0.56, 0);
+    const head = partBox(0.44, 0.36, 0.38, oxCol, 0.4, 0.65);
+    head.position.set(0, 0.96, 0);
+    const rod = partBox(0.08, 0.32, 0.08, 0xf97316, 0.2, 0.85, 0xea580c);
+    rod.position.set(0, 1.28, 0);
+    const nose = partBox(0.12, 0.16, 0.12, copperCol, 0.35, 0.75);
+    nose.position.set(0, 0.9, 0.22);
+    const armL = partBox(0.14, 0.44, 0.14, copperCol, 0.35, 0.75);
+    armL.position.set(-0.31, 0.56, 0);
+    const armR = armL.clone();
+    armR.position.x = 0.31;
+    group.add(torso, head, rod, nose, armL, armR);
+    limbs.push(armL, armR);
+    return { group, limbs };
+  }
+
   const isCreeper = type === 'creeper';
   const isPiglin = type === 'piglin';
   const isZPiglin = type === 'zombified_piglin';
@@ -765,7 +986,7 @@ export function updateMobAI(
     !(mob.type === 'piglin' && playerWearingGold) &&
     dist < 18;
 
-  if (mob.type === 'ghast') {
+  if (mob.type === 'ghast' || mob.type === 'happy_ghast' || mob.type === 'allay') {
     mob.wanderTimer -= dt;
     if (mob.wanderTimer <= 0) {
       mob.wanderTimer = 3 + Math.random() * 4;
@@ -775,12 +996,12 @@ export function updateMobAI(
     mob.yaw = targetYaw;
     mob.x += Math.sin(mob.yaw) * spec.speed * dt;
     mob.z += Math.cos(mob.yaw) * spec.speed * dt;
-    mob.y += Math.sin(performance.now() * 0.0018 + mob.x) * 0.45 * dt;
-    mob.walkPhase += dt * 3;
+    mob.y += Math.sin(performance.now() * (mob.type === 'allay' ? 0.006 : 0.0018) + mob.x) * 0.45 * dt;
+    mob.walkPhase += dt * (mob.type === 'allay' ? 12 : 3);
     mob.limbs.forEach((l, idx) => {
-      l.rotation.x = Math.sin(mob.walkPhase + idx * 0.7) * 0.25;
+      l.rotation.x = Math.sin(mob.walkPhase + idx * 0.7) * (mob.type === 'allay' ? 0.55 : 0.25);
     });
-    if (isAggro && dist < 8 && Math.abs(dy) < 6 && mob.attackCooldown <= 0) {
+    if (mob.type === 'ghast' && isAggro && dist < 8 && Math.abs(dy) < 6 && mob.attackCooldown <= 0) {
       mob.attackCooldown = 2.6;
       onAttackPlayer(spec.damage, spec.nameVi);
     }
@@ -839,17 +1060,27 @@ export function updateMobAI(
   }
   mob.y += mob.vy * dt;
 
-  // Limb walk cycle
-  const speedNow = Math.hypot(mob.vx, mob.vz);
-  if (speedNow > 0.25) {
-    mob.walkPhase += dt * speedNow * 2.6;
-    mob.limbs.forEach((limb, idx) => {
-      limb.rotation.x = Math.sin(mob.walkPhase + (idx % 2 === 0 ? 0 : Math.PI)) * 0.55;
+  // Limb walk cycle (Breeze spins its wind vortices!)
+  if (mob.type === 'breeze') {
+    mob.walkPhase += dt * 7;
+    mob.limbs.forEach((swirl, idx) => {
+      swirl.rotation.y = mob.walkPhase * (idx % 2 === 0 ? 1 : -1.4);
     });
+    if (onSolid && Math.random() < dt * 0.8) {
+      mob.vy = 8.2; // Playful Breeze wind leap!
+    }
   } else {
-    mob.limbs.forEach((limb) => {
-      limb.rotation.x *= 0.85;
-    });
+    const speedNow = Math.hypot(mob.vx, mob.vz);
+    if (speedNow > 0.25) {
+      mob.walkPhase += dt * speedNow * 2.6;
+      mob.limbs.forEach((limb, idx) => {
+        limb.rotation.x = Math.sin(mob.walkPhase + (idx % 2 === 0 ? 0 : Math.PI)) * 0.55;
+      });
+    } else {
+      mob.limbs.forEach((limb) => {
+        limb.rotation.x *= 0.85;
+      });
+    }
   }
 
   // Creeper fuse & melee attack

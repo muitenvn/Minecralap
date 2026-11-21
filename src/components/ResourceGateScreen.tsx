@@ -72,7 +72,7 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
         preset === 'hd_plus'
           ? 'Đã áp dụng HD+ Faithful 32x (Block + Vật phẩm + Thuốc + UI)!'
           : preset === 'original'
-            ? 'Đã chuyển sang Minecraft 1.16.5 Chính Gốc (Block + Vật phẩm)!'
+            ? 'Đã chuyển sang Minecraft 26.3 Chính Gốc (Block + Vật phẩm)!'
             : 'Đã chuyển sang 32×32 Offline (Nhẹ)!',
       );
     } catch (e) {
@@ -124,7 +124,7 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
   const handleClearCache = async () => {
     await clearResourcePackCache();
     onPackCleared();
-    setNotice('Đã xóa bộ nhớ đệm tài nguyên. Cần tải lại gói 1.16 trước khi chơi.');
+    setNotice('Đã xóa bộ nhớ đệm tài nguyên. Cần tải lại gói 26.3 trước khi chơi.');
   };
 
   const pct =
@@ -135,18 +135,18 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
   return (
     <div className="fixed inset-0 z-30 flex items-start sm:items-center justify-center p-3 sm:p-6 bg-black/65 overflow-y-auto">
       <div className="w-full max-w-[720px] my-auto flex flex-col items-center gap-5">
-        {mode === 'gate' && <McTitleLogo splashText="Phiên bản 1.16 · 2 Dạng Texture!" />}
+        {mode === 'gate' && <McTitleLogo splashText="Minecraft 26.3 · Mới Nhất!" />}
 
         <div className="mc-dark-panel w-full p-4 sm:p-6">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3 mb-4">
             <div>
               <h2 className="font-mc text-lg sm:text-xl font-bold text-[#fde68a] mc-text-shadow">
                 {mode === 'gate'
-                  ? 'Chọn Gói Texture & Tài Nguyên 1.16'
-                  : 'Quản Lý 2 Dạng Texture & Resource Pack 1.16'}
+                  ? 'Chọn Gói Texture & Tài Nguyên 26.3'
+                  : 'Quản Lý Texture & Resource Pack 26.3'}
               </h2>
               <p className="text-xs sm:text-sm text-zinc-300 mt-0.5">
-                Chuyển nhanh giữa 2 dạng Texture có sẵn hoặc nạp Resource Pack 1.16 từ GitHub / tệp .ZIP.
+                Chuyển nhanh giữa 2 dạng Texture 26.3 có sẵn hoặc nạp Resource Pack từ GitHub / tệp .ZIP.
               </p>
             </div>
             {mode === 'manager' && onBack && (
@@ -193,11 +193,11 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
               }`}
             >
               <FolderArchive className="w-4 h-4 shrink-0" />
-              <span className="truncate">File .ZIP 1.16</span>
+              <span className="truncate">File .ZIP</span>
             </button>
           </div>
 
-          {/* Tab contents: Official HD+ Faithful 32x + Original 1.16.5 + Offline 32x */}
+          {/* Tab contents: Official HD+ Faithful 32x + Original 26.3 + Offline 32x */}
           {sourceTab === 'default' && (
             <div className="space-y-3 mb-4">
               {/* Featured Official HD+ Section */}
@@ -214,11 +214,11 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
                       HD+ · CHÍNH THỨC
                     </span>
                     <span className="text-sm font-mc font-bold text-[#fde68a]">
-                      Faithful 32x (Minecraft 1.16.5 HD+)
+                      Faithful 32x (Minecraft 26.3 HD+)
                     </span>
                   </div>
                   <div className="text-xs text-zinc-300 mt-1">
-                    Gói chính thức 32×32 sắc nét cho cả <strong>Block, Vật phẩm, Vũ khí, Giáp, Thuốc &amp; UI</strong>, tối ưu màu biome và lưu cache đổi tức thì.
+                    Gói chính thức 32×32 sắc nét bản mới nhất cho cả <strong>Block, Vật phẩm, Vũ khí, Giáp, Thuốc &amp; UI</strong>, tối ưu màu biome và lưu cache đổi tức thì.
                   </div>
                 </div>
                 <McButton
@@ -245,10 +245,10 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
                 >
                   <div>
                     <div className="text-sm font-mc font-bold text-[#5eead4]">
-                      Chính Gốc (Minecraft 1.16.5)
+                      Chính Gốc (Minecraft 26.3)
                     </div>
                     <div className="text-xs text-zinc-300 mt-1">
-                      Bộ texture 16×16 gốc thật của Minecraft Java 1.16.5 (đủ cả Block, Vật phẩm &amp; Thuốc).
+                      Bộ texture 16×16 gốc thật của Minecraft Java 26.3 mới nhất (đủ cả Block, Vật phẩm, Mob &amp; Thuốc).
                     </div>
                   </div>
                   <McButton
@@ -336,7 +336,7 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
           {sourceTab === 'zip' && (
             <div className="bg-[#110f16] border border-white/10 p-3.5 mb-4 space-y-2.5">
               <div className="text-xs text-zinc-300">
-                Chọn trực tiếp tệp <span className="font-mono-num text-amber-300">.zip</span> Resource Pack Minecraft Java 1.16 từ máy tính hoặc điện thoại. Trình duyệt tự giải nén 100% cục bộ, trích xuất cả ảnh khối lẫn giao diện UI và lưu vào IndexedDB.
+                Chọn trực tiếp tệp <span className="font-mono-num text-amber-300">.zip</span> Resource Pack Minecraft Java 26.3 từ máy tính hoặc điện thoại. Trình duyệt tự giải nén 100% cục bộ, trích xuất cả ảnh khối lẫn giao diện UI và lưu vào IndexedDB.
               </div>
               <input
                 ref={fileRef}
@@ -353,7 +353,7 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
                 className="w-full sm:w-auto"
               >
                 <FolderArchive className="w-4 h-4" />
-                Chọn tệp .zip Resource Pack 1.16
+                Chọn tệp .zip Resource Pack
               </McButton>
             </div>
           )}
@@ -416,7 +416,7 @@ export const ResourceGateScreen: React.FC<ResourceGateScreenProps> = ({
             </div>
           ) : (
             <div className="bg-[#110f16] border border-amber-500/35 p-3 mb-4 text-xs sm:text-sm text-amber-200">
-              Chưa có gói tài nguyên 1.16 trong bộ nhớ trình duyệt. Hãy bấm <strong>Tải tài nguyên 1.16</strong> để mở khóa trò chơi.
+              Chưa có gói tài nguyên 26.3 trong bộ nhớ trình duyệt. Hãy bấm <strong>Dùng HD+ (32x)</strong> để mở khóa trò chơi.
             </div>
           )}
 
